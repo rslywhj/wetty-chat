@@ -1,0 +1,86 @@
+use crate::schema;
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Insertable)]
+#[diesel(table_name = schema::users)]
+pub struct User {
+    pub uid: i32,
+    pub username: String,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Insertable)]
+#[diesel(table_name = schema::groups)]
+pub struct Group {
+    pub gid: i64,
+    pub name: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// For inserting a group. Set `gid` and `created_at` (e.g. `Utc::now()`) when not relying on DB defaults.
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::groups)]
+pub struct NewGroup {
+    pub gid: i64,
+    pub name: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = schema::messages)]
+pub struct Message {
+    pub id: i64,
+    pub message: Option<String>,
+    pub message_type: String,
+    pub reply_to_id: Option<i64>,
+    pub reply_root_id: Option<i64>,
+    pub created_at: DateTime<Utc>,
+    pub client_generated_id: String,
+    pub sender_uid: i32,
+    pub gid: i64,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub has_attachments: bool,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::messages)]
+pub struct NewMessage {
+    pub id: i64,
+    pub message: Option<String>,
+    pub message_type: String,
+    pub reply_to_id: Option<i64>,
+    pub reply_root_id: Option<i64>,
+    pub created_at: DateTime<Utc>,
+    pub client_generated_id: String,
+    pub sender_uid: i32,
+    pub gid: i64,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub has_attachments: bool,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = schema::attachments)]
+pub struct Attachment {
+    pub attachment_id: i64,
+    pub message_id: i64,
+    pub kind: String,
+    pub external_reference: String,
+    pub size: i64,
+    pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::attachments)]
+pub struct NewAttachment {
+    pub attachment_id: i64,
+    pub message_id: i64,
+    pub kind: String,
+    pub external_reference: String,
+    pub size: i64,
+    pub created_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
