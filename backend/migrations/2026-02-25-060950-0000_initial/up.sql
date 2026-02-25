@@ -9,6 +9,16 @@ CREATE TABLE groups (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE group_membership (
+    gid BIGINT NOT NULL REFERENCES groups(gid),
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    role VARCHAR(20) NOT NULL DEFAULT 'member',
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (gid, uid)
+);
+
+CREATE INDEX idx_group_membership_uid ON group_membership(uid);
+
 CREATE TABLE messages (
     id BIGINT PRIMARY KEY,
     message TEXT,

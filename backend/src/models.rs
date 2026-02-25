@@ -27,6 +27,25 @@ pub struct NewGroup {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Queryable, Selectable, Serialize, Insertable)]
+#[diesel(table_name = schema::group_membership)]
+pub struct GroupMembership {
+    pub gid: i64,
+    pub uid: i32,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+}
+
+/// For inserting a membership. Use `"member"` and `Utc::now()` for `role` and `joined_at` to match DB defaults.
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::group_membership)]
+pub struct NewGroupMembership {
+    pub gid: i64,
+    pub uid: i32,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Queryable, Selectable, Serialize)]
 #[diesel(table_name = schema::messages)]
 pub struct Message {

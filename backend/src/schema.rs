@@ -14,6 +14,16 @@ diesel::table! {
 }
 
 diesel::table! {
+    group_membership (gid, uid) {
+        gid -> Int8,
+        uid -> Int4,
+        #[max_length = 20]
+        role -> Varchar,
+        joined_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     groups (gid) {
         gid -> Int8,
         #[max_length = 255]
@@ -49,7 +59,15 @@ diesel::table! {
 }
 
 diesel::joinable!(attachments -> messages (message_id));
+diesel::joinable!(group_membership -> groups (gid));
+diesel::joinable!(group_membership -> users (uid));
 diesel::joinable!(messages -> groups (gid));
 diesel::joinable!(messages -> users (sender_uid));
 
-diesel::allow_tables_to_appear_in_same_query!(attachments, groups, messages, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    attachments,
+    group_membership,
+    groups,
+    messages,
+    users,
+);
