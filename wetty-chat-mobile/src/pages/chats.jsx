@@ -30,7 +30,7 @@ function chatDisplayName(chat) {
 
 export default function Chats() {
   const [chats, setChats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {

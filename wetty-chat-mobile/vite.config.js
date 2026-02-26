@@ -1,17 +1,13 @@
-
 import path from 'path';
 import react from '@vitejs/plugin-react';
-
 
 const SRC_DIR = path.resolve(__dirname, './src');
 const PUBLIC_DIR = path.resolve(__dirname, './public');
 const BUILD_DIR = path.resolve(__dirname, './www',);
 export default async () => {
-
-  return  {
+  return {
     plugins: [
       react(),
-
     ],
     root: SRC_DIR,
     base: '',
@@ -32,7 +28,8 @@ export default async () => {
     server: {
       host: true,
       proxy: {
-        '/api': {
+        // Only proxy paths with no file extension (e.g. /api/chats), not /api/chats.js or /api/foo.json
+        '^/api/(?!.*\\.\\w+$).*$': {
           target: 'http://localhost:3000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
