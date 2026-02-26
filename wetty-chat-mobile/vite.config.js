@@ -28,7 +28,12 @@ export default async () => {
     server: {
       host: true,
       proxy: {
-        // Only proxy paths with no file extension (e.g. /api/chats), not /api/chats.js or /api/foo.json
+        // WebSocket: must be more specific than /_api/ so it matches first
+        '/_api/ws': {
+          target: 'http://localhost:3000',
+          ws: true,
+          rewrite: (path) => path.replace(/^\/_api/, ''),
+        },
         '^/_api/': {
           target: 'http://localhost:3000',
           changeOrigin: true,

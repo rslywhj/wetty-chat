@@ -19,6 +19,7 @@ mod models;
 mod schema;
 mod serde_i64_string;
 mod utils;
+mod ws_registry;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
@@ -42,6 +43,7 @@ pub(crate) const MAX_MESSAGES_LIMIT: i64 = 100;
 pub(crate) struct AppState {
     db: Pool<ConnectionManager<PgConnection>>,
     id_gen: Arc<utils::ids::IdGen>,
+    ws_registry: Arc<ws_registry::ConnectionRegistry>,
 }
 
 #[tokio::main]
@@ -72,7 +74,17 @@ async fn main() {
     let state = AppState {
         db: pool,
         id_gen: Arc::new(utils::ids::new_generator()),
+        ws_registry: Arc::new(ws_registry::ConnectionRegistry::new()),
     };
+
+    let registry = state.ws_registry.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            registry.prune_stale(300);
+        }
+    });
 
     let chat_routes = Router::new()
         .route(
@@ -108,6 +120,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/ws", get(handlers::ws::ws_handler))
         .nest("/chats", chat_routes)
         .layer(
             ServiceBuilder::new()

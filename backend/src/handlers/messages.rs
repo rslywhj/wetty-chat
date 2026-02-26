@@ -14,6 +14,8 @@ use crate::utils::auth::CurrentUid;
 use crate::utils::ids;
 use crate::{AppState, MAX_MESSAGES_LIMIT};
 
+use crate::schema::group_membership::dsl as gm_dsl;
+
 #[derive(serde::Deserialize)]
 pub struct ChatIdPath {
     chat_id: i64,
@@ -219,6 +221,21 @@ pub async fn post_message(
         deleted_at: new_msg.deleted_at,
         has_attachments: new_msg.has_attachments,
     };
+
+    let member_uids: Vec<i32> = group_membership::table
+        .filter(gm_dsl::gid.eq(chat_id))
+        .select(group_membership::uid)
+        .load(conn)
+        .map_err(|e| {
+            tracing::error!("list members for broadcast: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+        })?;
+    if let Ok(ws_json) = serde_json::to_string(&serde_json::json!({
+        "type": "message",
+        "payload": &response
+    })) {
+        state.ws_registry.broadcast_to_uids(&member_uids, &ws_json);
+    }
 
     Ok((StatusCode::CREATED, Json(response)))
 }

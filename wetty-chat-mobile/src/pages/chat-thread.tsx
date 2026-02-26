@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   f7,
   Icon,
@@ -17,6 +17,7 @@ import {
   type MessageResponse,
 } from '@/api/messages';
 import { getCurrentUserId } from '@/js/current-user';
+import store from '@/js/store';
 
 interface Props {
   f7route?: {
@@ -40,6 +41,20 @@ function isSent(message: MessageResponse): boolean {
   return message.sender_uid === getCurrentUserId();
 }
 
+/** Placeholder avatar URL (initials). Self = "Me", others = "U{sender_uid}". */
+function messageAvatarUrl(message: MessageResponse): string {
+  const name = isSent(message) ? 'Me' : `U${message.sender_uid}`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=64&background=random`;
+}
+
+function getMessagesFromStore(chatId: string): MessageResponse[] {
+  return store.state.messagesByChat[chatId] ?? [];
+}
+
+function getNextCursorFromStore(chatId: string): string | null {
+  return store.state.nextCursorByChat[chatId] ?? null;
+}
+
 export default function ChatThread({ f7route }: Props) {
   const { id } = f7route?.params || {};
   const chatId = id ? String(id) : '';
@@ -50,6 +65,9 @@ export default function ChatThread({ f7route }: Props) {
 
   type MessagebarRefValue = { el: HTMLElement | null; f7Messagebar: () => F7MessagebarInstance.Messagebar };
   const messagebarRef = useRef<MessagebarRefValue | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wasAtBottomRef = useRef(true);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +75,80 @@ export default function ChatThread({ f7route }: Props) {
   const [messageText, setMessageText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Display order: oldest first (backend returns newest first, so we reverse when storing).
+  const syncFromStore = useCallback(() => {
+    if (!chatId) return;
+    setMessages(getMessagesFromStore(chatId));
+    setNextCursor(getNextCursorFromStore(chatId));
+  }, [chatId]);
+
+  const scrollToBottom = useCallback(() => {
+    const endEl = messagesEndRef.current;
+    if (!endEl) return;
+    endEl.scrollIntoView({ behavior: 'auto', block: 'end' });
+    // Account for fixed Messagebar: scroll a bit more so the last message is above the bar.
+    requestAnimationFrame(() => {
+      let el: HTMLElement | null = endEl.parentElement;
+      let container: HTMLElement | null = null;
+      while (el) {
+        const style = getComputedStyle(el);
+        const overflowY = style.overflowY;
+        if (el.scrollHeight > el.clientHeight && (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')) {
+          container = el;
+          break;
+        }
+        el = el.parentElement;
+      }
+      const messagebarEl = messagebarRef.current?.el;
+      const messagebarHeight = messagebarEl ? messagebarEl.offsetHeight : 0;
+      if (container && messagebarHeight > 0) {
+        container.scrollBy(0, messagebarHeight);
+      }
+    });
+  }, []);
+
+  // Track scroll position to know if user is at bottom (for auto-scroll on new messages).
+  useEffect(() => {
+    const endEl = messagesEndRef.current;
+    if (!endEl) return;
+    let el: HTMLElement | null = endEl.parentElement;
+    while (el) {
+      const style = getComputedStyle(el);
+      const overflowY = style.overflowY;
+      if (el.scrollHeight > el.clientHeight && (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')) {
+        scrollContainerRef.current = el;
+        break;
+      }
+      el = el.parentElement;
+    }
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const updateAtBottom = () => {
+      const threshold = 80;
+      wasAtBottomRef.current = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
+    };
+    updateAtBottom();
+    container.addEventListener('scroll', updateAtBottom, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', updateAtBottom);
+      scrollContainerRef.current = null;
+    };
+  }, [messages.length, loading, error]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const handler = (e: CustomEvent<{ chatId: string }>) => {
+      if (e.detail?.chatId !== chatId) return;
+      const shouldScroll = wasAtBottomRef.current;
+      syncFromStore();
+      if (shouldScroll) {
+        requestAnimationFrame(() => scrollToBottom());
+      }
+    };
+    window.addEventListener('store-messages-changed', handler as EventListener);
+    return () => window.removeEventListener('store-messages-changed', handler as EventListener);
+  }, [chatId, syncFromStore, scrollToBottom]);
+
+  // Initial load: fetch from API and write to store.
   useEffect(() => {
     if (!chatId) return;
     setLoading(true);
@@ -65,17 +156,22 @@ export default function ChatThread({ f7route }: Props) {
     getMessages(chatId)
       .then((res) => {
         const list = res.data.messages ?? [];
-        setMessages([...list].reverse());
-        setNextCursor(res.data.next_cursor ?? null);
+        const ordered = [...list].reverse();
+        store.dispatch('setMessagesForChat', { chatId, messages: ordered });
+        store.dispatch('setNextCursorForChat', { chatId, cursor: res.data.next_cursor ?? null });
+        syncFromStore();
+        requestAnimationFrame(() => scrollToBottom());
       })
       .catch((err: Error) => {
         setError(err.message || 'Failed to load messages');
+        store.dispatch('setMessagesForChat', { chatId, messages: [] });
+        store.dispatch('setNextCursorForChat', { chatId, cursor: null });
         setMessages([]);
         setNextCursor(null);
         f7.toast.create({ text: err.message || 'Failed to load messages', closeTimeout: 3000 }).open();
       })
       .finally(() => setLoading(false));
-  }, [chatId]);
+  }, [chatId, syncFromStore, scrollToBottom]);
 
   const loadMore = () => {
     if (!chatId || nextCursor == null || loadingMore) return;
@@ -84,8 +180,9 @@ export default function ChatThread({ f7route }: Props) {
       .then((res) => {
         const list = res.data.messages ?? [];
         const older = [...list].reverse();
-        setMessages((prev) => [...older, ...prev]);
-        setNextCursor(res.data.next_cursor ?? null);
+        store.dispatch('prependMessages', { chatId, messages: older });
+        store.dispatch('setNextCursorForChat', { chatId, cursor: res.data.next_cursor ?? null });
+        syncFromStore();
       })
       .catch((err: Error) => {
         f7.toast.create({ text: err.message || 'Failed to load more', closeTimeout: 3000 }).open();
@@ -112,23 +209,38 @@ export default function ChatThread({ f7route }: Props) {
       deleted_at: null,
       has_attachments: false,
     };
-    setMessages((prev) => [...prev, optimistic]);
+    store.dispatch('addMessage', { chatId, message: optimistic });
+    syncFromStore();
+    requestAnimationFrame(() => scrollToBottom());
+
     sendMessage(chatId, {
       message: text,
       message_type: 'text',
       client_generated_id: clientGeneratedId,
     })
       .then((res) => {
-        const created = res.data;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.client_generated_id === clientGeneratedId ? created : m
-          )
-        );
+        const postResponse = res.data;
+        setTimeout(() => {
+          const current = getMessagesFromStore(chatId);
+          const stillPending = current.find(
+            (m) => m.client_generated_id === clientGeneratedId && m.id === '0'
+          );
+          if (stillPending) {
+            store.dispatch('confirmPendingMessage', {
+              chatId,
+              clientGeneratedId,
+              message: postResponse,
+            });
+          }
+        }, 15000);
       })
       .catch((err: Error) => {
         f7.toast.create({ text: err.message || 'Failed to send', closeTimeout: 3000 }).open();
-        setMessages((prev) => prev.filter((m) => m.client_generated_id !== clientGeneratedId));
+        const current = getMessagesFromStore(chatId).filter(
+          (m) => m.client_generated_id !== clientGeneratedId
+        );
+        store.dispatch('setMessagesForChat', { chatId, messages: current });
+        syncFromStore();
         setMessageText(text);
       });
     setTimeout(() => {
@@ -137,7 +249,6 @@ export default function ChatThread({ f7route }: Props) {
     }, 0);
   };
 
-  // Move focus into this page so the previous page's link isn't focused when aria-hidden is applied.
   const moveFocusToThisPage = () => {
     const mb = messagebarRef.current?.f7Messagebar?.();
     if (typeof mb?.focus === 'function') {
@@ -150,8 +261,33 @@ export default function ChatThread({ f7route }: Props) {
       }
     }
   };
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+
   const handlePageBeforeIn = () => requestAnimationFrame(moveFocusToThisPage);
   const handlePageAfterIn = () => moveFocusToThisPage();
+
+  // Configure messagebar textarea: Enter sends, enterkeyhint shows "Send" (simplifies mobile keyboard bar).
+  useEffect(() => {
+    let teardown: (() => void) | undefined;
+    const id = setTimeout(() => {
+      const textarea = messagebarRef.current?.el?.querySelector('textarea');
+      if (!textarea) return;
+      textarea.setAttribute('enterkeyhint', 'send');
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSendRef.current();
+        }
+      };
+      textarea.addEventListener('keydown', onKeyDown);
+      teardown = () => textarea.removeEventListener('keydown', onKeyDown);
+    }, 0);
+    return () => {
+      clearTimeout(id);
+      teardown?.();
+    };
+  }, []);
 
   const displayMessages = messages;
   const isMessageFirst = (index: number): boolean => {
@@ -161,6 +297,14 @@ export default function ChatThread({ f7route }: Props) {
   const isMessageLast = (index: number): boolean => {
     if (index >= displayMessages.length - 1) return true;
     return isSent(displayMessages[index]) !== isSent(displayMessages[index + 1]);
+  };
+  const isSameAvatarAsPrevious = (index: number): boolean => {
+    if (index <= 0) return false;
+    const prev = displayMessages[index - 1];
+    const curr = displayMessages[index];
+    if (isSent(curr) && isSent(prev)) return true;
+    if (!isSent(curr) && !isSent(prev) && prev.sender_uid === curr.sender_uid) return true;
+    return false;
   };
 
   return (
@@ -216,12 +360,15 @@ export default function ChatThread({ f7route }: Props) {
                 first={isMessageFirst(index)}
                 last={isMessageLast(index)}
                 tail={isMessageLast(index)}
+                sameAvatar={isSameAvatarAsPrevious(index)}
+                avatar={messageAvatarUrl(message)}
                 text={message.deleted_at ? '[Deleted]' : (message.message ?? '')}
                 className="message-appear-from-bottom"
               >
                 <span slot="text-footer">{messageTime(message.created_at)}</span>
               </Message>
             ))}
+            <div ref={messagesEndRef} aria-hidden="true" />
           </>
         )}
       </Messages>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   f7,
@@ -26,6 +26,7 @@ import {
 } from 'framework7-react';
 
 
+import { initWebSocket } from '@/api/ws';
 import routes from '@/js/routes';
 import store from '@/js/store';
 
@@ -33,6 +34,15 @@ const MyApp = () => {
   // Login screen demo data
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [wsConnected, setWsConnected] = useState(store.state.wsConnected);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ connected: boolean }>) => {
+      setWsConnected(e.detail.connected);
+    };
+    window.addEventListener('ws-connection-change', handler as EventListener);
+    return () => window.removeEventListener('ws-connection-change', handler as EventListener);
+  }, []);
 
   // Framework7 Parameters
   const f7params = {
@@ -49,22 +59,28 @@ const MyApp = () => {
     });
   }
   f7ready(() => {
-
-
+    initWebSocket();
     // Call F7 APIs here
   });
 
   return (
     <App { ...f7params }>
+        {!wsConnected && (
+          <div className="ws-disconnected-banner">
+            Disconnected. Retrying…
+          </div>
+        )}
         <Views tabs className="safe-areas">
           <Toolbar tabbar icons bottom>
             <ToolbarPane>
-              <Link tabLink="#view-chat" tabLinkActive iconIos="f7:chat_bubble_2_fill" iconMd="material:message" text="Chats" />
+              <Link tabLink="#view-chats" tabLinkActive iconIos="f7:chat_bubble_2_fill" iconMd="material:message" text="Chats" />
+              <Link tabLink="#view-settings" iconIos="f7:gear" iconMd="material:settings" text="Settings" />
             </ToolbarPane>
           </Toolbar>
 
           {/* Your main view/tab, should have "view-main" class. It also has "tabActive" prop */}
           <View id="view-chats" main tab tabActive url="/chats/" />
+          <View id="view-settings" tab url="/settings/" />
 
         </Views>
 
