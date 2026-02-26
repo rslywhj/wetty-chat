@@ -29,10 +29,10 @@ export default async () => {
       host: true,
       proxy: {
         // Only proxy paths with no file extension (e.g. /api/chats), not /api/chats.js or /api/foo.json
-        '^/api/(?!.*\\.\\w+$).*$': {
+        '^/_api/': {
           target: 'http://localhost:3000',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
+          rewrite: (path) => path.replace(/^\/_api/, ''),
         },
       },
     },

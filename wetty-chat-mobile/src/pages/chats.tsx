@@ -28,7 +28,7 @@ function chatDisplayName(chat: ChatListItem): string {
   return `Chat ${chat.id}`;
 }
 
-export default function Chats() {
+export default function Chats({ f7route }: { f7route?: { query?: Record<string, string> } }) {
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +54,21 @@ export default function Chats() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!f7route?.query?.refresh) return;
+    setLoading(true);
+    getChats()
+      .then((res) => {
+        setChats(res.data.chats || []);
+        setError(null);
+      })
+      .catch((err: Error) => {
+        setError(err.message || 'Failed to load chats');
+        setChats([]);
+      })
+      .finally(() => setLoading(false));
+  }, [f7route?.query?.refresh]);
+
   const swipeoutUnread = () => f7.dialog.alert('Unread');
   const swipeoutPin = () => f7.dialog.alert('Pin');
   const swipeoutMore = () => f7.dialog.alert('More');
@@ -63,7 +78,7 @@ export default function Chats() {
     <Page className="chats-page">
       <Navbar title="Chats" large transparent>
         <Link slot="left">Edit</Link>
-        <Link slot="right" iconF7="square_pencil" href="#" onClick={() => f7.dialog.alert('New Chat – coming soon')} />
+        <Link slot="right" iconF7="square_pencil" href="/chats/new/" />
       </Navbar>
       {error && (
         <List>
@@ -84,6 +99,7 @@ export default function Chats() {
             <ListItem
               key={chat.id}
               link={`/chats/${chat.id}/`}
+              routeProps={{ chatName: chatDisplayName(chat) }}
               title={chatDisplayName(chat)}
               after={formatLastActivity(chat.last_message_at)}
               swipeout

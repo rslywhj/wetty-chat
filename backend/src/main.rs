@@ -17,6 +17,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 mod handlers;
 mod models;
 mod schema;
+mod serde_i64_string;
 mod utils;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");

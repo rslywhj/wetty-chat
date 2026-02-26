@@ -2,23 +2,23 @@ import type { AxiosResponse } from 'axios';
 import apiClient from './client';
 
 export interface ChatListItem {
-  id: number;
+  id: string;
   name: string | null;
   last_message_at: string | null;
 }
 
 interface ListChatsResponse {
   chats: ChatListItem[];
-  next_cursor: number | null;
+  next_cursor: string | null;
 }
 
 interface CreateChatResponse {
-  id: number;
+  id: string;
   name: string | null;
   created_at: string;
 }
 
-export function getChats(params: { limit?: number; after?: number } = {}): Promise<AxiosResponse<ListChatsResponse>> {
+export function getChats(params: { limit?: number; after?: string } = {}): Promise<AxiosResponse<ListChatsResponse>> {
   return apiClient.get('/chats', { params });
 }
 

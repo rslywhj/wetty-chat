@@ -21,6 +21,7 @@ pub struct ChatIdPath {
 
 #[derive(serde::Deserialize)]
 pub struct ListMessagesQuery {
+    #[serde(default, deserialize_with = "crate::serde_i64_string::opt::deserialize")]
     before: Option<i64>,
     #[serde(default)]
     max: Option<i64>,
@@ -29,18 +30,23 @@ pub struct ListMessagesQuery {
 #[derive(Serialize)]
 pub struct ListMessagesResponse {
     messages: Vec<MessageResponse>,
+    #[serde(with = "crate::serde_i64_string::opt")]
     next_cursor: Option<i64>,
 }
 
 #[derive(Serialize)]
 pub struct MessageResponse {
+    #[serde(with = "crate::serde_i64_string")]
     id: i64,
     message: Option<String>,
     message_type: String,
+    #[serde(with = "crate::serde_i64_string::opt")]
     reply_to_id: Option<i64>,
+    #[serde(with = "crate::serde_i64_string::opt")]
     reply_root_id: Option<i64>,
     client_generated_id: String,
     sender_uid: i32,
+    #[serde(with = "crate::serde_i64_string")]
     gid: i64,
     created_at: DateTime<Utc>,
     updated_at: Option<DateTime<Utc>>,
@@ -147,7 +153,9 @@ pub struct CreateMessageBody {
     message: Option<String>,
     message_type: String,
     client_generated_id: String,
+    #[serde(default, deserialize_with = "crate::serde_i64_string::opt::deserialize")]
     reply_to_id: Option<i64>,
+    #[serde(default, deserialize_with = "crate::serde_i64_string::opt::deserialize")]
     reply_root_id: Option<i64>,
 }
 

@@ -48,11 +48,13 @@ struct CursorRow {
 pub struct ListChatsQuery {
     #[serde(default)]
     limit: Option<i64>,
+    #[serde(default, deserialize_with = "crate::serde_i64_string::opt::deserialize")]
     after: Option<i64>,
 }
 
 #[derive(Serialize)]
 pub struct ChatListItem {
+    #[serde(with = "crate::serde_i64_string")]
     id: i64,
     name: Option<String>,
     last_message_at: Option<DateTime<Utc>>,
@@ -61,6 +63,7 @@ pub struct ChatListItem {
 #[derive(Serialize)]
 pub struct ListChatsResponse {
     chats: Vec<ChatListItem>,
+    #[serde(with = "crate::serde_i64_string::opt")]
     next_cursor: Option<i64>,
 }
 
@@ -183,6 +186,7 @@ pub struct CreateChatBody {
 
 #[derive(Serialize)]
 pub struct CreateChatResponse {
+    #[serde(with = "crate::serde_i64_string")]
     id: i64,
     name: Option<String>,
     created_at: DateTime<Utc>,
