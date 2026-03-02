@@ -119,7 +119,7 @@ pub async fn get_members(
 
     let rows: Vec<(i32, String, DateTime<Utc>, String)> = group_membership::table
         .filter(gm_dsl::chat_id.eq(chat_id))
-        .inner_join(users::table)
+        .inner_join(users::table.on(users::uid.eq(group_membership::uid)))
         .select((
             gm_dsl::uid,
             gm_dsl::role,
@@ -160,7 +160,7 @@ pub async fn post_add_member(
     })?;
 
     // Check if requester is admin
-    check_admin_role(conn, chat_id, requester_uid)?;
+    check_admin_role(conn, chat_id, uid)?;
 
     // Check if target user exists
     let user_exists = {
@@ -259,10 +259,10 @@ pub async fn delete_remove_member(
     })?;
 
     // Allow if requester is admin OR removing themselves
-    if requester_uid != target_uid {
-        check_admin_role(conn, chat_id, requester_uid)?;
+    if uid != target_uid {
+        check_admin_role(conn, chat_id, uid)?;
     } else {
-        check_membership(conn, chat_id, requester_uid)?;
+        check_membership(conn, chat_id, uid)?;
     }
 
     // Check if target is a member
@@ -292,7 +292,7 @@ pub async fn delete_remove_member(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// PATCH /chats/:chat_id/members/:uid — Update member role (admin only).
+/// PATCH /group/:chat_id/members/:uid — Update member role (admin only).
 pub async fn patch_member(
     CurrentUid(requester_uid): CurrentUid,
     State(state): State<AppState>,
@@ -350,7 +350,7 @@ pub async fn patch_member(
     use crate::schema::users::dsl as users_dsl;
     let (role, joined_at, username): (String, DateTime<Utc>, String) = group_membership::table
         .filter(gm_dsl::chat_id.eq(chat_id).and(gm_dsl::uid.eq(target_uid)))
-        .inner_join(users::table)
+        .inner_join(users::table.on(users::uid.eq(group_membership::uid)))
         .select((gm_dsl::role, gm_dsl::joined_at, users_dsl::username))
         .first(conn)
         .map_err(|e| {

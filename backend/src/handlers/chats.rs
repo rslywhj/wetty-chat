@@ -25,9 +25,6 @@ struct ChatListRow {
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
     #[diesel(column_name = name)]
     name: Option<String>,
-    #[diesel(sql_type = Timestamptz)]
-    #[diesel(column_name = created_at)]
-    created_at: DateTime<Utc>,
     #[diesel(sql_type = diesel::sql_types::Nullable<Timestamptz>)]
     #[diesel(column_name = last_message_at)]
     last_message_at: Option<DateTime<Utc>>,
@@ -89,7 +86,7 @@ pub async fn get_chats(
     let rows: Vec<ChatListRow> = match q.after {
         None => sql_query(
             r#"
-            SELECT g.id, g.name, g.created_at,
+            SELECT g.id, g.name,
                    (SELECT max(m.created_at) FROM messages m WHERE m.chat_id = g.id) AS last_message_at
             FROM groups g
             INNER JOIN group_membership gm ON gm.chat_id = g.id AND gm.uid = $1
@@ -138,7 +135,7 @@ pub async fn get_chats(
             sql_query(
                 r#"
                 WITH ordered AS (
-                    SELECT g.id, g.name, g.created_at,
+                    SELECT g.id, g.name,
                            (SELECT max(m.created_at) FROM messages m WHERE m.chat_id = g.id) AS last_message_at
                     FROM groups g
                     INNER JOIN group_membership gm ON gm.chat_id = g.id AND gm.uid = $1
@@ -176,42 +173,6 @@ pub async fn get_chats(
     Ok(Json(ListChatsResponse {
         chats,
         next_cursor,
-    }))
-}
-
-/// GET /group/:chat_id — Get a single group's metadata (caller must be a member).
-pub async fn get_chat(
-    CurrentUid(uid): CurrentUid,
-    State(state): State<AppState>,
-    Path(members::ChatIdPath { chat_id }): Path<members::ChatIdPath>,
-) -> Result<Json<ChatDetailResponse>, (StatusCode, &'static str)> {
-    let conn = &mut state
-        .db
-        .get()
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database connection failed"))?;
-
-    members::check_membership(conn, chat_id, uid)?;
-
-    let group: crate::models::Group = groups::table
-        .find(chat_id)
-        .get_result(conn)
-        .map_err(|e| {
-            use diesel::result::Error;
-            match e {
-                Error::NotFound => (StatusCode::NOT_FOUND, "Chat not found"),
-                _ => {
-                    tracing::error!("get chat: {:?}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load chat")
-                }
-            }
-        })?;
-
-    Ok(Json(ChatDetailResponse {
-        id: group.id,
-        name: Some(group.name),
-        description: group.description,
-        avatar: group.avatar,
-        created_at: group.created_at,
     }))
 }
 

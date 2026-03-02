@@ -2,7 +2,7 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::{
     extract::State,
-    routing::{delete, get, patch},
+    routing::{delete, get, patch, post},
     Router,
 };
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -18,6 +18,7 @@ use tower_http::ServiceBuilderExt;
 use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+mod db_tracing;
 mod handlers;
 mod models;
 mod schema;
@@ -60,6 +61,8 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer().with_target(true))
         .init();
 
+    db_tracing::install();
+
     dotenvy::dotenv().ok();
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<PgConnection>::new(&database_url);
@@ -90,11 +93,11 @@ async fn main() {
         }
     });
 
-    let chat_routes = Router::new()
-        .route(
-            "/",
-            get(handlers::chats::get_chats).post(handlers::chats::post_chats),
-        )
+    // --- Sub-routers ---
+
+    // /chats — chat listing, details, messages, and members
+    let chats_routes = Router::new()
+        .route("/", get(handlers::chats::get_chats))
         .route(
             "/{chat_id}",
             get(handlers::chats::get_chat).patch(handlers::chats::patch_chat),
@@ -107,13 +110,20 @@ async fn main() {
             "/{chat_id}/messages/{message_id}",
             patch(handlers::messages::patch_message).delete(handlers::messages::delete_message),
         )
+        ;
+
+    // /group — group lifecycle (create, get info)
+    let group_routes = Router::new()
+        .route("/", post(handlers::chats::post_chats))
+        .route("/{chat_id}", get(handlers::chats::get_chat))
         .route(
             "/{chat_id}/members",
-            get(handlers::members::get_members).post(handlers::members::post_member),
+            get(handlers::members::get_members).post(handlers::members::post_add_member),
         )
         .route(
             "/{chat_id}/members/{uid}",
-            delete(handlers::members::delete_member).patch(handlers::members::patch_member),
+            delete(handlers::members::delete_remove_member)
+                .patch(handlers::members::patch_member),
         );
 
     let trace_layer = TraceLayer::new_for_http()
@@ -140,21 +150,8 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health))
         .route("/ws", get(handlers::ws::ws_handler))
-        .route("/chats", get(handlers::chats::get_chats))
-        .route(
-            "/chats/{chat_id}/messages",
-            get(handlers::messages::get_messages).post(handlers::messages::post_message),
-        )
-        .route("/group", post(handlers::chats::post_chats))
-        .route("/group/{chat_id}", get(handlers::chats::get_chat))
-        .route(
-            "/group/{chat_id}/members",
-            get(handlers::members::get_members).post(handlers::members::post_add_member),
-        )
-        .route(
-            "/group/{chat_id}/members/{uid}",
-            delete(handlers::members::delete_remove_member),
-        )
+        .nest("/chats", chats_routes)
+        .nest("/group", group_routes)
         .layer(
             ServiceBuilder::new()
                 .layer(trace_layer)

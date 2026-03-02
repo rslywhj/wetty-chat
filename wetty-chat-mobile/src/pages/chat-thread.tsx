@@ -15,7 +15,7 @@ import {
   useIonToast,
   useIonActionSheet,
 } from '@ionic/react';
-import { useParams, useHistory, useLocation } from 'react-router-dom';
+import { useParams, useHistory } from 'react-router-dom';
 import { people, settings, chevronDown } from 'ionicons/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -24,7 +24,9 @@ import {
   updateMessage,
   type MessageResponse,
 } from '@/api/messages';
+import { getChatDetails } from '@/api/chats';
 import { getCurrentUserId } from '@/js/current-user';
+import { selectChatName, setChatMeta } from '@/store/chatsSlice';
 import {
   selectMessagesForChat,
   selectNextCursorForChat,
@@ -46,10 +48,6 @@ import { ChatBubble } from '@/components/chat/ChatBubble';
 import { MessageComposeBar } from '@/components/chat/MessageComposeBar';
 import './chat-thread.scss';
 
-interface LocationState {
-  chatName?: string;
-}
-
 function generateClientId(): string {
   return `cg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
@@ -63,10 +61,20 @@ export default function ChatThread() {
   const { id } = useParams<{ id: string }>();
   const chatId = id ? String(id) : '';
   const history = useHistory();
-  const location = useLocation<LocationState>();
-  const chatName = location.state?.chatName ?? (id ? `Chat ${id}` : 'Chat');
 
   const dispatch = useDispatch();
+  const storedName = useSelector((state: RootState) => selectChatName(state, chatId));
+  const chatName = storedName ?? (id ? `Chat ${id}` : 'Chat');
+
+  useEffect(() => {
+    if (!chatId || storedName != null) return;
+    getChatDetails(chatId)
+      .then((res) => {
+        const { id: _, ...meta } = res.data;
+        dispatch(setChatMeta({ chatId, meta }));
+      })
+      .catch(() => {});
+  }, [chatId, storedName, dispatch]);
   const messages = useSelector((state: RootState) => selectMessagesForChat(state, chatId));
 
   const scrollToBottomRef = useRef<(() => void) | null>(null);
@@ -281,10 +289,10 @@ export default function ChatThread() {
           </IonButtons>
           <IonTitle>{chatName}</IonTitle>
           <IonButtons slot="end">
-            <IonButton onClick={() => history.push(`/chats/members/${chatId}`, { chatName })}>
+            <IonButton onClick={() => history.push(`/chats/members/${chatId}`)}>
               <IonIcon slot="icon-only" icon={people} />
             </IonButton>
-            <IonButton onClick={() => history.push(`/chats/settings/${chatId}`, { chatName })}>
+            <IonButton onClick={() => history.push(`/chats/settings/${chatId}`)}>
               <IonIcon slot="icon-only" icon={settings} />
             </IonButton>
           </IonButtons>

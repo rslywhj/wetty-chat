@@ -85,27 +85,3 @@ pub struct NewMessage {
     pub deleted_at: Option<DateTime<Utc>>,
     pub has_attachments: bool,
 }
-
-#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
-#[diesel(table_name = schema::attachments)]
-pub struct Attachment {
-    pub id: i64,
-    pub message_id: i64,
-    pub kind: String,
-    pub external_reference: String,
-    pub size: i64,
-    pub created_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = schema::attachments)]
-pub struct NewAttachment {
-    pub id: i64,
-    pub message_id: i64,
-    pub kind: String,
-    pub external_reference: String,
-    pub size: i64,
-    pub created_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
-}

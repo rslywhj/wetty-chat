@@ -15,20 +15,19 @@ import {
   useIonAlert,
 } from '@ionic/react';
 import { useParams } from 'react-router-dom';
-import { getChat, type ChatDetail } from '@/api/chats';
-import { getMembers, addMember, type MemberResponse } from '@/api/members';
+import { getChatDetails, addMember, getMembers, type ChatDetailResponse, type MemberResponse } from '@/api/chats';
 
-function groupDisplayName(detail: ChatDetail | null, id: string): string {
+function groupDisplayName(detail: ChatDetailResponse | null, id: string): string {
   if (detail?.name?.trim()) return detail.name.trim();
   return `Chat ${id}`;
 }
 
-function avatarUrl(detail: ChatDetail | null): string | null {
+function avatarUrl(detail: ChatDetailResponse | null): string | null {
   if (detail?.avatar?.trim()) return detail.avatar.trim();
   return null;
 }
 
-function initials(detail: ChatDetail | null): string {
+function initials(detail: ChatDetailResponse | null): string {
   const name = detail?.name?.trim();
   if (name && name.length > 0) return name.charAt(0).toUpperCase();
   return '?';
@@ -39,7 +38,7 @@ export default function GroupDetail() {
   const [presentToast] = useIonToast();
   const [presentAlert] = useIonAlert();
 
-  const [detail, setDetail] = useState<ChatDetail | null>(null);
+  const [detail, setDetail] = useState<ChatDetailResponse | null>(null);
   const [members, setMembers] = useState<MemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +47,7 @@ export default function GroupDetail() {
     if (!id) return;
     setLoading(true);
     setError(null);
-    Promise.all([getChat(id), getMembers(id)])
+    Promise.all([getChatDetails(id), getMembers(id)])
       .then(([chatRes, membersRes]) => {
         setDetail(chatRes.data);
         setMembers(membersRes.data ?? []);
@@ -86,7 +85,7 @@ export default function GroupDetail() {
               presentToast({ message: 'Please enter a valid user ID (positive number).', duration: 3000 });
               return;
             }
-            addMember(id, uid)
+            addMember(id, { uid })
               .then(() => {
                 presentToast({ message: 'Member added.', duration: 2000 });
                 refreshMembers();

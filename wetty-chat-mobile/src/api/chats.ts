@@ -7,14 +7,6 @@ export interface ChatListItem {
   last_message_at: string | null;
 }
 
-export interface ChatDetail {
-  id: string;
-  name: string | null;
-  description: string | null;
-  avatar: string | null;
-  created_at: string;
-}
-
 interface ListChatsResponse {
   chats: ChatListItem[];
   next_cursor: string | null;
@@ -28,10 +20,6 @@ interface CreateChatResponse {
 
 export function getChats(params: { limit?: number; after?: string } = {}): Promise<AxiosResponse<ListChatsResponse>> {
   return apiClient.get('/chats', { params });
-}
-
-export function getChat(chatId: string): Promise<AxiosResponse<ChatDetail>> {
-  return apiClient.get(`/group/${chatId}`);
 }
 
 export function createChat(body: { name?: string } = {}): Promise<AxiosResponse<CreateChatResponse>> {
@@ -79,17 +67,17 @@ export interface UpdateMemberRoleBody {
 }
 
 export function getMembers(chatId: string | number): Promise<AxiosResponse<MemberResponse[]>> {
-  return apiClient.get(`/chats/${chatId}/members`);
+  return apiClient.get(`/group/${chatId}/members`);
 }
 
 export function addMember(chatId: string | number, body: AddMemberBody): Promise<AxiosResponse<MemberResponse>> {
-  return apiClient.post(`/chats/${chatId}/members`, body);
+  return apiClient.post(`/group/${chatId}/members`, body);
 }
 
 export function removeMember(chatId: string | number, uid: number): Promise<AxiosResponse<void>> {
-  return apiClient.delete(`/chats/${chatId}/members/${uid}`);
+  return apiClient.delete(`/group/${chatId}/members/${uid}`);
 }
 
 export function updateMemberRole(chatId: string | number, uid: number, body: UpdateMemberRoleBody): Promise<AxiosResponse<MemberResponse>> {
-  return apiClient.patch(`/chats/${chatId}/members/${uid}`, body);
+  return apiClient.patch(`/group/${chatId}/members/${uid}`, body);
 }

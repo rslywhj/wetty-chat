@@ -20,7 +20,6 @@ diesel::table! {
         #[max_length = 20]
         role -> Varchar,
         joined_at -> Timestamptz,
-        last_read_message_id -> Nullable<Int8>,
     }
 }
 
@@ -65,7 +64,6 @@ diesel::table! {
 
 diesel::joinable!(attachments -> messages (message_id));
 diesel::joinable!(group_membership -> groups (chat_id));
-diesel::joinable!(group_membership -> users (uid));
 diesel::joinable!(messages -> groups (chat_id));
 
 diesel::allow_tables_to_appear_in_same_query!(

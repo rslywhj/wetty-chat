@@ -19,15 +19,20 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { useParams, useHistory } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { getChatDetails, updateChat } from '@/api/chats';
+import { selectChatMeta, setChatMeta } from '@/store/chatsSlice';
+import type { RootState } from '@/store/index';
 
 export default function ChatSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const chatId = id ? String(id) : '';
   const history = useHistory();
+  const dispatch = useDispatch();
   const [presentToast] = useIonToast();
+  const cachedMeta = useSelector((state: RootState) => selectChatMeta(state, chatId));
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -38,19 +43,33 @@ export default function ChatSettingsPage() {
 
   useEffect(() => {
     if (!chatId) return;
+
+    const applyDetails = (data: { name?: string | null; description?: string | null; avatar?: string | null; visibility?: string }) => {
+      setName(data.name || '');
+      setDescription(data.description || '');
+      setAvatar(data.avatar || '');
+      setVisibility((data.visibility as 'public' | 'private') || 'public');
+    };
+
+    // If we already have full details in the store (visibility is present from getChatDetails), use them
+    if (cachedMeta?.visibility) {
+      applyDetails(cachedMeta);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     getChatDetails(chatId)
       .then((res) => {
-        setName(res.data.name || '');
-        setDescription(res.data.description || '');
-        setAvatar(res.data.avatar || '');
-        setVisibility(res.data.visibility as 'public' | 'private');
+        const { id: _, ...meta } = res.data;
+        dispatch(setChatMeta({ chatId, meta }));
+        applyDetails(meta);
       })
       .catch((err: Error) => {
         presentToast({ message: err.message || t`Failed to load chat details`, duration: 3000 });
       })
       .finally(() => setLoading(false));
-  }, [chatId, presentToast]);
+  }, [chatId]);
 
   const handleSave = () => {
     if (!chatId) return;
@@ -62,6 +81,12 @@ export default function ChatSettingsPage() {
       visibility,
     })
       .then(() => {
+        dispatch(setChatMeta({ chatId, meta: {
+          name: name.trim() || null,
+          description: description.trim() || null,
+          avatar: avatar.trim() || null,
+          visibility,
+        } }));
         presentToast({ message: t`Settings saved`, duration: 2000 });
         history.goBack();
       })

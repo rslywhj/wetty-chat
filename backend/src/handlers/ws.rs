@@ -23,7 +23,6 @@ struct WsMessage {
 }
 
 const PONG_JSON: &str = r#"{"type":"pong"}"#;
-const PING_TIMEOUT_SECS: u64 = 300;
 
 /// Upgrades the connection to WebSocket after validating uid query param. Registers the connection
 /// and runs recv/send until close or 300s without ping.
@@ -96,7 +95,3 @@ async fn handle_socket(
     registry.remove_connection(uid, conn_id);
 }
 
-/// Expose for use in tests or other modules if needed.
-pub fn ping_timeout_secs() -> u64 {
-    PING_TIMEOUT_SECS
-}

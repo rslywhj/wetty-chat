@@ -31,8 +31,3 @@ pub async fn next_gid(gen: &IdGen) -> Result<i64, ferroid::generator::Error> {
 pub async fn next_message_id(gen: &IdGen) -> Result<i64, ferroid::generator::Error> {
     next_id(gen).await
 }
-
-/// Generate next attachment id.
-pub async fn next_attachment_id(gen: &IdGen) -> Result<i64, ferroid::generator::Error> {
-    next_id(gen).await
-}

@@ -17,8 +17,10 @@ import {
   useIonAlert,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { createOutline } from 'ionicons/icons';
 import { getChats, type ChatListItem } from '@/api/chats';
+import { setChatsMeta } from '@/store/chatsSlice';
 import './chats.scss';
 import { Trans } from '@lingui/react/macro';
 
@@ -39,6 +41,7 @@ function chatDisplayName(chat: ChatListItem): string {
 
 export default function Chats() {
   const history = useHistory();
+  const dispatch = useDispatch();
   const [presentAlert] = useIonAlert();
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +51,14 @@ export default function Chats() {
     setLoading(true);
     getChats()
       .then((res) => {
-        setChats(res.data.chats || []);
+        const chatList = res.data.chats || [];
+        setChats(chatList);
         setError(null);
+        const meta: Record<string, { name: string | null }> = {};
+        for (const c of chatList) {
+          meta[c.id] = { name: c.name };
+        }
+        dispatch(setChatsMeta(meta));
       })
       .catch((err: Error) => {
         setError(err.message || 'Failed to load chats');
@@ -121,7 +130,7 @@ export default function Chats() {
                 <IonItem
                   button
                   detail={false}
-                  onClick={() => history.push(`/chats/chat/${chat.id}`, { chatName: chatDisplayName(chat) })}
+                  onClick={() => history.push(`/chats/chat/${chat.id}`)}
                 >
                   <div slot="start" className="chats-list-avatar">
                     {chat.name && chat.name.trim() ? chat.name.trim().charAt(0).toUpperCase() : '?'}
