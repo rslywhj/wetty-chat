@@ -21,9 +21,13 @@ import { i18n, activateDetectedLocale } from '@/i18n';
 import store from '@/store/index';
 import App from './App';
 import { initWebSocket } from '@/api/ws';
+import { setupIonicReact } from '@ionic/react';
 
 initWebSocket();
 activateDetectedLocale();
+setupIonicReact({
+  swipeBackEnabled: false
+})
 
 createRoot(document.getElementById('root')!).render(
   <Provider store={store}>
