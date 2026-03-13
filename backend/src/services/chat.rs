@@ -1,16 +1,9 @@
+use crate::schema::{group_membership, messages};
 use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Integer};
+use diesel::sql_types::{BigInt, Nullable};
 use diesel::PgConnection;
 use std::collections::HashMap;
 use tracing::warn;
-
-#[derive(QueryableByName)]
-struct UnreadCountRow {
-    #[diesel(sql_type = Integer)]
-    uid: i32,
-    #[diesel(sql_type = BigInt)]
-    unread_count: i64,
-}
 
 /// Calculate the global unread count for a given list of user IDs.
 pub fn get_unread_counts(
@@ -21,16 +14,20 @@ pub fn get_unread_counts(
         return Ok(HashMap::new());
     }
 
-    let query = diesel::sql_query(
-        "SELECT gm.uid, count(m.id) as unread_count \
-         FROM group_membership gm \
-         INNER JOIN messages m ON gm.chat_id = m.chat_id \
-         WHERE gm.uid = ANY($1) AND m.id > COALESCE(gm.last_read_message_id, 0) AND m.deleted_at IS NULL \
-         GROUP BY gm.uid"
-    ).bind::<diesel::sql_types::Array<diesel::sql_types::Integer>, _>(target_uids);
+    diesel::define_sql_function! {
+        fn coalesce(x: Nullable<BigInt>, y: BigInt) -> BigInt;
+    }
 
-    match query.load::<UnreadCountRow>(conn) {
-        Ok(rows) => Ok(rows.into_iter().map(|r| (r.uid, r.unread_count)).collect()),
+    let query = group_membership::table
+        .inner_join(messages::table.on(group_membership::chat_id.eq(messages::chat_id)))
+        .filter(group_membership::uid.eq_any(target_uids))
+        .filter(messages::id.gt(coalesce(group_membership::last_read_message_id, 0i64)))
+        .filter(messages::deleted_at.is_null())
+        .group_by(group_membership::uid)
+        .select((group_membership::uid, diesel::dsl::count(messages::id)));
+
+    match query.load::<(i32, i64)>(conn) {
+        Ok(rows) => Ok(rows.into_iter().collect()),
         Err(e) => {
             warn!("Failed to load unread counts: {:?}", e);
             Err(e)

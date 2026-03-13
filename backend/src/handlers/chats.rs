@@ -83,7 +83,13 @@ async fn get_chats(
     })?;
 
     let unread_count_sq = diesel::dsl::sql::<diesel::sql_types::BigInt>(
-        "(SELECT count(*) FROM messages WHERE chat_id = groups.id AND id > COALESCE(group_membership.last_read_message_id, 0))"
+        "(SELECT count(*) FROM messages
+            WHERE
+                chat_id = groups.id
+            AND
+                reply_root_id IS NULL
+            AND
+                id > COALESCE(group_membership.last_read_message_id, 0))",
     );
 
     let base_query = groups::table
@@ -803,18 +809,6 @@ async fn post_thread_message(
         .map_err(|e| {
             tracing::error!("insert threaded message: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to send message")
-        })?;
-
-    use crate::schema::groups::dsl as g_dsl2;
-    diesel::update(groups::table.filter(g_dsl2::id.eq(chat_id)))
-        .set((
-            g_dsl2::last_message_id.eq(Some(id)),
-            g_dsl2::last_message_at.eq(Some(now)),
-        ))
-        .execute(conn)
-        .map_err(|e| {
-            tracing::error!("update group last_message: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to update group")
         })?;
 
     if !body.attachment_ids.is_empty() {
