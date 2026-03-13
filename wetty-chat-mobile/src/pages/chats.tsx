@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, useCallback } from 'react';
 import {
   IonPage,
   IonHeader,
@@ -118,24 +118,27 @@ export default function Chats() {
       .finally(() => setLoading(false));
   };
 
-  const updateAppBadge = async () => {
+  const updateAppBadge = useCallback(async () => {
     try {
       const res = await getUnreadCount();
       if (res.data.unread_count > 0) {
-        if ('setAppBadge' in navigator) {
+        if (navigator.setAppBadge) {
           // @ts-ignore
           navigator.setAppBadge(res.data.unread_count).catch(console.error);
         }
       } else {
-        if ('clearAppBadge' in navigator) {
+        if (navigator.clearAppBadge) {
           // @ts-ignore
           navigator.clearAppBadge().catch(console.error);
         }
       }
     } catch (error) {
+      if (navigator.clearAppBadge) {
+        navigator.clearAppBadge()
+      }
       console.error(error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadChats();
@@ -184,6 +187,7 @@ export default function Chats() {
           event.detail.complete();
         }, delay);
       });
+    updateAppBadge();
   };
 
   return (
