@@ -27,6 +27,7 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
+  const prevTextLenRef = useRef(0);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<{ id: string, name: string, previewUrl?: string }[]>([]);
 
@@ -236,8 +237,26 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
             rows={1}
             onChange={(e) => {
               setText(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+              const ta = e.target;
+              const newLen = e.target.value.length;
+              const couldHaveShrunk = newLen < prevTextLenRef.current;
+              prevTextLenRef.current = newLen;
+
+              if (couldHaveShrunk) {
+                // Text was deleted / IME confirmed — defer the collapse-and-measure
+                // to the next frame so the auto pulse doesn't cause an intermediate
+                // layout that shifts the scroll container.
+                requestAnimationFrame(() => {
+                  ta.style.height = 'auto';
+                  ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
+                });
+              } else {
+                // Growing or same length — scrollHeight reflects needed height
+                const desired = Math.min(ta.scrollHeight, 120);
+                if (desired > ta.clientHeight) {
+                  ta.style.height = `${desired}px`;
+                }
+              }
             }}
           />
           <button type="button" className={styles.stickerBtn} aria-label="Sticker">

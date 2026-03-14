@@ -87,6 +87,7 @@ export function VirtualScroll({
   const headerRef = useRef<HTMLDivElement>(null);
   const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isScrollIdleRef = useRef(true);
+  const containerHeightRef = useRef(0);
   const [headerHeight, setHeaderHeight] = useState(0);
 
   useEffect(() => {
@@ -191,6 +192,7 @@ export function VirtualScroll({
 
     // Sync React state
     setScrollTop(el.scrollTop);
+    containerHeightRef.current = el.clientHeight;
     setContainerHeight(el.clientHeight);
 
     // Transition phase
@@ -223,7 +225,7 @@ export function VirtualScroll({
     }
   }, [phase, totalItems]);
 
-  // After every render in READY phase, snap to bottom if we should be there
+  // Snap to bottom or scroll-to-index when totalHeight changes (item resize, new content)
   useLayoutEffect(() => {
     if (phaseRef.current !== 'READY') return;
     const el = containerRef.current;
@@ -242,12 +244,8 @@ export function VirtualScroll({
       if (Math.abs(el.scrollTop - target) > 1) {
         el.scrollTop = target;
       }
-      if (!isAtBottomRef.current) {
-        isAtBottomRef.current = true;
-        onAtBottomChange?.(true);
-      }
     }
-  });
+  }, [totalHeight, loadingOlder, headerHeight, getItemOffset]);
 
   // When items are prepended at top, adjust scrollTop to maintain position
   useLayoutEffect(() => {
@@ -381,9 +379,12 @@ export function VirtualScroll({
       });
     }
 
-    // For items above viewport when NOT at bottom, adjust scrollTop to maintain position
     const el = containerRef.current;
-    if (el && !isAtBottomRef.current) {
+    if (el && isAtBottomRef.current) {
+      // If at bottom, snap to bottom after item resize
+      el.scrollTop = el.scrollHeight - el.clientHeight;
+    } else if (el && !isAtBottomRef.current) {
+      // For items above viewport when NOT at bottom, adjust scrollTop to maintain position
       const diff = height - prev;
       const currentTopPadding = (loadingOlder ? 36 : 0) + headerHeight;
       const itemOffset = getItemOffset(index) + currentTopPadding;
@@ -412,10 +413,18 @@ export function VirtualScroll({
       onScrollIdleRef.current?.();
     }, 150);
 
-    const wasAtBottom = isAtBottomRef.current;
-    isAtBottomRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
-    if (wasAtBottom !== isAtBottomRef.current) {
-      onAtBottomChange?.(isAtBottomRef.current);
+    // If container height changed, this scroll event was triggered by a
+    // container resize (e.g. textarea grew/shrank), not by user scrolling.
+    // Don't update isAtBottomRef — the ResizeObserver will handle it.
+    const isResizing = el.clientHeight !== containerHeightRef.current;
+    containerHeightRef.current = el.clientHeight;
+
+    if (!isResizing) {
+      const wasAtBottom = isAtBottomRef.current;
+      isAtBottomRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+      if (wasAtBottom !== isAtBottomRef.current) {
+        onAtBottomChange?.(isAtBottomRef.current);
+      }
     }
 
     if (onLoadOlder && el.scrollTop < loadMoreThreshold) {
@@ -431,8 +440,17 @@ export function VirtualScroll({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let prevH = el.clientHeight;
     const ro = new ResizeObserver(() => {
-      setContainerHeight(el.clientHeight);
+      const newH = el.clientHeight;
+      if (newH !== prevH) {
+        if (isAtBottomRef.current) {
+          el.scrollTop = el.scrollHeight - newH;
+        }
+        prevH = newH;
+        containerHeightRef.current = newH;
+        setContainerHeight(newH);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
