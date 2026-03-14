@@ -1,33 +1,48 @@
 use ferroid::{
+    define_snowflake_id,
     futures::SnowflakeGeneratorAsyncTokioExt,
     generator::LockSnowflakeGenerator,
-    id::SnowflakeMastodonId,
-    time::{MonotonicClock, MASTODON_EPOCH},
+    time::{MonotonicClock, UNIX_EPOCH},
 };
 
-pub type IdGen = LockSnowflakeGenerator<SnowflakeMastodonId, MonotonicClock>;
+define_snowflake_id!(
+    WettyChatId,
+    u64,
+    reserved: 1,
+    timestamp: 47,
+    machine_id: 4,
+    sequence: 12
+);
+
+pub type IdGen = LockSnowflakeGenerator<WettyChatId, MonotonicClock>;
 
 /// Create a shared snowflake ID generator. Node id from `FERROID_NODE_ID` env or 0.
 pub fn new_generator() -> IdGen {
-    let node_id: u64 = match std::env::var("FERROID_NODE_ID") {
+    let node_id: u64 = match std::env::var("NODE_ID") {
         Ok(val) => match val.parse() {
             Ok(id) => id,
             Err(e) => {
-                tracing::warn!("FERROID_NODE_ID '{}' is not a valid u64: {}; defaulting to 0", val, e);
+                tracing::warn!(
+                    "NODE_ID '{}' is not a valid number: {}; defaulting to 0",
+                    val,
+                    e
+                );
                 0
             }
         },
         Err(_) => {
-            tracing::warn!("FERROID_NODE_ID not set; defaulting to node_id=0. Set this in multi-instance deployments.");
+            tracing::warn!(
+                "NODE_ID not set; defaulting to node_id=0. Set this in multi-instance deployments."
+            );
             0
         }
     };
-    LockSnowflakeGenerator::new(node_id, MonotonicClock::with_epoch(MASTODON_EPOCH))
+    LockSnowflakeGenerator::new(node_id, MonotonicClock::with_epoch(UNIX_EPOCH))
 }
 
 /// Generate next snowflake id as i64 (for gid, message id, attachment_id).
 pub async fn next_id(gen: &IdGen) -> Result<i64, ferroid::generator::Error> {
-    let id: SnowflakeMastodonId = gen.try_next_id_async().await?;
+    let id: WettyChatId = gen.try_next_id_async().await?;
     Ok(id.to_raw() as i64)
 }
 
