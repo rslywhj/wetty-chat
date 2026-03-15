@@ -488,7 +488,7 @@ async fn get_messages(
         // Messages with id >= target, ordered ASC (target first, then newer)
         let newer_rows: Vec<Message> = base_query!()
             .filter(dsl::id.ge(target))
-            .order(dsl::created_at.asc())
+            .order(dsl::id.asc())
             .limit(half + 2)
             .select(Message::as_select())
             .load(conn)
@@ -500,7 +500,7 @@ async fn get_messages(
         // Messages with id < target, ordered DESC (closest to target first)
         let older_rows: Vec<Message> = base_query!()
             .filter(dsl::id.lt(target))
-            .order(dsl::created_at.desc())
+            .order(dsl::id.desc())
             .limit(half + 1)
             .select(Message::as_select())
             .load(conn)
@@ -540,7 +540,7 @@ async fn get_messages(
     if let Some(after) = q.after {
         let rows: Vec<Message> = base_query!()
             .filter(dsl::id.gt(after))
-            .order(dsl::created_at.asc())
+            .order(dsl::id.asc())
             .limit(max + 1)
             .select(Message::as_select())
             .load(conn)
@@ -567,13 +567,13 @@ async fn get_messages(
     // Default: before cursor, descending (newest first in response, reversed by client)
     let rows: Vec<Message> = match q.before {
         None => base_query!()
-            .order(dsl::created_at.desc())
+            .order(dsl::id.desc())
             .limit(max + 1)
             .select(Message::as_select())
             .load(conn),
         Some(before) => base_query!()
             .filter(dsl::id.lt(before))
-            .order(dsl::created_at.desc())
+            .order(dsl::id.desc())
             .limit(max + 1)
             .select(Message::as_select())
             .load(conn),
