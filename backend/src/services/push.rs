@@ -10,6 +10,7 @@ use web_push::{HyperWebPushClient, WebPushClient};
 use crate::models::PushSubscription;
 use crate::schema::push_subscriptions;
 use crate::services::ws_registry::ConnectionRegistry;
+use crate::metrics::Metrics;
 
 /// Maximum characters kept in the push notification body preview.
 const MESSAGE_PREVIEW_MAX: usize = 100;
@@ -36,6 +37,7 @@ pub struct PushService {
     pub vapid_public_key: String,
     pub vapid_private_key: String,
     pub vapid_subject: String,
+    metrics: Arc<Metrics>,
     job_tx: mpsc::Sender<PushJob>,
 }
 
@@ -47,6 +49,7 @@ impl PushService {
     pub fn start(
         db: Pool<ConnectionManager<PgConnection>>,
         ws_registry: Arc<ConnectionRegistry>,
+        metrics: Arc<Metrics>,
     ) -> Arc<Self> {
         let public_key = std::env::var("VAPID_PUBLIC_KEY")
             .expect("VAPID_PUBLIC_KEY environment variable must be set");
@@ -66,6 +69,7 @@ impl PushService {
             vapid_public_key: public_key,
             vapid_private_key: private_key,
             vapid_subject: subject,
+            metrics,
             job_tx: tx,
         });
 
@@ -126,8 +130,12 @@ impl PushService {
 
         match builder.build() {
             Ok(message) => match self.client.send(message).await {
-                Ok(_) => Ok(()),
+                Ok(_) => {
+                    self.metrics.record_push_notification(true);
+                    Ok(())
+                }
                 Err(e) => {
+                    self.metrics.record_push_notification(false);
                     if matches!(
                         e,
                         web_push::WebPushError::EndpointNotValid(_)
@@ -143,6 +151,7 @@ impl PushService {
             },
             Err(e) => {
                 error!("Failed to build push message: {:?}", e);
+                self.metrics.record_push_notification(false);
                 Err(None)
             }
         }

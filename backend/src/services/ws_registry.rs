@@ -1,6 +1,7 @@
 //! WebSocket connection registry: maps user id to active connections, supports broadcast and stale-connection pruning.
 
 use crate::handlers::ws::messages::ServerWsMessage;
+use crate::metrics::Metrics;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,12 +33,14 @@ pub(crate) fn now_secs() -> u64 {
 pub struct ConnectionRegistry {
     /// uid -> list of connection entries (multiple tabs/devices per user).
     inner: dashmap::DashMap<i32, Vec<Arc<ConnectionEntry>>>,
+    metrics: Arc<Metrics>,
 }
 
 impl ConnectionRegistry {
-    pub fn new() -> Self {
+    pub fn new(metrics: Arc<Metrics>) -> Self {
         Self {
             inner: dashmap::DashMap::new(),
+            metrics,
         }
     }
 
@@ -53,6 +56,8 @@ impl ConnectionRegistry {
             last_ping_at: AtomicU64::new(now),
         });
         self.inner.entry(uid).or_default().push(entry.clone());
+        self.metrics.record_ws_connection_open();
+        self.metrics.set_ws_connected_users(self.inner.len());
         (entry, rx)
     }
 
@@ -66,6 +71,7 @@ impl ConnectionRegistry {
         if empty {
             self.inner.remove(&uid);
         }
+        self.metrics.set_ws_connected_users(self.inner.len());
     }
 
     /// Broadcast a JSON string to all connections for the given user ids. Each uid may have multiple connections.
@@ -121,11 +127,12 @@ impl ConnectionRegistry {
                 }
             }
         }
+        self.metrics.set_ws_connected_users(self.inner.len());
     }
 }
 
 impl Default for ConnectionRegistry {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(Metrics::new()))
     }
 }

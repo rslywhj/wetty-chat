@@ -97,7 +97,8 @@ async fn main() {
             .expect("Failed to run database migrations");
     }
 
-    let ws_registry = Arc::new(services::ws_registry::ConnectionRegistry::new());
+    let metrics = Arc::new(metrics::Metrics::new());
+    let ws_registry = Arc::new(services::ws_registry::ConnectionRegistry::new(metrics.clone()));
 
     let aws_config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let mut s3_config_builder = aws_sdk_s3::config::Builder::from(&aws_config);
@@ -153,9 +154,9 @@ async fn main() {
     let state = AppState {
         db: pool.clone(),
         id_gen: Arc::new(utils::ids::new_generator()),
-        metrics: Arc::new(metrics::Metrics::new()),
+        metrics: metrics.clone(),
         ws_registry: ws_registry.clone(),
-        push_service: services::push::PushService::start(pool, ws_registry.clone()),
+        push_service: services::push::PushService::start(pool, ws_registry.clone(), metrics),
         s3_client,
         s3_bucket_name,
         s3_attachment_prefix,

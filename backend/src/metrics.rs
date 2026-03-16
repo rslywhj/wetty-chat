@@ -3,8 +3,8 @@ use axum::http::{header, HeaderValue, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use prometheus::{
-    histogram_opts, opts, Encoder, Histogram, HistogramVec, IntCounter, IntCounterVec, Registry,
-    TextEncoder,
+    histogram_opts, opts, Encoder, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge,
+    Registry, TextEncoder,
 };
 use std::sync::Arc;
 use std::time::Instant;
@@ -15,6 +15,10 @@ pub(crate) struct Metrics {
     http_requests_total: IntCounterVec,
     http_request_duration_seconds: HistogramVec,
     messages_total: IntCounterVec,
+    push_notifications_total: IntCounterVec,
+    ws_connected_users: IntGauge,
+    ws_connections_total: IntCounter,
+    ws_connection_duration_seconds: Histogram,
     discuz_username_lookup_duration_seconds: Histogram,
     discuz_username_lookup_users_total: IntCounter,
     discuz_avatar_lookup_duration_seconds: Histogram,
@@ -50,6 +54,30 @@ impl Metrics {
             &["chat_id"],
         )
         .expect("messages_total metric should be valid");
+        let push_notifications_total = IntCounterVec::new(
+            opts!(
+                "push_notifications_total",
+                "Total number of push notification delivery attempts"
+            ),
+            &["result"],
+        )
+        .expect("push_notifications_total metric should be valid");
+        let ws_connected_users = IntGauge::with_opts(opts!(
+            "ws_connected_users",
+            "Current number of users with at least one active websocket connection"
+        ))
+        .expect("ws_connected_users metric should be valid");
+        let ws_connections_total = IntCounter::with_opts(opts!(
+            "ws_connections_total",
+            "Total number of successfully established websocket connections"
+        ))
+        .expect("ws_connections_total metric should be valid");
+        let ws_connection_duration_seconds = Histogram::with_opts(histogram_opts!(
+            "ws_connection_duration_seconds",
+            "Lifetime of websocket connections in seconds",
+            vec![1.0, 5.0, 15.0, 30.0, 60.0, 300.0, 900.0, 1800.0, 3600.0, 14400.0]
+        ))
+        .expect("ws_connection_duration_seconds metric should be valid");
         let discuz_username_lookup_duration_seconds = Histogram::with_opts(histogram_opts!(
             "discuz_username_lookup_duration_seconds",
             "Discuz username lookup latency in seconds",
@@ -89,6 +117,18 @@ impl Metrics {
             .register(Box::new(messages_total.clone()))
             .expect("messages_total registration should succeed");
         registry
+            .register(Box::new(push_notifications_total.clone()))
+            .expect("push_notifications_total registration should succeed");
+        registry
+            .register(Box::new(ws_connected_users.clone()))
+            .expect("ws_connected_users registration should succeed");
+        registry
+            .register(Box::new(ws_connections_total.clone()))
+            .expect("ws_connections_total registration should succeed");
+        registry
+            .register(Box::new(ws_connection_duration_seconds.clone()))
+            .expect("ws_connection_duration_seconds registration should succeed");
+        registry
             .register(Box::new(discuz_username_lookup_duration_seconds.clone()))
             .expect("discuz_username_lookup_duration_seconds registration should succeed");
         registry
@@ -109,6 +149,10 @@ impl Metrics {
             http_requests_total,
             http_request_duration_seconds,
             messages_total,
+            push_notifications_total,
+            ws_connected_users,
+            ws_connections_total,
+            ws_connection_duration_seconds,
             discuz_username_lookup_duration_seconds,
             discuz_username_lookup_users_total,
             discuz_avatar_lookup_duration_seconds,
@@ -144,6 +188,25 @@ impl Metrics {
     pub(crate) fn record_message(&self, chat_id: i64) {
         let chat_id = chat_id.to_string();
         self.messages_total.with_label_values(&[&chat_id]).inc();
+    }
+
+    pub(crate) fn record_push_notification(&self, success: bool) {
+        let result = if success { "success" } else { "failure" };
+        self.push_notifications_total
+            .with_label_values(&[result])
+            .inc();
+    }
+
+    pub(crate) fn set_ws_connected_users(&self, connected_users: usize) {
+        self.ws_connected_users.set(connected_users as i64);
+    }
+
+    pub(crate) fn record_ws_connection_open(&self) {
+        self.ws_connections_total.inc();
+    }
+
+    pub(crate) fn record_ws_connection_duration(&self, duration_seconds: f64) {
+        self.ws_connection_duration_seconds.observe(duration_seconds);
     }
 
     pub(crate) fn record_discuz_username_lookup(
@@ -231,6 +294,10 @@ mod tests {
         let metrics = Arc::new(Metrics::new());
         metrics.record_http("GET", "/seed", StatusCode::OK, 0.001);
         metrics.record_message(42);
+        metrics.record_push_notification(true);
+        metrics.set_ws_connected_users(2);
+        metrics.record_ws_connection_open();
+        metrics.record_ws_connection_duration(12.0);
         metrics.record_discuz_username_lookup(2, 0.002);
         metrics.record_discuz_avatar_lookup(2, 0.003, 0.001);
         let app = Router::new()
@@ -255,6 +322,10 @@ mod tests {
         assert!(body.contains("http_requests_total"));
         assert!(body.contains("http_request_duration_seconds"));
         assert!(body.contains("messages_total"));
+        assert!(body.contains("push_notifications_total"));
+        assert!(body.contains("ws_connected_users"));
+        assert!(body.contains("ws_connections_total"));
+        assert!(body.contains("ws_connection_duration_seconds"));
         assert!(body.contains("discuz_username_lookup_duration_seconds"));
         assert!(body.contains("discuz_username_lookup_users_total"));
         assert!(body.contains("discuz_avatar_lookup_duration_seconds"));
@@ -321,11 +392,21 @@ mod tests {
     fn discuz_metrics_render_expected_values() {
         let metrics = Metrics::new();
         metrics.record_message(123);
+        metrics.record_push_notification(true);
+        metrics.record_push_notification(false);
+        metrics.set_ws_connected_users(1);
+        metrics.record_ws_connection_open();
+        metrics.record_ws_connection_duration(30.0);
         metrics.record_discuz_username_lookup(3, 0.012);
         metrics.record_discuz_avatar_lookup(3, 0.015, 0.006);
 
         let rendered = metrics.render().expect("metrics should render");
         assert!(rendered.contains("messages_total{chat_id=\"123\"} 1"));
+        assert!(rendered.contains("push_notifications_total{result=\"success\"} 1"));
+        assert!(rendered.contains("push_notifications_total{result=\"failure\"} 1"));
+        assert!(rendered.contains("ws_connected_users 1"));
+        assert!(rendered.contains("ws_connections_total 1"));
+        assert!(rendered.contains("ws_connection_duration_seconds_sum"));
         assert!(rendered.contains("discuz_username_lookup_duration_seconds_sum"));
         assert!(rendered.contains("discuz_username_lookup_users_total 3"));
         assert!(rendered.contains("discuz_avatar_lookup_duration_seconds_sum"));

@@ -10,6 +10,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::time::timeout;
 use tracing::trace;
 
@@ -110,17 +111,19 @@ async fn handle_auth_and_socket(mut socket: WebSocket, state: AppState) {
     let (entry, rx) = registry.register(uid);
     let conn_id = entry.conn_id;
 
-    handle_socket(socket, uid, conn_id, registry, entry, rx).await;
+    handle_socket(socket, state, uid, conn_id, registry, entry, rx).await;
 }
 
 async fn handle_socket(
     mut socket: WebSocket,
+    state: AppState,
     uid: i32,
     conn_id: u64,
     registry: Arc<ws_registry::ConnectionRegistry>,
     entry: Arc<ws_registry::ConnectionEntry>,
     mut rx: tokio::sync::mpsc::Receiver<Arc<ServerWsMessage>>,
 ) {
+    let started_at = Instant::now();
     loop {
         tokio::select! {
             msg = rx.recv() => {
@@ -157,6 +160,9 @@ async fn handle_socket(
         }
     }
     registry.remove_connection(uid, conn_id);
+    state
+        .metrics
+        .record_ws_connection_duration(started_at.elapsed().as_secs_f64());
 }
 
 pub fn router() -> axum::Router<crate::AppState> {
