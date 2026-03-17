@@ -19,7 +19,6 @@ import {
     logoApple,
     logoChrome,
     logoEdge,
-    logoWindows,
     menuOutline, shareOutline
 } from 'ionicons/icons';
 import './landing.scss';
@@ -156,7 +155,7 @@ export default function LandingPage() {
                         {selectedPlatform === 'windows' && (
                             <IonCardContent>
                                 <ol className="landing-card__steps">
-                                    <li>在 <IconText icon={logoWindows}>Edge 浏览器</IconText> 中打开聊天应用链接。</li>
+                                    <li>在 <IconText icon={logoEdge}>Edge 浏览器</IconText> 中打开聊天应用链接。</li>
                                     <li>点击 <IconText icon={ellipsisHorizontal}>菜单 </IconText></li>
                                     <li>选择“更多工具” {'>'} “应用” {'>'} “将此站点安装为应用”。</li>
                                     <li>自行选择将图标创建在任务栏、开始菜单或桌面。</li>
