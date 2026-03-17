@@ -30,9 +30,9 @@ CREATE TABLE IF NOT EXISTS discuz.common_member (
 	"freeze" int2 DEFAULT '0'::smallint NOT NULL,
 	CONSTRAINT idx_44357_primary PRIMARY KEY (uid)
 );
-CREATE INDEX idx_44357_conisbind ON discuz.common_member USING btree (conisbind);
-CREATE INDEX idx_44357_email ON discuz.common_member USING btree (email);
-CREATE INDEX idx_44357_groupid ON discuz.common_member USING btree (groupid);
-CREATE INDEX idx_44357_regdate ON discuz.common_member USING btree (regdate);
-CREATE INDEX idx_44357_secmobile ON discuz.common_member USING btree (secmobile, secmobicc);
-CREATE UNIQUE INDEX idx_44357_username ON discuz.common_member USING btree (username);
+CREATE INDEX IF NOT EXISTS idx_44357_conisbind ON discuz.common_member USING btree (conisbind);
+CREATE INDEX IF NOT EXISTS idx_44357_email ON discuz.common_member USING btree (email);
+CREATE INDEX IF NOT EXISTS idx_44357_groupid ON discuz.common_member USING btree (groupid);
+CREATE INDEX IF NOT EXISTS idx_44357_regdate ON discuz.common_member USING btree (regdate);
+CREATE INDEX IF NOT EXISTS idx_44357_secmobile ON discuz.common_member USING btree (secmobile, secmobicc);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_44357_username ON discuz.common_member USING btree (username);

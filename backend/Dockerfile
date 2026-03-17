@@ -11,7 +11,6 @@ RUN dpkg --add-architecture arm64 && \
     g++-aarch64-linux-gnu \
     libc6-dev-arm64-cross \
     pkg-config \
-    libmariadb-dev:${TARGETARCH} \
     libpq-dev:${TARGETARCH} \
     libssl-dev:${TARGETARCH} \
     && rm -rf /var/lib/apt/lists/*

@@ -134,8 +134,8 @@ impl FromRequestParts<crate::AppState> for CurrentUid {
                     (StatusCode::UNAUTHORIZED, "Invalid Discuz auth cookie")
                 })?;
 
-                // At this step, we could optionally cross-check with state.discuz_db
-                // to make sure the user is still valid, but the plan focused on decode.
+                // At this step, we could optionally cross-check against the local Discuz table
+                // to make sure the user is still valid, but the current flow is decode-only.
                 // For now we accept the decoded UID.
 
                 Ok(CurrentUid(uid))

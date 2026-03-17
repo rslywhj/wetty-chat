@@ -2,7 +2,7 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::{middleware, routing::get, Router};
 use diesel::r2d2::{ConnectionManager, Pool};
-use diesel::{MysqlConnection, PgConnection};
+use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::Deserialize;
 use std::net::SocketAddr;
@@ -62,7 +62,6 @@ pub(crate) struct AppState {
     s3_attachment_prefix: String,
     s3_base_url: Option<String>,
     pub auth_method: AuthMethod,
-    pub discuz_db: Option<Pool<ConnectionManager<MysqlConnection>>>,
     pub discuz_cookie_prefix: String,
     pub discuz_authkey: String,
     pub discuz_avatar_public_url: Option<String>,
@@ -124,20 +123,12 @@ async fn main() {
     let metrics_addr =
         read_socket_addr("METRICS_ADDR", SocketAddr::from(([0, 0, 0, 0], 3001)));
 
-    let mut discuz_db = None;
     let mut discuz_cookie_prefix = String::new();
     let mut discuz_authkey = String::new();
     let mut discuz_avatar_public_url = None;
     let mut discuz_avatar_path = None;
 
     if let AuthMethod::Discuz = auth_method {
-        let discuz_db_url = std::env::var("DISCUZ_DB_URL").expect("DISCUZ_DB_URL must be set");
-        let mysql_manager = ConnectionManager::<MysqlConnection>::new(&discuz_db_url);
-        discuz_db = Some(
-            Pool::builder()
-                .build(mysql_manager)
-                .expect("Failed to create Discuz pool"),
-        );
         discuz_cookie_prefix =
             std::env::var("DISCUZ_COOKIE_PREFIX").expect("DISCUZ_COOKIE_PREFIX must be set");
         discuz_authkey = std::env::var("DISCUZ_AUTHKEY").expect("DISCUZ_AUTHKEY must be set");
@@ -162,7 +153,6 @@ async fn main() {
         s3_attachment_prefix,
         s3_base_url,
         auth_method,
-        discuz_db,
         discuz_cookie_prefix,
         discuz_authkey,
         discuz_avatar_public_url,

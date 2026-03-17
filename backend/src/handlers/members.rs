@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::models::{GroupRole, NewGroupMembership};
 use crate::schema::{self, group_membership};
 use crate::utils::auth::CurrentUid;
-use crate::AppState;
+use crate::{AppState, AuthMethod};
 
 #[derive(serde::Deserialize)]
 pub struct ChatIdPath {
@@ -115,25 +115,48 @@ async fn get_members(
 
     use crate::schema::group_membership::dsl as gm_dsl;
 
-    let rows: Vec<(i32, GroupRole, DateTime<Utc>)> = group_membership::table
-        .filter(gm_dsl::chat_id.eq(chat_id))
-        .select((gm_dsl::uid, gm_dsl::role, gm_dsl::joined_at))
-        .load(conn)
-        .map_err(|e| {
-            tracing::error!("list members: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to list members")
-        })?;
+    let rows: Vec<(i32, GroupRole, DateTime<Utc>, Option<String>)> = match state.auth_method {
+        AuthMethod::UIDHeader => {
+            use crate::schema::users::dsl as users_dsl;
 
-    let uids: Vec<i32> = rows.iter().map(|(uid, _, _)| *uid).collect();
-    let mut names = crate::services::user::lookup_users(&state, &uids).await;
+            group_membership::table
+                .left_join(users_dsl::users.on(gm_dsl::uid.eq(users_dsl::uid)))
+                .filter(gm_dsl::chat_id.eq(chat_id))
+                .select((
+                    gm_dsl::uid,
+                    gm_dsl::role,
+                    gm_dsl::joined_at,
+                    users_dsl::username.nullable(),
+                ))
+                .load(conn)
+        }
+        AuthMethod::Discuz => {
+            use crate::schema::discuz::discuz::common_member::dsl as cm_dsl;
+
+            group_membership::table
+                .left_join(cm_dsl::common_member.on(gm_dsl::uid.eq(cm_dsl::uid)))
+                .filter(gm_dsl::chat_id.eq(chat_id))
+                .select((
+                    gm_dsl::uid,
+                    gm_dsl::role,
+                    gm_dsl::joined_at,
+                    cm_dsl::username.nullable(),
+                ))
+                .load(conn)
+        }
+    }
+    .map_err(|e| {
+        tracing::error!("list members: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to list members")
+    })?;
 
     let members = rows
         .into_iter()
-        .map(|(uid, role, joined_at)| MemberResponse {
+        .map(|(uid, role, joined_at, username)| MemberResponse {
             uid,
             role,
             joined_at,
-            username: names.remove(&uid).flatten(),
+            username,
         })
         .collect();
 
