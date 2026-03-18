@@ -223,17 +223,14 @@ export function ChatBubble({
                     display: 'block',
                   };
 
+                  imageStyle.maxHeight = maxImageHeight;
+                  imageStyle.maxWidth = '100%';
+                  imageStyle.width = 'auto';
+                    imageStyle.objectFit = 'contain';
                   if (hasSize) {
-                    imageStyle.width = att.width!;
                     imageStyle.height = att.height!;
-                    imageStyle.maxHeight = maxImageHeight;
-                    imageStyle.maxWidth = '100%';
-                    imageStyle.aspectRatio = `${att.width} / ${att.height}`;
                   } else {
                     imageStyle.height = maxImageHeight;
-                    imageStyle.width = 'auto';
-                    imageStyle.maxWidth = '100%';
-                    imageStyle.objectFit = 'contain';
                   }
 
                   return (
