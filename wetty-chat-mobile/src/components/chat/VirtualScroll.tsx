@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './VirtualScroll.module.scss';
+import { FenwickTree } from './virtualScroll/fenwick';
 
 interface VirtualScrollProps {
   totalItems: number;
@@ -111,11 +112,22 @@ export function VirtualScroll({
   const prevTotalRef = useRef(totalItems);
   const prevPrependedCountRef = useRef(prependedCount);
   const heightCache = useRef(new Map<number, number>());
+  const heightTreeRef = useRef<FenwickTree>(new FenwickTree(totalItems, estimatedItemHeight));
   const isAtBottomRef = useRef(true);
   const prevLoadingOlderRef = useRef(loadingOlder);
   const initialScrollIndexRef = useRef<number | undefined>(undefined);
   const batchTimerRef = useRef<number | null>(null);
   const [, forceUpdate] = useState(0);
+
+  const rebuildHeightTree = useCallback((cache = heightCache.current) => {
+    const tree = new FenwickTree(totalItems, estimatedItemHeight);
+    for (const [index, height] of cache.entries()) {
+      if (index >= 0 && index < totalItems) {
+        tree.set(index, height);
+      }
+    }
+    heightTreeRef.current = tree;
+  }, [estimatedItemHeight, totalItems]);
 
   // Phase state machine: MEASURING → READY
   const [phase, setPhase] = useState<'MEASURING' | 'READY'>('MEASURING');
@@ -123,35 +135,21 @@ export function VirtualScroll({
   const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getHeight = useCallback((i: number) => {
-    return heightCache.current.get(i) ?? estimatedItemHeight;
+    return heightTreeRef.current.get(i) || estimatedItemHeight;
   }, [estimatedItemHeight]);
 
   const getItemOffset = useCallback((index: number) => {
-    let offset = 0;
-    for (let i = 0; i < index; i++) {
-      offset += heightCache.current.get(i) ?? estimatedItemHeight;
-    }
-    return offset;
-  }, [estimatedItemHeight]);
+    return heightTreeRef.current.prefixSum(index);
+  }, []);
 
   const getTotalHeight = useCallback(() => {
-    let total = 0;
-    for (let i = 0; i < totalItems; i++) {
-      total += heightCache.current.get(i) ?? estimatedItemHeight;
-    }
-    return total;
-  }, [totalItems, estimatedItemHeight]);
+    return heightTreeRef.current.total();
+  }, []);
 
   // Binary search: find the first index whose bottom edge is past scrollTop
   const findStartIndex = useCallback((scrollTop: number) => {
-    let offset = 0;
-    for (let i = 0; i < totalItems; i++) {
-      const h = heightCache.current.get(i) ?? estimatedItemHeight;
-      if (offset + h > scrollTop) return i;
-      offset += h;
-    }
-    return totalItems - 1;
-  }, [totalItems, estimatedItemHeight]);
+    return heightTreeRef.current.findIndexByOffset(scrollTop);
+  }, []);
 
   const totalHeight = getTotalHeight();
 
@@ -261,13 +259,10 @@ export function VirtualScroll({
         }
         heightCache.current = newCache;
       }
+      rebuildHeightTree();
       const el = containerRef.current;
       if (el) {
-        let addedHeight = 0;
-        for (let i = 0; i < newPrepended; i++) {
-          addedHeight += heightCache.current.get(i) ?? estimatedItemHeight;
-        }
-        el.scrollTop += addedHeight;
+        el.scrollTop += heightTreeRef.current.prefixSum(newPrepended);
       }
     }
     prevPrependedCountRef.current = prependedCount;
@@ -281,7 +276,7 @@ export function VirtualScroll({
       }
       prevLoadingOlderRef.current = loadingOlder;
     }
-  }, [prependedCount, estimatedItemHeight, loadingOlder]);
+  }, [prependedCount, loadingOlder, rebuildHeightTree]);
 
   // Auto-scroll to bottom when new messages appended and user was at bottom
   useLayoutEffect(() => {
@@ -302,6 +297,7 @@ export function VirtualScroll({
   useEffect(() => {
     if (windowKey == null) return;
     heightCache.current = new Map();
+    rebuildHeightTree();
     prevTotalRef.current = 0;
     prevPrependedCountRef.current = 0;
     if (initialScrollIndex != null) {
@@ -318,6 +314,11 @@ export function VirtualScroll({
     forceUpdate(c => c + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowKey]);
+
+  useEffect(() => {
+    rebuildHeightTree();
+    forceUpdate(c => c + 1);
+  }, [estimatedItemHeight, totalItems, rebuildHeightTree]);
 
   // Expose scrollToBottom for imperative use
   useEffect(() => {
@@ -364,6 +365,7 @@ export function VirtualScroll({
     if (prev === height && !isFirstMeasure) return;
 
     heightCache.current.set(index, height);
+    heightTreeRef.current.set(index, height);
 
     if (phaseRef.current === 'MEASURING') {
       // Check if all items measured
