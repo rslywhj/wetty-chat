@@ -53,6 +53,29 @@ function colorForUser(name: string): string {
 const SWIPE_THRESHOLD = 60;
 const SWIPE_MAX = 80;
 
+function getImageLayoutStyle(
+  width: number | null | undefined,
+  height: number | null | undefined,
+  maxImageHeight: number
+): React.CSSProperties | undefined {
+  if (!width || !height || width <= 0 || height <= 0) {
+    return undefined;
+  }
+
+  const aspectRatio = width / height;
+  const imageStyle: React.CSSProperties = {
+    aspectRatio: `${width} / ${height}`,
+  };
+
+  if (height > maxImageHeight) {
+    imageStyle.width = Math.min(width, maxImageHeight * aspectRatio);
+  } else {
+    imageStyle.width = width;
+  }
+
+  return imageStyle;
+}
+
 export function ChatBubble({
   senderName,
   message,
@@ -77,7 +100,7 @@ export function ChatBubble({
   const swipeSign = swipeDirection === 'left' ? -1 : 1;
   const [offset, setOffset] = useState(0);
   const [animating, setAnimating] = useState(false);
-  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
+  const [viewingAttachmentIndex, setViewingAttachmentIndex] = useState<number | null>(null);
   const startX = useRef(0);
   const startY = useRef(0);
   const swiping = useRef(false);
@@ -151,6 +174,8 @@ export function ChatBubble({
 
   const progress = Math.min(offset / SWIPE_THRESHOLD, 1);
 
+  const imageAttachments = attachments?.filter(att => att.kind.startsWith('image')) ?? [];
+
   return (
     <div className={styles.swipeContainer}>
       <div
@@ -214,34 +239,30 @@ export function ChatBubble({
                       </a>
                     );
                   }
-
-                  const hasSize = att.width && att.height;
-
-                  const imageStyle: React.CSSProperties = {
-                    backgroundColor: 'rgba(128, 128, 128, 0.2)',
-                    cursor: 'pointer',
-                    display: 'block',
+                  const imageLayoutStyle = getImageLayoutStyle(att.width, att.height, maxImageHeight);
+                  const imageContainerStyle: React.CSSProperties = {
+                    maxHeight: maxImageHeight,
+                    ...(imageLayoutStyle ?? {}),
                   };
 
-                  imageStyle.maxHeight = maxImageHeight;
-                  imageStyle.maxWidth = '100%';
-                  imageStyle.width = 'auto';
-                    imageStyle.objectFit = 'contain';
-                  if (hasSize) {
-                    imageStyle.height = att.height!;
-                  } else {
-                    imageStyle.height = maxImageHeight;
-                  }
-
                   return (
-                    <img
+                    <button
                       key={att.id}
-                      src={att.url}
-                      alt="attachment"
-                      className={styles.attachmentImage}
-                      style={imageStyle}
-                      onClick={() => setViewingAttachment(att)}
-                    />
+                      type="button"
+                      className={styles.attachmentImageButton}
+                      style={imageContainerStyle}
+                      onClick={() => {
+                        const imageIndex = imageAttachments.findIndex(image => image.id === att.id);
+                        setViewingAttachmentIndex(imageIndex >= 0 ? imageIndex : 0);
+                      }}
+                    >
+                      <img
+                        src={att.url}
+                        alt="attachment"
+                        className={styles.attachmentImage}
+                        style={imageLayoutStyle ? undefined : { maxHeight: maxImageHeight }}
+                      />
+                    </button>
                   );
                 })}
               </div>
@@ -275,15 +296,19 @@ export function ChatBubble({
           )}
         </div>
       </div>
-      {
-        viewingAttachment && (
-          <ImageViewer
-            src={viewingAttachment.url}
-            fileName={viewingAttachment.file_name}
-            onClose={() => setViewingAttachment(null)}
-          />
-        )
-      }
+      {viewingAttachmentIndex !== null && imageAttachments.length > 0 && (
+        <ImageViewer
+          images={imageAttachments.map(image => ({
+            id: image.id,
+            src: image.url,
+            fileName: image.file_name,
+            width: image.width,
+            height: image.height,
+          }))}
+          initialIndex={viewingAttachmentIndex}
+          onClose={() => setViewingAttachmentIndex(null)}
+        />
+      )}
     </div >
   );
 }
