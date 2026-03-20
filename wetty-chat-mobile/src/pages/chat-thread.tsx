@@ -482,11 +482,11 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     presentActionSheet({
       buttons: [
         {
-          text: t`Reply`, handler: () => {
+          text: t`Quote`, handler: () => {
             setReplyingTo(msg);
           }
         },
-        ...(!threadId && !msg.thread_info ? [{ text: t`Start Thread`, handler: () => { history.push(`/chats/chat/${chatId}/thread/${msg.id}`); } }] : []),
+        ...(!threadId && !msg.thread_info ? [{ text: t`Reply in Thread`, handler: () => { history.push(`/chats/chat/${chatId}/thread/${msg.id}`); } }] : []),
         ...(isOwn ? [
           {
             text: t`Edit`, handler: () => {

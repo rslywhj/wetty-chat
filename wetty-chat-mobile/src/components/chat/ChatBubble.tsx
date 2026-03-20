@@ -292,12 +292,12 @@ export function ChatBubble({
             {threadInfo && (
               <div className={styles.threadIndicator} onClick={onThreadClick}>
                 <IonIcon icon={chatbubbles} />
-                <span>{threadInfo.reply_count} {threadInfo.reply_count === 1 ? t`reply` : t`replies`}</span>
+                <span>{threadInfo.reply_count} {threadInfo.reply_count === 1 ? t`thread reply` : t`thread replies`}</span>
               </div>
             )}
           </div>
           {onReply && (
-            <button className={styles.hoverReplyBtn} onClick={onReply} aria-label={t`Reply`}>
+            <button className={styles.hoverReplyBtn} onClick={onReply} aria-label={t`Quote`}>
               <IonIcon icon={arrowUndo} />
             </button>
           )}
