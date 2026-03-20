@@ -8,3 +8,6 @@ It uses Ionic Framework v8 and React
 - This project uses `lingui` for localization (i18n) support.
 - When writing UI code that include user visible text, we should use `t` or `Trans`
 when ever applicable.
+
+## Lint
+After making changes, make sure to run `npm run lint` and ensure there are no linting errors

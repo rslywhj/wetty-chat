@@ -32,6 +32,10 @@ msgstr "添加"
 msgid "Add Member"
 msgstr "添加成员"
 
+#: src/pages/settings.tsx
+msgid "Allowed"
+msgstr "已允许"
+
 #: src/pages/chat-thread.tsx
 msgid "Are you sure you want to delete this message?"
 msgstr "确定要撤回这条消息吗？"
@@ -39,6 +43,10 @@ msgstr "确定要撤回这条消息吗？"
 #: src/pages/chat-members.tsx
 #~ msgid "Are you sure you want to leave this group?"
 #~ msgstr "确定要退出该群组吗？"
+
+#: src/pages/settings.tsx
+msgid "Ask first"
+msgstr "先询问"
 
 #: src/components/chat/ChatBubble.tsx
 msgid "Attachment"
@@ -60,6 +68,10 @@ msgstr "自动"
 #: src/pages/chat-settings.tsx
 msgid "Avatar URL"
 msgstr "头像链接"
+
+#: src/pages/settings.tsx
+msgid "Blocked"
+msgstr "已阻止"
 
 #: src/pages/chat-members.tsx
 #: src/pages/chat-members.tsx
@@ -236,6 +248,16 @@ msgstr "保存设置失败"
 msgid "Failed to send"
 msgstr "发送失败"
 
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Failed to turn off push notifications"
+msgstr "关闭推送通知失败"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Failed to turn on push notifications"
+msgstr "开启推送通知失败"
+
 #: src/pages/chat-members.tsx
 msgid "Failed to update role"
 msgstr "更新角色失败"
@@ -325,6 +347,19 @@ msgstr "暂无消息"
 msgid "No service worker registered"
 msgstr "未注册 Service Worker"
 
+#: src/pages/settings.tsx
+msgid "Not subscribed"
+msgstr "未订阅"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Notification permission was not granted"
+msgstr "通知权限未授予"
+
+#: src/pages/settings.tsx
+msgid "Permission"
+msgstr "权限"
+
 #: src/components/chat/ImageViewer.tsx
 msgid "Previous image"
 msgstr "上一张图片"
@@ -352,6 +387,33 @@ msgstr "升级为管理员"
 #: src/pages/chat-settings.tsx
 msgid "Public"
 msgstr "公开"
+
+#: src/pages/settings.tsx
+msgid "Push Notifications"
+msgstr "推送通知"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications are not available right now"
+msgstr "当前无法使用推送通知"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications are not supported on this device"
+msgstr "此设备不支持推送通知"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications could not be enabled on the server"
+msgstr "服务器端无法启用推送通知"
+
+#: src/pages/settings.tsx
+msgid "Push notifications enabled"
+msgstr "推送通知已开启"
+
+#: src/pages/settings.tsx
+msgid "Push notifications turned off"
+msgstr "推送通知已关闭"
 
 #: src/components/chat/ChatList.tsx
 msgid "Read"
@@ -424,6 +486,14 @@ msgstr "设置已保存"
 msgid "Start Thread"
 msgstr "发起话题"
 
+#: src/pages/settings.tsx
+msgid "Status"
+msgstr "状态"
+
+#: src/pages/settings.tsx
+msgid "Subscribed"
+msgstr "已订阅"
+
 #: src/components/chat/ChatList.tsx
 msgid "Text message"
 msgstr "文本消息"
@@ -440,6 +510,14 @@ msgstr "缩略图 {0}"
 #: src/pages/chat-thread.tsx
 msgid "Today"
 msgstr "今天"
+
+#: src/pages/settings.tsx
+msgid "Turn Off Push Notifications"
+msgstr "关闭推送通知"
+
+#: src/pages/settings.tsx
+msgid "Turn On Push Notifications"
+msgstr "开启推送通知"
 
 #: src/components/chat/ChatList.tsx
 msgid "Unread"

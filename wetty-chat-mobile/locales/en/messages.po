@@ -32,6 +32,10 @@ msgstr "Add"
 msgid "Add Member"
 msgstr "Add Member"
 
+#: src/pages/settings.tsx
+msgid "Allowed"
+msgstr "Allowed"
+
 #: src/pages/chat-thread.tsx
 msgid "Are you sure you want to delete this message?"
 msgstr "Are you sure you want to delete this message?"
@@ -39,6 +43,10 @@ msgstr "Are you sure you want to delete this message?"
 #: src/pages/chat-members.tsx
 #~ msgid "Are you sure you want to leave this group?"
 #~ msgstr "Are you sure you want to leave this group?"
+
+#: src/pages/settings.tsx
+msgid "Ask first"
+msgstr "Ask first"
 
 #: src/components/chat/ChatBubble.tsx
 msgid "Attachment"
@@ -60,6 +68,10 @@ msgstr "Auto"
 #: src/pages/chat-settings.tsx
 msgid "Avatar URL"
 msgstr "Avatar URL"
+
+#: src/pages/settings.tsx
+msgid "Blocked"
+msgstr "Blocked"
 
 #: src/pages/chat-members.tsx
 #: src/pages/chat-members.tsx
@@ -236,6 +248,16 @@ msgstr "Failed to save settings"
 msgid "Failed to send"
 msgstr "Failed to send"
 
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Failed to turn off push notifications"
+msgstr "Failed to turn off push notifications"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Failed to turn on push notifications"
+msgstr "Failed to turn on push notifications"
+
 #: src/pages/chat-members.tsx
 msgid "Failed to update role"
 msgstr "Failed to update role"
@@ -325,6 +347,19 @@ msgstr "No messages yet"
 msgid "No service worker registered"
 msgstr "No service worker registered"
 
+#: src/pages/settings.tsx
+msgid "Not subscribed"
+msgstr "Not subscribed"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Notification permission was not granted"
+msgstr "Notification permission was not granted"
+
+#: src/pages/settings.tsx
+msgid "Permission"
+msgstr "Permission"
+
 #: src/components/chat/ImageViewer.tsx
 msgid "Previous image"
 msgstr "Previous image"
@@ -352,6 +387,33 @@ msgstr "Promote to Admin"
 #: src/pages/chat-settings.tsx
 msgid "Public"
 msgstr "Public"
+
+#: src/pages/settings.tsx
+msgid "Push Notifications"
+msgstr "Push Notifications"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications are not available right now"
+msgstr "Push notifications are not available right now"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications are not supported on this device"
+msgstr "Push notifications are not supported on this device"
+
+#: src/pages/oobe.tsx
+#: src/pages/settings.tsx
+msgid "Push notifications could not be enabled on the server"
+msgstr "Push notifications could not be enabled on the server"
+
+#: src/pages/settings.tsx
+msgid "Push notifications enabled"
+msgstr "Push notifications enabled"
+
+#: src/pages/settings.tsx
+msgid "Push notifications turned off"
+msgstr "Push notifications turned off"
 
 #: src/components/chat/ChatList.tsx
 msgid "Read"
@@ -424,6 +486,14 @@ msgstr "Settings saved"
 msgid "Start Thread"
 msgstr "Start Thread"
 
+#: src/pages/settings.tsx
+msgid "Status"
+msgstr "Status"
+
+#: src/pages/settings.tsx
+msgid "Subscribed"
+msgstr "Subscribed"
+
 #: src/components/chat/ChatList.tsx
 msgid "Text message"
 msgstr "Text message"
@@ -440,6 +510,14 @@ msgstr "Thumbnail {0}"
 #: src/pages/chat-thread.tsx
 msgid "Today"
 msgstr "Today"
+
+#: src/pages/settings.tsx
+msgid "Turn Off Push Notifications"
+msgstr "Turn Off Push Notifications"
+
+#: src/pages/settings.tsx
+msgid "Turn On Push Notifications"
+msgstr "Turn On Push Notifications"
 
 #: src/components/chat/ChatList.tsx
 msgid "Unread"

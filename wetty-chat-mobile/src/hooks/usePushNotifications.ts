@@ -15,6 +15,46 @@ function urlBase64ToUint8Array(base64String: string) {
     return outputArray;
 }
 
+export type PushNotificationErrorCode =
+    | 'unsupported_browser'
+    | 'permission_denied'
+    | 'service_worker_unavailable'
+    | 'subscribe_failed'
+    | 'unsubscribe_failed'
+    | 'backend_subscribe_failed';
+
+export type PushNotificationResult =
+    | { ok: true }
+    | { ok: false; code: PushNotificationErrorCode; message: string };
+
+function success(): PushNotificationResult {
+    return { ok: true };
+}
+
+function failure(code: PushNotificationErrorCode, message: string): PushNotificationResult {
+    return { ok: false, code, message };
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    if (typeof error === 'string' && error) {
+        return error;
+    }
+
+    return fallback;
+}
+
+function checkPushSupport(): PushNotificationResult {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return failure('unsupported_browser', 'Push notifications are not supported in this browser');
+    }
+
+    return success();
+}
+
 export function usePushNotifications() {
     const [permission, setPermission] = useState<NotificationPermission>('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -34,41 +74,51 @@ export function usePushNotifications() {
         }
     }, []);
 
-    const requestPermission = useCallback(async () => {
-        if (!('Notification' in window)) {
-            alert('This browser does not support desktop notification');
-            return false;
+    const requestPermission = useCallback(async (): Promise<PushNotificationResult> => {
+        const supportResult = checkPushSupport();
+        if (!supportResult.ok) {
+            return supportResult;
         }
+
         const perm = await Notification.requestPermission();
         setPermission(perm);
-        return perm === 'granted';
+
+        if (perm !== 'granted') {
+            return failure('permission_denied', 'Notification permission not granted');
+        }
+
+        return success();
     }, []);
 
     const subscribeToPush = useCallback(async () => {
         setLoading(true);
         try {
+            const supportResult = checkPushSupport();
+            if (!supportResult.ok) {
+                return supportResult;
+            }
+
             if (permission !== 'granted') {
-                const granted = await requestPermission();
-                if (!granted) {
-                    throw new Error('Notification permission not granted');
+                const permissionResult = await requestPermission();
+                if (!permissionResult.ok) {
+                    return permissionResult;
                 }
             }
-            console.log('Permission granted');
 
-            if (!('serviceWorker' in navigator)) {
-                throw new Error('Service Worker not supported');
+            let registration: ServiceWorkerRegistration;
+            try {
+                registration = await navigator.serviceWorker.ready;
+            } catch (error) {
+                console.error('Service Worker ready failed', error);
+                return failure('service_worker_unavailable', getErrorMessage(error, 'Service Worker unavailable'));
             }
-            console.log('Service Worker supported');
-
-            const registration = await navigator.serviceWorker.ready;
-            console.log('Service Worker ready');
 
             // Get VAPID public key
             const vapidRes = await apiClient.get('/push/vapid-public-key');
             const publicKey = urlBase64ToUint8Array(vapidRes.data.public_key);
 
-            // Subscribe to PushManager
-            const subscription = await registration.pushManager.subscribe({
+            const existingSubscription = await registration.pushManager.getSubscription();
+            const subscription = existingSubscription ?? await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: publicKey
             });
@@ -91,16 +141,17 @@ export function usePushNotifications() {
                 });
             } catch (backendError) {
                 console.error('Backend subscription failed, rolling back browser subscription', backendError);
-                await subscription.unsubscribe();
-                throw backendError;
+                if (!existingSubscription) {
+                    await subscription.unsubscribe();
+                }
+                return failure('backend_subscribe_failed', getErrorMessage(backendError, 'Failed to subscribe on the server'));
             }
 
             setIsSubscribed(true);
-            return true;
+            return success();
         } catch (e) {
             console.error('Failed to subscribe to push', e);
-            alert('Failed to subscribe: ' + e);
-            return false;
+            return failure('subscribe_failed', getErrorMessage(e, 'Failed to subscribe to push notifications'));
         } finally {
             setLoading(false);
         }
@@ -109,10 +160,19 @@ export function usePushNotifications() {
     const unsubscribeFromPush = useCallback(async () => {
         setLoading(true);
         try {
-            if (!('serviceWorker' in navigator)) {
-                throw new Error('Service Worker not supported');
+            const supportResult = checkPushSupport();
+            if (!supportResult.ok) {
+                return supportResult;
             }
-            const registration = await navigator.serviceWorker.ready;
+
+            let registration: ServiceWorkerRegistration;
+            try {
+                registration = await navigator.serviceWorker.ready;
+            } catch (error) {
+                console.error('Service Worker ready failed', error);
+                return failure('service_worker_unavailable', getErrorMessage(error, 'Service Worker unavailable'));
+            }
+
             const subscription = await registration.pushManager.getSubscription();
 
             if (subscription) {
@@ -129,10 +189,10 @@ export function usePushNotifications() {
             }
 
             setIsSubscribed(false);
-            alert('Unsubscribed successfully');
+            return success();
         } catch (e) {
             console.error('Failed to unsubscribe', e);
-            alert('Failed to unsubscribe: ' + e);
+            return failure('unsubscribe_failed', getErrorMessage(e, 'Failed to unsubscribe from push notifications'));
         } finally {
             setLoading(false);
         }

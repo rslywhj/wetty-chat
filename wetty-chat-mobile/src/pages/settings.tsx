@@ -23,7 +23,7 @@ import type { RootState } from '@/store/index';
 import { Trans } from '@lingui/react/macro';
 import { FeatureGate } from '@/components/FeatureGate';
 
-import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { usePushNotifications, type PushNotificationErrorCode } from '@/hooks/usePushNotifications';
 import { t } from '@lingui/core/macro';
 import { language, codeWorking, notifications, informationCircle, logIn, logOut, refreshCircle } from 'ionicons/icons';
 import { BackButton } from '@/components/BackButton';
@@ -32,6 +32,35 @@ import type { BackAction } from '@/types/back-action';
 interface SettingsCoreProps {
   backAction?: BackAction;
   onOpenLanguage?: () => void;
+}
+
+function getPermissionLabel(permission: NotificationPermission) {
+  switch (permission) {
+    case 'granted':
+      return t`Allowed`;
+    case 'denied':
+      return t`Blocked`;
+    default:
+      return t`Ask first`;
+  }
+}
+
+function getPushErrorMessage(code: PushNotificationErrorCode) {
+  switch (code) {
+    case 'unsupported_browser':
+      return t`Push notifications are not supported on this device`;
+    case 'permission_denied':
+      return t`Notification permission was not granted`;
+    case 'service_worker_unavailable':
+      return t`Push notifications are not available right now`;
+    case 'backend_subscribe_failed':
+      return t`Push notifications could not be enabled on the server`;
+    case 'unsubscribe_failed':
+      return t`Failed to turn off push notifications`;
+    case 'subscribe_failed':
+    default:
+      return t`Failed to turn on push notifications`;
+  }
 }
 
 export function SettingsCore({ backAction, onOpenLanguage }: SettingsCoreProps) {
@@ -59,6 +88,26 @@ export function SettingsCore({ backAction, onOpenLanguage }: SettingsCoreProps) 
       return;
     }
     history.push('/settings/language');
+  };
+
+  const handleSubscribeToPush = async () => {
+    const result = await subscribeToPush();
+    if (result.ok) {
+      presentToast({ message: t`Push notifications enabled`, duration: 2000, position: 'bottom' });
+      return;
+    }
+
+    presentToast({ message: getPushErrorMessage(result.code), duration: 3000, position: 'bottom' });
+  };
+
+  const handleUnsubscribeFromPush = async () => {
+    const result = await unsubscribeFromPush();
+    if (result.ok) {
+      presentToast({ message: t`Push notifications turned off`, duration: 2000, position: 'bottom' });
+      return;
+    }
+
+    presentToast({ message: getPushErrorMessage(result.code), duration: 3000, position: 'bottom' });
   };
 
   return (
@@ -106,29 +155,31 @@ export function SettingsCore({ backAction, onOpenLanguage }: SettingsCoreProps) 
         </FeatureGate>
 
         <IonListHeader>
-          <IonLabel>Push Notifications</IonLabel>
+          <IonLabel><Trans>Push Notifications</Trans></IonLabel>
         </IonListHeader>
         <IonList inset={true}>
           <IonItem>
             <IonIcon aria-hidden="true" icon={notifications} slot="start" color="tertiary" />
-            <IonLabel>Status</IonLabel>
-            <IonNote slot="end" color="medium">{isSubscribed ? 'Subscribed' : 'Not Subscribed'}</IonNote>
+            <IonLabel><Trans>Status</Trans></IonLabel>
+            <IonNote slot="end" color="medium">
+              {isSubscribed ? t`Subscribed` : t`Not subscribed`}
+            </IonNote>
           </IonItem>
           {permission !== 'granted' && (
             <IonItem>
-              <IonLabel>Permission</IonLabel>
-              <IonNote slot="end" color="medium">{permission}</IonNote>
+              <IonLabel><Trans>Permission</Trans></IonLabel>
+              <IonNote slot="end" color="medium">{getPermissionLabel(permission)}</IonNote>
             </IonItem>
           )}
           {!isSubscribed ? (
-            <IonItem button detail={false} onClick={subscribeToPush} disabled={loading || isSubscribed}>
+            <IonItem button detail={false} onClick={handleSubscribeToPush} disabled={loading || isSubscribed}>
               <IonIcon aria-hidden="true" icon={logIn} slot="start" color="primary" />
-              <IonLabel color="primary">Subscribe to Push</IonLabel>
+              <IonLabel color="primary"><Trans>Turn On Push Notifications</Trans></IonLabel>
             </IonItem>
           ) : (
-            <IonItem button detail={false} onClick={unsubscribeFromPush} disabled={loading || !isSubscribed}>
+            <IonItem button detail={false} onClick={handleUnsubscribeFromPush} disabled={loading || !isSubscribed}>
               <IonIcon aria-hidden="true" icon={logOut} slot="start" color="danger" />
-              <IonLabel color="danger">Unsubscribe</IonLabel>
+              <IonLabel color="danger"><Trans>Turn Off Push Notifications</Trans></IonLabel>
             </IonItem>
           )}
         </IonList>

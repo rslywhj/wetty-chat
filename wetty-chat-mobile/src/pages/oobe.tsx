@@ -12,11 +12,13 @@ import {
   IonTitle,
   IonToggle,
   IonToolbar,
+  useIonToast,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { usePushNotifications, type PushNotificationErrorCode } from '@/hooks/usePushNotifications';
+import { t } from '@lingui/core/macro';
 import './oobe.scss';
 
 const OOBE_STORAGE_KEY = 'oobe';
@@ -25,17 +27,43 @@ function getInitial(name: string | null) {
   return (name?.trim().charAt(0) || 'W').toUpperCase();
 }
 
+function getPushErrorMessage(code: PushNotificationErrorCode) {
+  switch (code) {
+    case 'unsupported_browser':
+      return t`Push notifications are not supported on this device`;
+    case 'permission_denied':
+      return t`Notification permission was not granted`;
+    case 'service_worker_unavailable':
+      return t`Push notifications are not available right now`;
+    case 'backend_subscribe_failed':
+      return t`Push notifications could not be enabled on the server`;
+    case 'unsubscribe_failed':
+      return t`Failed to turn off push notifications`;
+    case 'subscribe_failed':
+    default:
+      return t`Failed to turn on push notifications`;
+  }
+}
+
 export default function OobePage() {
   const history = useHistory();
   const { username, avatar_url } = useSelector((state: RootState) => state.user);
+  const [presentToast] = useIonToast();
   const { isSubscribed, loading, subscribeToPush, unsubscribeFromPush } = usePushNotifications();
 
   const handleToggle = async (enabled: boolean) => {
     if (enabled) {
-      await subscribeToPush();
+      const result = await subscribeToPush();
+      if (!result.ok) {
+        presentToast({ message: getPushErrorMessage(result.code), duration: 3000, position: 'bottom' });
+      }
       return;
     }
-    await unsubscribeFromPush();
+
+    const result = await unsubscribeFromPush();
+    if (!result.ok) {
+      presentToast({ message: getPushErrorMessage(result.code), duration: 3000, position: 'bottom' });
+    }
   };
 
   const handleStart = () => {
