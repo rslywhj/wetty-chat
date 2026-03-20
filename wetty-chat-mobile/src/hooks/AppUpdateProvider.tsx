@@ -5,7 +5,7 @@ import { AppUpdateContext, type CheckForUpdateResult } from './appUpdateContext'
 function waitForServiceWorkerUpdate(
   registration: ServiceWorkerRegistration,
   hasPendingUpdate: () => boolean,
-  timeoutMs = 10000
+  timeoutMs = 5000
 ): Promise<boolean> {
   if (registration.waiting || hasPendingUpdate()) {
     return Promise.resolve(true);
