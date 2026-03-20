@@ -1,70 +1,129 @@
-.attachmentsPreview {
+.previewTray {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #fdfdfd;
-  border-bottom: 1px solid #eee;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 12px 6px;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.92) 100%);
+  border-bottom: 1px solid #e2e8f0;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
 
-.attachmentChip {
+.card {
+  position: relative;
+  flex: 0 0 116px;
+  width: 116px;
+  height: 116px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #dbeafe;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  scroll-snap-align: start;
+}
+
+.previewImage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.removeButton {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  border-radius: 12px;
-  padding: 4px 8px;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.58);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 2;
+  backdrop-filter: blur(10px);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.52);
+  color: #fff;
+  text-align: center;
+}
+
+.overlayError {
+  background: rgba(127, 29, 29, 0.76);
+}
+
+.progressRing {
+  position: relative;
+  width: 54px;
+  height: 54px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+}
+
+.progressTrack,
+.progressValue {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.progressTrack {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.progressValue {
+  stroke: #fff;
+}
+
+.progressLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
+  font-weight: 600;
 }
 
-.attachmentChipImage {
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: var(--ion-color-primary);
+.statusText {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
-.attachmentChipFile {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  color: #334155;
+.errorIcon {
+  font-size: 28px;
 }
 
-.attachmentPreviewImage {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.attachmentIcon {
-  width: 32px;
-  height: 32px;
+.retryButton {
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 18px;
-}
-
-.attachmentName {
-  max-width: 120px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.removeAttachment {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
+  gap: 4px;
+  padding: 0 10px;
   border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  color: #94a3b8;
-  font-size: 16px;
-  padding: 0;
-
-  &:hover {
-    color: var(--ion-color-danger, #ef4444);
-  }
 }

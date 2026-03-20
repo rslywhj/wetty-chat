@@ -45,13 +45,14 @@ import store from '@/store/index';
 import type { RootState } from '@/store/index';
 import { VirtualScroll } from '@/components/chat/VirtualScroll';
 import { ChatBubble } from '@/components/chat/ChatBubble';
-import { MessageComposeBar } from '@/components/chat/MessageComposeBar';
+import { MessageComposeBar, type ComposeUploadInput } from '@/components/chat/MessageComposeBar';
 import './chat-thread.scss';
 import { t } from '@lingui/core/macro';
 import { FeatureGate } from '@/components/FeatureGate';
 import { getGroupInfo } from '@/api/group';
 import { BackButton } from '@/components/BackButton';
 import type { BackAction } from '@/types/back-action';
+import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
 
 function generateClientId(): string {
   return `cg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -272,6 +273,25 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   }, [chatId, storeChatId, threadId, dispatch, showToast]);
 
   const prevCursor = useSelector((state: RootState) => selectPrevCursorForChat(state, storeChatId));
+
+  const uploadAttachment = useCallback(async ({
+    file,
+    dimensions,
+    onProgress,
+    signal,
+  }: ComposeUploadInput) => {
+    const res = await requestUploadUrl({
+      filename: file.name,
+      content_type: file.type || 'application/octet-stream',
+      size: file.size,
+      ...dimensions,
+    });
+
+    const { upload_url, attachment_id } = res.data;
+    await uploadFileToS3(upload_url, file, { onProgress, signal });
+
+    return { attachmentId: attachment_id };
+  }, []);
 
   const handleSend = useCallback((text: string, attachmentIds?: string[]) => {
     if (!chatId) return;
@@ -549,6 +569,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       <IonFooter className="chat-thread-footer">
         <MessageComposeBar
           onSend={handleSend}
+          uploadAttachment={uploadAttachment}
           replyTo={replyingTo ? {
             messageId: replyingTo.id,
             username: replyingTo.sender.name ?? `User ${replyingTo.sender.uid}`,

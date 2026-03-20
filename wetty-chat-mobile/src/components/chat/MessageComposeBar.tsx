@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { IonIcon } from '@ionic/react';
 import { addCircleOutline, happyOutline, paperPlane, closeCircle } from 'ionicons/icons';
 import styles from './MessageComposeBar.module.scss';
-import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
-import { UploadPreview, type UploadPreviewAttachment } from './UploadPreview';
+import { UploadPreview, type ImageUploadDraft } from './UploadPreview';
 
 interface ReplyTo {
   messageId: string;
@@ -16,25 +15,83 @@ export interface EditingMessage {
   text: string;
 }
 
+export interface ComposeUploadInput {
+  file: File;
+  signal: AbortSignal;
+  onProgress: (progress: number) => void;
+  dimensions?: {
+    width?: number;
+    height?: number;
+  };
+}
+
+export interface ComposeUploadResult {
+  attachmentId: string;
+}
+
+interface DraftUploadRecord {
+  draft: ImageUploadDraft;
+  file: File;
+  abortController?: AbortController;
+}
+
 interface MessageComposeBarProps {
   onSend: (text: string, attachmentIds?: string[]) => void;
+  uploadAttachment: (input: ComposeUploadInput) => Promise<ComposeUploadResult>;
   replyTo?: ReplyTo;
   onCancelReply?: () => void;
   editing?: EditingMessage;
   onCancelEdit?: () => void;
 }
 
-export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onCancelEdit }: MessageComposeBarProps) {
+const isAbortError = (error: unknown) => (
+  error instanceof DOMException && error.name === 'AbortError'
+);
+
+const createDraftId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `draft_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+export function MessageComposeBar({
+  onSend,
+  uploadAttachment,
+  replyTo,
+  onCancelReply,
+  editing,
+  onCancelEdit,
+}: MessageComposeBarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const draftsRef = useRef<DraftUploadRecord[]>([]);
   const [text, setText] = useState('');
   const prevTextLenRef = useRef(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [attachments, setAttachments] = useState<UploadPreviewAttachment[]>([]);
+  const [drafts, setDrafts] = useState<DraftUploadRecord[]>([]);
+
+  const cleanupDraft = useCallback((draft: DraftUploadRecord) => {
+    draft.abortController?.abort();
+    URL.revokeObjectURL(draft.draft.previewUrl);
+  }, []);
+
+  const clearDrafts = useCallback((currentDrafts: DraftUploadRecord[]) => {
+    currentDrafts.forEach(cleanupDraft);
+    setDrafts([]);
+  }, [cleanupDraft]);
+
+  useEffect(() => {
+    draftsRef.current = drafts;
+  }, [drafts]);
 
   useEffect(() => {
     if (editing) {
       setText(editing.text);
+      setDrafts((prev) => {
+        prev.forEach(cleanupDraft);
+        return [];
+      });
       const ta = textareaRef.current;
       if (ta) {
         ta.style.height = 'auto';
@@ -45,42 +102,11 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
       const ta = textareaRef.current;
       if (ta) ta.style.height = 'auto';
     }
-  }, [editing]);
+  }, [cleanupDraft, editing]);
 
-  const handleSend = useCallback(() => {
-    const trimmed = text.trim();
-    if (!trimmed && attachments.length === 0) return;
-    onSend(trimmed, attachments.map(a => a.id));
-    setText('');
-    attachments.forEach(a => {
-      if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
-    });
-    setAttachments([]);
-    const ta = textareaRef.current;
-    if (ta) ta.style.height = 'auto';
-  }, [text, attachments, onSend]);
-
-  const handleSendRef = useRef(handleSend);
-  useEffect(() => {
-    handleSendRef.current = handleSend;
-  }, [handleSend]);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.setAttribute('enterkeyhint', 'send');
-    const onKeyDown = (e: KeyboardEvent) => {
-      // macOS Safari can report isComposing=false on the Enter key that
-      // confirms an IME candidate, while still marking the event with 229.
-      const isImeConfirm = e.isComposing || e.keyCode === 229 || e.which === 229;
-      if (e.key === 'Enter' && !e.shiftKey && !isImeConfirm) {
-        e.preventDefault();
-        handleSendRef.current();
-      }
-    };
-    textarea.addEventListener('keydown', onKeyDown);
-    return () => textarea.removeEventListener('keydown', onKeyDown);
-  }, []);
+  useEffect(() => () => {
+    draftsRef.current.forEach(cleanupDraft);
+  }, [cleanupDraft]);
 
   const getImageDimensions = (file: File): Promise<{ width?: number; height?: number }> => {
     return new Promise((resolve) => {
@@ -102,81 +128,205 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
     });
   };
 
-  const processFile = useCallback(async (file: File) => {
-    setIsUploading(true);
-    let previewUrl: string | undefined;
-    if (file.type.startsWith('image/')) {
-      previewUrl = URL.createObjectURL(file);
-    }
+  const startUpload = useCallback(async (localId: string, file: File) => {
+    const abortController = new AbortController();
+
+    setDrafts((prev) => prev.map((draftRecord) => (
+      draftRecord.draft.localId === localId
+        ? {
+          ...draftRecord,
+          abortController,
+          draft: {
+            ...draftRecord.draft,
+            status: 'uploading',
+            progress: 0,
+            errorMessage: undefined,
+            attachmentId: undefined,
+          },
+        }
+        : draftRecord
+    )));
 
     try {
       const dimensions = await getImageDimensions(file);
-
-      const res = await requestUploadUrl({
-        filename: file.name,
-        content_type: file.type || 'application/octet-stream',
-        size: file.size,
-        ...dimensions,
+      const result = await uploadAttachment({
+        file,
+        dimensions,
+        signal: abortController.signal,
+        onProgress: (progress) => {
+          setDrafts((prev) => prev.map((draftRecord) => (
+            draftRecord.draft.localId === localId
+              ? {
+                ...draftRecord,
+                draft: {
+                  ...draftRecord.draft,
+                  progress,
+                },
+              }
+              : draftRecord
+          )));
+        },
       });
 
-      const { upload_url, attachment_id } = res.data;
-      await uploadFileToS3(upload_url, file);
-
-      setAttachments(prev => [...prev, { id: attachment_id, name: file.name, previewUrl }]);
-    } catch (err) {
-      console.error('Failed to upload attachment:', err);
-      alert('Failed to upload file');
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
+      setDrafts((prev) => prev.map((draftRecord) => (
+        draftRecord.draft.localId === localId
+          ? {
+            ...draftRecord,
+            abortController: undefined,
+            draft: {
+              ...draftRecord.draft,
+              status: 'uploaded',
+              progress: 100,
+              attachmentId: result.attachmentId,
+              errorMessage: undefined,
+            },
+          }
+          : draftRecord
+      )));
+    } catch (error) {
+      if (isAbortError(error) || abortController.signal.aborted) {
+        return;
       }
+
+      console.error('Failed to upload attachment:', error);
+      setDrafts((prev) => prev.map((draftRecord) => (
+        draftRecord.draft.localId === localId
+          ? {
+            ...draftRecord,
+            abortController: undefined,
+            draft: {
+              ...draftRecord.draft,
+              status: 'error',
+              progress: 0,
+              attachmentId: undefined,
+              errorMessage: 'Upload failed',
+            },
+          }
+          : draftRecord
+      )));
     } finally {
-      setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  }, [uploadAttachment]);
+
+  const queueFiles = useCallback((files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    const queuedDrafts = imageFiles.map((file) => ({
+      file,
+      draft: {
+        localId: createDraftId(),
+        kind: 'image' as const,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+        progress: 0,
+        status: 'uploading' as const,
+      },
+    }));
+
+    setDrafts((prev) => [...prev, ...queuedDrafts]);
+    queuedDrafts.forEach(({ draft, file }) => {
+      void startUpload(draft.localId, file);
+    });
+  }, [startUpload]);
+
+  const handleSend = useCallback(() => {
+    const trimmed = text.trim();
+    const attachmentIds = drafts
+      .map((draftRecord) => draftRecord.draft.attachmentId)
+      .filter((attachmentId): attachmentId is string => Boolean(attachmentId));
+
+    if (!trimmed && attachmentIds.length === 0) return;
+
+    onSend(trimmed, attachmentIds);
+    setText('');
+    clearDrafts(drafts);
+    const ta = textareaRef.current;
+    if (ta) ta.style.height = 'auto';
+  }, [clearDrafts, drafts, onSend, text]);
+
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.setAttribute('enterkeyhint', 'send');
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isImeConfirm = e.isComposing || e.keyCode === 229 || e.which === 229;
+      if (e.key === 'Enter' && !e.shiftKey && !isImeConfirm) {
+        e.preventDefault();
+        handleSendRef.current();
+      }
+    };
+    textarea.addEventListener('keydown', onKeyDown);
+    return () => textarea.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await processFile(file);
+    if (editing) return;
+    const files = Array.from(e.target.files ?? []);
+    queueFiles(files);
   };
 
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
+      if (editing) return;
+
       const items = e.clipboardData?.items;
       if (!items) return;
 
+      const files: File[] = [];
+
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.startsWith('image/')) {
-          e.preventDefault();
           const file = items[i].getAsFile();
           if (file) {
-            processFile(file);
+            files.push(file);
           }
-          break; // Process one image at a time
         }
       }
+
+      if (files.length > 0) {
+        e.preventDefault();
+        queueFiles(files);
+      }
     };
-    
+
     document.addEventListener('paste', handleGlobalPaste);
     return () => document.removeEventListener('paste', handleGlobalPaste);
-  }, [processFile]);
+  }, [editing, queueFiles]);
 
-  const removeAttachment = (attachmentId: string) => {
-    setAttachments(prev => {
-      const removed = prev.find((attachment) => attachment.id === attachmentId);
-      if (removed?.previewUrl) {
-        URL.revokeObjectURL(removed.previewUrl);
+  const removeDraft = useCallback((localId: string) => {
+    setDrafts((prev) => {
+      const draftToRemove = prev.find((draftRecord) => draftRecord.draft.localId === localId);
+      if (draftToRemove) {
+        cleanupDraft(draftToRemove);
       }
-      return prev.filter((attachment) => attachment.id !== attachmentId);
+      return prev.filter((draftRecord) => draftRecord.draft.localId !== localId);
     });
-  };
+  }, [cleanupDraft]);
+
+  const retryDraft = useCallback((localId: string) => {
+    const file = draftsRef.current.find((draftRecord) => draftRecord.draft.localId === localId)?.file;
+    if (!file) return;
+    void startUpload(localId, file);
+  }, [startUpload]);
+
+  const hasUploadingDraft = drafts.some((draftRecord) => draftRecord.draft.status === 'uploading');
+  const hasFailedDraft = drafts.some((draftRecord) => draftRecord.draft.status === 'error');
+  const hasUploadedAttachment = drafts.some((draftRecord) => draftRecord.draft.status === 'uploaded');
+  const canSend = !hasUploadingDraft && !hasFailedDraft && (text.trim().length > 0 || hasUploadedAttachment);
 
   return (
     <div className={styles.bar}>
       <input
         type="file"
         accept="image/*"
+        multiple
         style={{ display: 'none' }}
         ref={fileInputRef}
         onChange={handleFileChange}
@@ -184,9 +334,9 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
       <button
         type="button"
         className={styles.attachBtn}
-        aria-label="Attach"
+        aria-label="Attach image"
         onClick={() => fileInputRef.current?.click()}
-        disabled={isUploading}
+        disabled={Boolean(editing)}
       >
         <IonIcon icon={addCircleOutline} />
       </button>
@@ -213,9 +363,11 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
           </div>
         ) : null}
 
-        {attachments.length > 0 && (
-          <UploadPreview attachments={attachments} onRemove={removeAttachment} />
-        )}
+        <UploadPreview
+          drafts={drafts.map((draftRecord) => draftRecord.draft)}
+          onRemove={removeDraft}
+          onRetry={retryDraft}
+        />
 
         <div className={styles.inputRow}>
           <textarea
@@ -232,15 +384,11 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
               prevTextLenRef.current = newLen;
 
               if (couldHaveShrunk) {
-                // Text was deleted / IME confirmed — defer the collapse-and-measure
-                // to the next frame so the auto pulse doesn't cause an intermediate
-                // layout that shifts the scroll container.
                 requestAnimationFrame(() => {
                   ta.style.height = 'auto';
                   ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
                 });
               } else {
-                // Growing or same length — scrollHeight reflects needed height
                 const desired = Math.min(ta.scrollHeight, 120);
                 if (desired > ta.clientHeight) {
                   ta.style.height = `${desired}px`;
@@ -255,10 +403,10 @@ export function MessageComposeBar({ onSend, replyTo, onCancelReply, editing, onC
       </div>
       <button
         type="button"
-        className={`${styles.sendBtn}${(text.trim().length === 0 && attachments.length === 0) || isUploading ? ` ${styles.disabled}` : ''}`}
+        className={`${styles.sendBtn}${!canSend ? ` ${styles.disabled}` : ''}`}
         onClick={handleSend}
         aria-label="Send message"
-        disabled={isUploading}
+        disabled={!canSend}
       >
         <IonIcon icon={paperPlane} />
       </button>

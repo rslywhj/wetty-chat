@@ -1,4 +1,4 @@
-import type { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import apiClient from './client';
 
 export interface UploadUrlRequest {
@@ -14,6 +14,11 @@ export interface UploadUrlResponse {
     upload_url: string;
 }
 
+export interface UploadFileToS3Options {
+    signal?: AbortSignal;
+    onProgress?: (progress: number) => void;
+}
+
 export function requestUploadUrl(
     body: UploadUrlRequest
 ): Promise<AxiosResponse<UploadUrlResponse>> {
@@ -22,14 +27,19 @@ export function requestUploadUrl(
 
 export async function uploadFileToS3(
     url: string,
-    file: File
-): Promise<Response> {
-    return fetch(url, {
-        method: 'PUT',
-        body: file,
+    file: File,
+    options: UploadFileToS3Options = {}
+): Promise<AxiosResponse<void>> {
+    return axios.put(url, file, {
         headers: {
             'Content-Type': file.type,
             'x-amz-acl': 'public-read',
+        },
+        signal: options.signal,
+        onUploadProgress: (event) => {
+            if (!options.onProgress || !event.total) return;
+            const progress = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+            options.onProgress(progress);
         },
     });
 }
