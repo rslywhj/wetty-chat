@@ -12,11 +12,12 @@ import { fetchCurrentUser, setUser } from '@/store/userSlice';
 
 import './app.scss';
 import { getCurrentUserId } from './js/current-user';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import { t } from '@lingui/core/macro';
 import MobileLayout from './layouts/MobileLayout';
+import { AppUpdateProvider } from './hooks/AppUpdateProvider';
 import { useIsDesktop } from './hooks/useIsDesktop';
 import { useAppLifecycle } from './hooks/useAppLifecycle';
+import { useAppUpdate } from './hooks/useAppUpdate';
 import { DesktopSplitLayout } from './layouts/DesktopSplitLayout';
 import OobePage from '@/pages/oobe';
 import LandingPage from './pages/landing';
@@ -47,22 +48,11 @@ function AppRouter({ isDesktop }: { isDesktop: boolean }) {
   return isDesktop ? <DesktopSplitLayout /> : <MobileLayout />;
 }
 
-const App: React.FC = () => {
+function AppShell() {
   const dispatch = useDispatch<AppDispatch>();
   const isDesktop = useIsDesktop();
   useAppLifecycle();
-
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(r: any) {
-      console.log('SW Registered: ', r);
-    },
-    onRegisterError(error: any) {
-      console.log('SW registration error', error);
-    },
-  });
+  const { needRefresh, setNeedRefresh, updateServiceWorker } = useAppUpdate();
 
   useEffect(() => {
     initWebSocket();
@@ -98,6 +88,14 @@ const App: React.FC = () => {
         </IonReactRouter>
       </div>
     </IonApp>
+  );
+}
+
+const App: React.FC = () => {
+  return (
+    <AppUpdateProvider>
+      <AppShell />
+    </AppUpdateProvider>
   );
 };
 

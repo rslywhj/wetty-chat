@@ -22,10 +22,11 @@ import { setCurrentUserId } from '@/js/current-user';
 import type { RootState } from '@/store/index';
 import { Trans } from '@lingui/react/macro';
 import { FeatureGate } from '@/components/FeatureGate';
+import { CheckForUpdateItem } from '@/components/settings/CheckForUpdateItem';
 
 import { usePushNotifications, type PushNotificationErrorCode } from '@/hooks/usePushNotifications';
 import { t } from '@lingui/core/macro';
-import { cog, codeWorking, notifications, logIn, logOut, refreshCircle } from 'ionicons/icons';
+import { cog, codeWorking, notifications, logIn, logOut } from 'ionicons/icons';
 import { BackButton } from '@/components/BackButton';
 import type { BackAction } from '@/types/back-action';
 
@@ -186,24 +187,7 @@ export function SettingsCore({ backAction, onOpenGeneral }: SettingsCoreProps) {
           <IonLabel><Trans>About</Trans></IonLabel>
         </IonListHeader>
         <IonList inset={true}>
-          <IonItem button detail={false} onClick={async () => {
-            try {
-              if (navigator.serviceWorker) {
-                const reg = await navigator.serviceWorker.getRegistration();
-                if (reg) {
-                  await reg.update();
-                  presentToast({ message: t`Update check complete`, duration: 2000 });
-                  return;
-                }
-              }
-              presentToast({ message: t`No service worker registered`, duration: 2000 });
-            } catch {
-              presentToast({ message: t`Update check failed`, duration: 2000 });
-            }
-          }}>
-            <IonIcon aria-hidden="true" icon={refreshCircle} slot="start" color="secondary" />
-            <IonLabel color="primary"><Trans>Check for Update</Trans></IonLabel>
-          </IonItem>
+          <CheckForUpdateItem />
         </IonList>
         <IonText
           color="medium"
