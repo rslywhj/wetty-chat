@@ -4,6 +4,7 @@ import { t } from '@lingui/core/macro';
 import type { Sender } from '@/api/messages';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { UserAvatar } from '@/components/UserAvatar';
+import { FeatureGate } from '../FeatureGate';
 
 interface UserProfileModalProps {
   sender: Sender | null;
@@ -42,7 +43,9 @@ export function UserProfileModal({ sender, onDismiss }: UserProfileModalProps) {
               style={{ display: 'inline-flex' }}
             />
             <h2>{displayName}</h2>
-            <p style={{ color: 'var(--ion-color-medium)' }}>UID: {sender.uid}</p>
+            <FeatureGate>
+              <p style={{ color: 'var(--ion-color-medium)' }}>UID: {sender.uid}</p>
+            </FeatureGate>
           </div>
         )}
       </IonContent>
