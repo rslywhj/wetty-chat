@@ -131,6 +131,7 @@ msgid "Check for Update"
 msgstr "检查更新"
 
 #: src/components/chat/ImageViewer.tsx
+#: src/components/chat/ReactionDetailsModal.tsx
 #: src/components/chat/UserProfileModal.tsx
 msgid "Close"
 msgstr "关闭"
@@ -350,6 +351,7 @@ msgstr "大"
 #~ msgid "Left group"
 #~ msgstr "已退出群组"
 
+#: src/components/chat/ReactionDetailsModal.tsx
 #: src/pages/chat-thread.tsx
 msgid "Loading..."
 msgstr "正在加载..."
@@ -492,6 +494,10 @@ msgstr "正在引用 {0}"
 #: src/components/chat/MessageComposeBar.tsx
 #~ msgid "Quoting to {0}"
 #~ msgstr "正在引用 {0}"
+
+#: src/pages/chat-thread.tsx
+msgid "Reaction Details"
+msgstr "回应详情"
 
 #: src/components/chat/ChatList.tsx
 msgid "Read"

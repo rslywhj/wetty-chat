@@ -586,15 +586,13 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       });
     }
     if (msg.reactions?.length) {
-      for (const r of msg.reactions) {
-        actions.push({
-          key: `reaction-${r.emoji}`,
-          label: `${r.emoji} ${r.count}`,
-          handler: () => {
-            setReactionDetail({ messageId: msg.id, emoji: r.emoji });
-          },
-        });
-      }
+      actions.push({
+        key: 'reaction-details',
+        label: t`Reaction Details`,
+        handler: () => {
+          setReactionDetail({ messageId: msg.id });
+        },
+      });
     }
     return actions;
   }, [overlayMessage, currentUserId, threadId, chatId, history, dispatch, showToast, presentAlert]);

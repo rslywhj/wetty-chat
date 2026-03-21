@@ -131,6 +131,7 @@ msgid "Check for Update"
 msgstr "Check for Update"
 
 #: src/components/chat/ImageViewer.tsx
+#: src/components/chat/ReactionDetailsModal.tsx
 #: src/components/chat/UserProfileModal.tsx
 msgid "Close"
 msgstr "Close"
@@ -350,6 +351,7 @@ msgstr "Large"
 #~ msgid "Left group"
 #~ msgstr "Left group"
 
+#: src/components/chat/ReactionDetailsModal.tsx
 #: src/pages/chat-thread.tsx
 msgid "Loading..."
 msgstr "Loading..."
@@ -488,6 +490,10 @@ msgstr "Quote"
 #: src/components/chat/MessageComposeBar.tsx
 msgid "Quoting {0}"
 msgstr "Quoting {0}"
+
+#: src/pages/chat-thread.tsx
+msgid "Reaction Details"
+msgstr "Reaction Details"
 
 #: src/components/chat/ChatList.tsx
 msgid "Read"
