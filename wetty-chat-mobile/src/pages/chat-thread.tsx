@@ -526,8 +526,8 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         },
       },
       {
-        key: 'quote',
-        label: t`Quote`,
+        key: 'reply',
+        label: t`Reply`,
         icon: arrowUndo,
         handler: () => {
           setReplyingTo(msg);
@@ -537,7 +537,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     if (!threadId && !msg.thread_info) {
       actions.push({
         key: 'thread',
-        label: t`Reply in Thread`,
+        label: t`Start Thread`,
         icon: chatbubbles,
         handler: () => {
           history.push(`/chats/chat/${chatId}/thread/${msg.id}`);

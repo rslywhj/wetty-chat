@@ -108,12 +108,8 @@ msgid "Cancel edit"
 msgstr "取消編輯"
 
 #: src/components/chat/MessageComposeBar.tsx
-msgid "Cancel quote"
-msgstr "取消引用"
-
-#: src/components/chat/MessageComposeBar.tsx
-#~ msgid "Cancel reply"
-#~ msgstr "取消回覆"
+msgid "Cancel reply"
+msgstr "取消回覆"
 
 #. placeholder {0}: chat.id
 #: src/components/chat/ChatList.tsx
@@ -481,16 +477,6 @@ msgstr "推播通知已開啟"
 msgid "Push notifications turned off"
 msgstr "推播通知已關閉"
 
-#: src/components/chat/ChatBubble.tsx
-#: src/pages/chat-thread.tsx
-msgid "Quote"
-msgstr "引用"
-
-#. placeholder {0}: replyTo.username
-#: src/components/chat/MessageComposeBar.tsx
-msgid "Quoting {0}"
-msgstr "正在引用 {0}"
-
 #: src/pages/chat-thread.tsx
 msgid "Reaction Details"
 msgstr "表情回應詳情"
@@ -525,24 +511,22 @@ msgid "Remove Member"
 msgstr "移除成員"
 
 #: src/components/chat/ChatBubble.tsx
-#~ msgid "replies"
-#~ msgstr "則話題回覆"
+msgid "replies"
+msgstr "則回覆"
 
 #: src/components/chat/ChatBubble.tsx
-#~ msgid "reply"
-#~ msgstr "則話題回覆"
+msgid "reply"
+msgstr "則回覆"
 
 #: src/components/chat/ChatBubble.tsx
-#~ msgid "Reply"
-#~ msgstr "引用"
-
 #: src/pages/chat-thread.tsx
-msgid "Reply in Thread"
-msgstr "回覆話題"
+msgid "Reply"
+msgstr "回覆"
 
+#. placeholder {0}: replyTo.username
 #: src/components/chat/MessageComposeBar.tsx
-#~ msgid "Replying to {0}"
-#~ msgstr "正在回覆 {0}"
+msgid "Replying to {0}"
+msgstr "正在回覆 {0}"
 
 #: src/components/chat/UploadPreview.tsx
 msgid "Retry"
@@ -578,8 +562,8 @@ msgid "Small"
 msgstr "小"
 
 #: src/pages/chat-thread.tsx
-#~ msgid "Start Thread"
-#~ msgstr "開始話題"
+msgid "Start Thread"
+msgstr "開始話題"
 
 #: src/pages/settings.tsx
 msgid "Status"
@@ -604,14 +588,6 @@ msgstr "這是你的訊息在聊天中的顯示效果。"
 #: src/pages/chat-thread.tsx
 msgid "Thread"
 msgstr "話題"
-
-#: src/components/chat/ChatBubble.tsx
-msgid "thread replies"
-msgstr "則話題回覆"
-
-#: src/components/chat/ChatBubble.tsx
-msgid "thread reply"
-msgstr "則話題回覆"
 
 #. placeholder {0}: index + 1
 #: src/components/chat/ImageViewer.tsx

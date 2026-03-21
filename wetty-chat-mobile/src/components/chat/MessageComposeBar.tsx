@@ -461,14 +461,14 @@ export function MessageComposeBar({
         ) : replyTo ? (
           <div className={styles.replyPreview}>
             <div className={styles.replyText}>
-              <span className={styles.replyUsername}>{t`Quoting ${replyTo.username}`}</span>
+              <span className={styles.replyUsername}>{t`Replying to ${replyTo.username}`}</span>
               <span className={styles.replySnippet}>{getMessagePreviewText({
                 message: replyTo.text,
                 attachments: replyTo.attachments,
                 isDeleted: replyTo.isDeleted,
               })}</span>
             </div>
-            <button type="button" className={styles.replyClose} aria-label={t`Cancel quote`} onClick={onCancelReply}>
+            <button type="button" className={styles.replyClose} aria-label={t`Cancel reply`} onClick={onCancelReply}>
               <IonIcon icon={closeCircle} />
             </button>
           </div>
