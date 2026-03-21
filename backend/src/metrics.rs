@@ -16,6 +16,8 @@ pub(crate) struct Metrics {
     http_request_duration_seconds: HistogramVec,
     messages_total: IntCounterVec,
     push_notifications_total: IntCounterVec,
+    push_notification_jobs_total: IntCounterVec,
+    push_notification_job_duration_seconds: HistogramVec,
     push_notifications_suppressed_total: IntCounter,
     ws_connected_users: IntGauge,
     ws_active_connections: IntGauge,
@@ -77,6 +79,23 @@ impl Metrics {
             &["result"],
         )
         .expect("push_notifications_total metric should be valid");
+        let push_notification_jobs_total = IntCounterVec::new(
+            opts!(
+                "push_notification_jobs_total",
+                "Total number of push notification jobs processed by the worker"
+            ),
+            &["result"],
+        )
+        .expect("push_notification_jobs_total metric should be valid");
+        let push_notification_job_duration_seconds = HistogramVec::new(
+            histogram_opts!(
+                "push_notification_job_duration_seconds",
+                "Push notification job runtime in seconds",
+                vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0]
+            ),
+            &["result"],
+        )
+        .expect("push_notification_job_duration_seconds metric should be valid");
         let push_notifications_suppressed_total = IntCounter::with_opts(opts!(
             "push_notifications_suppressed_total",
             "Total number of push notifications skipped because a user had active websocket presence"
@@ -227,6 +246,12 @@ impl Metrics {
             .register(Box::new(push_notifications_total.clone()))
             .expect("push_notifications_total registration should succeed");
         registry
+            .register(Box::new(push_notification_jobs_total.clone()))
+            .expect("push_notification_jobs_total registration should succeed");
+        registry
+            .register(Box::new(push_notification_job_duration_seconds.clone()))
+            .expect("push_notification_job_duration_seconds registration should succeed");
+        registry
             .register(Box::new(push_notifications_suppressed_total.clone()))
             .expect("push_notifications_suppressed_total registration should succeed");
         registry
@@ -302,6 +327,8 @@ impl Metrics {
             http_request_duration_seconds,
             messages_total,
             push_notifications_total,
+            push_notification_jobs_total,
+            push_notification_job_duration_seconds,
             push_notifications_suppressed_total,
             ws_connected_users,
             ws_active_connections,
@@ -362,6 +389,15 @@ impl Metrics {
         self.push_notifications_total
             .with_label_values(&[result])
             .inc();
+    }
+
+    pub(crate) fn record_push_job(&self, result: &str, duration_seconds: f64) {
+        self.push_notification_jobs_total
+            .with_label_values(&[result])
+            .inc();
+        self.push_notification_job_duration_seconds
+            .with_label_values(&[result])
+            .observe(duration_seconds);
     }
 
     pub(crate) fn set_ws_connected_users(&self, connected_users: usize) {
@@ -539,6 +575,7 @@ mod tests {
         metrics.record_http("GET", "/seed", StatusCode::OK, 0.001);
         metrics.record_message(42);
         metrics.record_push_notification(true);
+        metrics.record_push_job("success", 0.002);
         metrics.record_push_suppressed();
         metrics.set_ws_connected_users(2);
         metrics.set_ws_connection_states(1, 1);
@@ -576,6 +613,8 @@ mod tests {
         assert!(body.contains("http_request_duration_seconds"));
         assert!(body.contains("messages_total"));
         assert!(body.contains("push_notifications_total"));
+        assert!(body.contains("push_notification_jobs_total"));
+        assert!(body.contains("push_notification_job_duration_seconds"));
         assert!(body.contains("push_notifications_suppressed_total"));
         assert!(body.contains("ws_connected_users"));
         assert!(body.contains("ws_active_connections"));
@@ -660,6 +699,8 @@ mod tests {
         metrics.record_message(123);
         metrics.record_push_notification(true);
         metrics.record_push_notification(false);
+        metrics.record_push_job("success", 0.2);
+        metrics.record_push_job("failure", 0.4);
         metrics.record_push_suppressed();
         metrics.set_ws_connected_users(1);
         metrics.set_ws_connection_states(1, 0);
@@ -680,6 +721,12 @@ mod tests {
         assert!(rendered.contains("messages_total{chat_id=\"123\"} 1"));
         assert!(rendered.contains("push_notifications_total{result=\"success\"} 1"));
         assert!(rendered.contains("push_notifications_total{result=\"failure\"} 1"));
+        assert!(rendered.contains("push_notification_jobs_total{result=\"success\"} 1"));
+        assert!(rendered.contains("push_notification_jobs_total{result=\"failure\"} 1"));
+        assert!(rendered.contains("push_notification_job_duration_seconds_sum{result=\"success\"} 0.2"));
+        assert!(rendered.contains("push_notification_job_duration_seconds_sum{result=\"failure\"} 0.4"));
+        assert!(rendered.contains("push_notification_job_duration_seconds_count{result=\"success\"} 1"));
+        assert!(rendered.contains("push_notification_job_duration_seconds_count{result=\"failure\"} 1"));
         assert!(rendered.contains("push_notifications_suppressed_total 1"));
         assert!(rendered.contains("ws_connected_users 1"));
         assert!(rendered.contains("ws_active_connections 1"));

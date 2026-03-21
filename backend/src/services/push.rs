@@ -4,6 +4,7 @@ use diesel::PgConnection;
 use futures::future::FutureExt;
 use futures::stream::{self, StreamExt};
 use std::sync::Arc;
+use std::time::Instant;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
@@ -206,6 +207,7 @@ async fn run_push_worker(
             "Processing push job: chat_id={} sender_uid={} message_id={}",
             job.chat_id, job.sender_uid, job.message_id
         );
+        let started_at = Instant::now();
 
         #[cfg(test)]
         maybe_panic_for_test(&job);
@@ -214,15 +216,26 @@ async fn run_push_worker(
             Ok(c) => c,
             Err(e) => {
                 error!("Push worker: failed to get DB connection: {:?}", e);
+                service
+                    .metrics
+                    .record_push_job("failure", started_at.elapsed().as_secs_f64());
                 continue;
             }
         };
 
-        if let Err(e) = process_push_job(&service, conn, &ws_registry, &job).await {
-            error!(
-                "Push worker: job failed for message_id={}: {}",
-                job.message_id, e
-            );
+        match process_push_job(&service, conn, &ws_registry, &job).await {
+            Ok(()) => service
+                .metrics
+                .record_push_job("success", started_at.elapsed().as_secs_f64()),
+            Err(e) => {
+                error!(
+                    "Push worker: job failed for message_id={}: {}",
+                    job.message_id, e
+                );
+                service
+                    .metrics
+                    .record_push_job("failure", started_at.elapsed().as_secs_f64());
+            }
         }
     }
 }
