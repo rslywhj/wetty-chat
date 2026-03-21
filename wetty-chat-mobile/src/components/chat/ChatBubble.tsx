@@ -8,6 +8,7 @@ import type { Attachment, ReactionSummary } from '@/api/messages';
 import { ImageViewer } from './ImageViewer';
 import { getMessagePreviewText } from './messagePreview';
 import { selectChatFontSizeStyle } from '@/store/settingsSlice';
+import { UserAvatar } from '@/components/UserAvatar';
 
 const URL_REGEX = /(https?:\/\/[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+)/g;
 const TRAILING_PUNCT = /[.,);!?]+$/;
@@ -69,20 +70,6 @@ interface ChatBubbleProps {
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function colorForUser(name: string): string {
-  let hash = 0;
-  for (const char of name) {
-    hash = (hash << 5) - hash + char.charCodeAt(0);
-    hash |= 0; // Cap to 32bit
-  }
-  const hue = ((hash * 137) % 360 + 360) % 360;
-  return `hsl(${hue}, 55%, 50%)`;
 }
 
 const SWIPE_THRESHOLD = 60;
@@ -236,23 +223,13 @@ export function ChatBubble({
       >
         <div className={`${styles.chatRow} ${isSent ? styles.sent : styles.received}`}>
           {showAvatar ? (
-            avatarUrl ? (
-              <div
-                className={styles.avatar}
-                style={{ cursor: onAvatarClick ? 'pointer' : undefined }}
-                onClick={onAvatarClick}
-              >
-                <img src={avatarUrl} />
-              </div>
-            ) : (
-              <div
-                className={styles.avatar}
-                style={{ backgroundColor: colorForUser(senderName), cursor: onAvatarClick ? 'pointer' : undefined }}
-                onClick={onAvatarClick}
-              >
-                {getInitials(senderName)}
-              </div>
-            )
+            <UserAvatar
+              name={senderName}
+              avatarUrl={avatarUrl}
+              size={36}
+              className={styles.avatar}
+              onClick={onAvatarClick}
+            />
           ) : (
             <div className={styles.avatarSpacer} />
           )}

@@ -1,5 +1,4 @@
 import {
-  IonAvatar,
   IonButton,
   IonContent,
   IonHeader,
@@ -19,13 +18,10 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
 import { usePushNotifications, type PushNotificationErrorCode } from '@/hooks/usePushNotifications';
 import { t } from '@lingui/core/macro';
+import { UserAvatar } from '@/components/UserAvatar';
 import './oobe.scss';
 
 const OOBE_STORAGE_KEY = 'oobe';
-
-function getInitial(name: string | null) {
-  return (name?.trim().charAt(0) || 'W').toUpperCase();
-}
 
 function getPushErrorMessage(code: PushNotificationErrorCode) {
   switch (code) {
@@ -81,13 +77,12 @@ export default function OobePage() {
       <IonContent fullscreen={true}>
         <div className="oobe-shell">
           <div className="oobe-card">
-            <IonAvatar className="oobe-avatar">
-              {avatar_url ? (
-                <img src={avatar_url} alt={username ?? 'User avatar'} />
-              ) : (
-                <div className="oobe-avatar__fallback">{getInitial(username)}</div>
-              )}
-            </IonAvatar>
+            <UserAvatar
+              name={username ?? 'W'}
+              avatarUrl={avatar_url}
+              size={88}
+              className="oobe-avatar"
+            />
 
             <IonText>
               <h1 className="oobe-title">欢迎，{username ?? 'Wetty 用户'}</h1>

@@ -3,20 +3,7 @@ import { close } from 'ionicons/icons';
 import { t } from '@lingui/core/macro';
 import type { Sender } from '@/api/messages';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function colorForUser(name: string): string {
-  let hash = 0;
-  for (const char of name) {
-    hash = (hash << 5) - hash + char.charCodeAt(0);
-    hash |= 0;
-  }
-  const hue = ((hash * 137) % 360 + 360) % 360;
-  return `hsl(${hue}, 55%, 50%)`;
-}
+import { UserAvatar } from '@/components/UserAvatar';
 
 interface UserProfileModalProps {
   sender: Sender | null;
@@ -48,22 +35,12 @@ export function UserProfileModal({ sender, onDismiss }: UserProfileModalProps) {
         </button>
         {sender && (
           <div style={{ textAlign: 'center', paddingTop: 24 }}>
-            {sender.avatar_url ? (
-              <img
-                src={sender.avatar_url}
-                alt={displayName}
-                style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }}
-              />
-            ) : (
-              <div style={{
-                width: 80, height: 80, borderRadius: '50%',
-                backgroundColor: colorForUser(displayName),
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: 28, fontWeight: 600,
-              }}>
-                {getInitials(displayName)}
-              </div>
-            )}
+            <UserAvatar
+              name={displayName}
+              avatarUrl={sender.avatar_url}
+              size={80}
+              style={{ display: 'inline-flex' }}
+            />
             <h2>{displayName}</h2>
             <p style={{ color: 'var(--ion-color-medium)' }}>UID: {sender.uid}</p>
           </div>

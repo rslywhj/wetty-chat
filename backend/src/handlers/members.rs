@@ -9,6 +9,7 @@ use serde::Serialize;
 
 use crate::models::{GroupRole, NewGroupMembership};
 use crate::schema::{self, group_membership};
+use crate::services::user::lookup_user_avatars;
 use crate::utils::auth::CurrentUid;
 use crate::{AppState, MAX_MEMBERS_LIMIT};
 
@@ -41,6 +42,7 @@ pub struct MemberResponse {
     role: GroupRole,
     joined_at: DateTime<Utc>,
     username: Option<String>,
+    avatar_url: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -135,7 +137,10 @@ async fn get_members(
         .map(|role| role == GroupRole::Admin)
         .map_err(|e| {
             tracing::error!("get requester role: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load requester role")
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load requester role",
+            )
         })?;
 
     let limit = q
@@ -171,10 +176,13 @@ async fn get_members(
         })?;
 
     let has_more = rows.len() as i64 > limit;
-    let members: Vec<MemberResponse> = rows
+    let page_rows: Vec<_> = rows.into_iter().take(limit as usize).collect();
+    let uids: Vec<i32> = page_rows.iter().map(|(uid, _, _, _)| *uid).collect();
+    let mut avatars = lookup_user_avatars(&state, &uids);
+    let members: Vec<MemberResponse> = page_rows
         .into_iter()
-        .take(limit as usize)
         .map(|(uid, role, joined_at, username)| MemberResponse {
+            avatar_url: avatars.remove(&uid).flatten(),
             uid,
             role,
             joined_at,
@@ -182,7 +190,9 @@ async fn get_members(
         })
         .collect();
 
-    let next_cursor = has_more.then(|| members.last().map(|member| member.uid)).flatten();
+    let next_cursor = has_more
+        .then(|| members.last().map(|member| member.uid))
+        .flatten();
 
     Ok(Json(ListMembersResponse {
         members,
@@ -259,6 +269,10 @@ async fn post_add_member(
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add member")
         })?;
 
+    let avatar_url = lookup_user_avatars(&state, &[body.uid])
+        .remove(&body.uid)
+        .flatten();
+
     Ok((
         StatusCode::CREATED,
         Json(MemberResponse {
@@ -266,6 +280,7 @@ async fn post_add_member(
             role,
             joined_at: now,
             username,
+            avatar_url,
         }),
     ))
 }
@@ -386,11 +401,16 @@ async fn patch_member(
                 )
             })?;
 
+    let avatar_url = lookup_user_avatars(&state, &[target_uid])
+        .remove(&target_uid)
+        .flatten();
+
     Ok(Json(MemberResponse {
         uid: target_uid,
         role,
         joined_at,
         username,
+        avatar_url,
     }))
 }
 

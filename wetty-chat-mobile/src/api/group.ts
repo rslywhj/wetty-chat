@@ -22,6 +22,7 @@ export interface MemberResponse {
   role: string;
   joined_at: string;
   username: string | null;
+  avatar_url: string | null;
 }
 
 export interface ListMembersResponse {

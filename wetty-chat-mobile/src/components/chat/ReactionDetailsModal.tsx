@@ -4,20 +4,7 @@ import { close } from 'ionicons/icons';
 import { t } from '@lingui/core/macro';
 import { getReactionDetails, type ReactionReactor } from '@/api/messages';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
-
-function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
-function colorForUser(name: string): string {
-  let hash = 0;
-  for (const char of name) {
-    hash = (hash << 5) - hash + char.charCodeAt(0);
-    hash |= 0;
-  }
-  const hue = ((hash * 137) % 360 + 360) % 360;
-  return `hsl(${hue}, 55%, 50%)`;
-}
+import { UserAvatar } from '@/components/UserAvatar';
 
 interface ReactionGroup {
   emoji: string;
@@ -106,22 +93,11 @@ export function ReactionDetailsModal({ chatId, messageId, initialEmoji, onDismis
               const displayName = reactor.name ?? `User ${reactor.uid}`;
               return (
                 <div key={reactor.uid} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  {reactor.avatar_url ? (
-                    <img
-                      src={reactor.avatar_url}
-                      alt={displayName}
-                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%',
-                      backgroundColor: colorForUser(displayName),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontSize: 14, fontWeight: 600, flexShrink: 0,
-                    }}>
-                      {getInitials(displayName)}
-                    </div>
-                  )}
+                  <UserAvatar
+                    name={displayName}
+                    avatarUrl={reactor.avatar_url}
+                    size={36}
+                  />
                   <span style={{ fontSize: 15 }}>{displayName}</span>
                 </div>
               );
