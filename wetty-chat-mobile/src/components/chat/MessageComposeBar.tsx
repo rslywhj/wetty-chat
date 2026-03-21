@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
-import { IonIcon } from '@ionic/react';
+import { IonButton, IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
-import { addCircleOutline, happyOutline, paperPlane, closeCircle } from 'ionicons/icons';
+import { addCircleOutline, happyOutline, send, closeCircle } from 'ionicons/icons';
 import styles from './MessageComposeBar.module.scss';
 import { UploadPreview, type ImageUploadDraft } from './UploadPreview';
 import type { Attachment } from '@/api/messages';
@@ -505,17 +505,19 @@ export function MessageComposeBar({
               <IonIcon icon={happyOutline} />
             </button>
           </FeatureGate>
-        </div>
-      </div>
-      <button
-        type="button"
+      <IonButton
+        fill="solid"
+        color="primary"
+        size="small"
         className={`${styles.sendBtn}${!canSend ? ` ${styles.disabled}` : ''}`}
         onClick={handleSend}
         aria-label={t`Send message`}
         disabled={!canSend}
       >
-        <IonIcon icon={paperPlane} />
-      </button>
+        <IonIcon slot="icon-only" icon={send} />
+      </IonButton>
+        </div>
+      </div>
     </div>
   );
 }
