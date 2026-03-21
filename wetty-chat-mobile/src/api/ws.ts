@@ -132,6 +132,13 @@ function showLocalNotification(message: MessageResponse): void {
           message_id: message.id,
         },
       });
+
+      // Inform the SW of the notified message so it can skip stale push notifications
+      registration.active?.postMessage({
+        type: 'NOTIFIED',
+        chatId: message.chat_id,
+        messageId: message.id,
+      });
     }).catch(() => { /* SW not available */ });
   }
 

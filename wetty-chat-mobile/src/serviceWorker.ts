@@ -9,9 +9,38 @@ import { setAppBadgeCount } from './utils/badges';
 
 declare let self: ServiceWorkerGlobalScope;
 
+/** Per-chat high-water mark of the largest message ID we already notified about. */
+const notifiedHighWaterMark = new Map<string, bigint>();
+
+function updateHighWaterMark(chatId: string, messageId: string): void {
+    try {
+        const id = BigInt(messageId);
+        const prev = notifiedHighWaterMark.get(chatId);
+        if (prev == null || id > prev) {
+            notifiedHighWaterMark.set(chatId, id);
+        }
+    } catch { /* non-numeric id, ignore */ }
+}
+
+function isAlreadyNotified(chatId: string, messageId: string): boolean {
+    try {
+        const id = BigInt(messageId);
+        const mark = notifiedHighWaterMark.get(chatId);
+        return mark != null && id <= mark;
+    } catch {
+        return false;
+    }
+}
+
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    }
+    if (event.data && event.data.type === 'NOTIFIED') {
+        const { chatId, messageId } = event.data;
+        if (chatId && messageId) {
+            updateHighWaterMark(String(chatId), String(messageId));
+        }
     }
 });
 
@@ -52,7 +81,19 @@ self.addEventListener('push', (event) => {
                 setAppBadgeCount(self.navigator, payload.unread_count)?.catch(console.error);
             }
 
-            const tag = payload.data?.message_id ? `msg_${payload.data.message_id}` : undefined;
+            const chatId = payload.data?.chat_id;
+            const messageId = payload.data?.message_id;
+
+            // Deduplicate: skip if WS (or an earlier push) already notified a newer message in this chat
+            if (chatId && messageId && isAlreadyNotified(String(chatId), String(messageId))) {
+                return;
+            }
+
+            if (chatId && messageId) {
+                updateHighWaterMark(String(chatId), String(messageId));
+            }
+
+            const tag = messageId ? `msg_${messageId}` : undefined;
 
             const promiseChain = self.registration.showNotification(title, {
                 body: body,
