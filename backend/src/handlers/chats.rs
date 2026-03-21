@@ -19,6 +19,7 @@ use crate::{
         Attachment,
         AttachmentResponse,
         Message,
+        MessageReaction,
         MessageType,
         Sender,
         ThreadInfo, //
@@ -27,6 +28,7 @@ use crate::{
         attachments,
         group_membership,
         groups,
+        message_reactions,
         messages, //
     },
 };
@@ -215,7 +217,7 @@ async fn get_chats(
         .filter_map(|(_, _, _, _, msg)| msg.clone())
         .collect();
 
-    let message_responses = attach_replies(conn, messages_to_process, &state).await;
+    let message_responses = attach_metadata(conn, messages_to_process, &state, uid).await;
 
     let mut message_response_map: std::collections::HashMap<i64, MessageResponse> =
         message_responses
@@ -301,6 +303,15 @@ pub struct MessageResponse {
     pub thread_info: Option<ThreadInfo>,
     pub reply_to_message: Option<Box<ReplyToMessage>>,
     pub attachments: Vec<AttachmentResponse>,
+    pub reactions: Vec<ReactionSummary>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ReactionSummary {
+    pub emoji: String,
+    pub count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reacted_by_me: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -365,10 +376,11 @@ fn load_reply_messages(
 }
 
 /// Attach reply_to_message to a list of messages by fetching referenced messages in one query.
-pub async fn attach_replies(
+pub async fn attach_metadata(
     conn: &mut DbConn,
     messages_to_process: Vec<Message>,
     state: &AppState,
+    current_user_uid: i32,
 ) -> Vec<MessageResponse> {
     let reply_ids: Vec<i64> = messages_to_process
         .iter()
@@ -425,6 +437,48 @@ pub async fn attach_replies(
             if let Some(root_id) = root_id_opt {
                 thread_counts_map.insert(root_id, count);
             }
+        }
+    }
+
+    // --- Reactions ---
+    let mut reaction_summaries_map: std::collections::HashMap<i64, Vec<ReactionSummary>> =
+        std::collections::HashMap::new();
+    let reacted_message_ids: Vec<i64> = messages_to_process
+        .iter()
+        .filter(|m| m.has_reactions)
+        .map(|m| m.id)
+        .collect();
+    if !reacted_message_ids.is_empty() {
+        let counts: Vec<(i64, String, i64)> = message_reactions::table
+            .filter(message_reactions::message_id.eq_any(&reacted_message_ids))
+            .group_by((message_reactions::message_id, message_reactions::emoji))
+            .select((
+                message_reactions::message_id,
+                message_reactions::emoji,
+                diesel::dsl::count_star(),
+            ))
+            .load(conn)
+            .unwrap_or_default();
+
+        let my_reactions: std::collections::HashSet<(i64, String)> = message_reactions::table
+            .filter(message_reactions::message_id.eq_any(&reacted_message_ids))
+            .filter(message_reactions::user_uid.eq(current_user_uid))
+            .select((message_reactions::message_id, message_reactions::emoji))
+            .load::<(i64, String)>(conn)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+
+        for (msg_id, emoji, count) in counts {
+            let reacted_by_me = Some(my_reactions.contains(&(msg_id, emoji.clone())));
+            reaction_summaries_map
+                .entry(msg_id)
+                .or_default()
+                .push(ReactionSummary {
+                    emoji,
+                    count,
+                    reacted_by_me,
+                });
         }
     }
 
@@ -500,6 +554,7 @@ pub async fn attach_replies(
             },
             reply_to_message,
             attachments,
+            reactions: reaction_summaries_map.remove(&m.id).unwrap_or_default(),
         });
     }
     responses
@@ -590,7 +645,7 @@ async fn get_messages(
         let mut combined: Vec<Message> = older_to_use.into_iter().rev().collect();
         combined.extend(newer_to_use);
 
-        let messages_vec = attach_replies(conn, combined, &state).await;
+        let messages_vec = attach_metadata(conn, combined, &state, uid).await;
 
         return Ok(Json(ListMessagesResponse {
             messages: messages_vec,
@@ -618,7 +673,7 @@ async fn get_messages(
             .then(|| messages_to_process.last().map(|m| m.id))
             .flatten();
 
-        let messages_vec = attach_replies(conn, messages_to_process, &state).await;
+        let messages_vec = attach_metadata(conn, messages_to_process, &state, uid).await;
 
         return Ok(Json(ListMessagesResponse {
             messages: messages_vec,
@@ -655,7 +710,7 @@ async fn get_messages(
     // Reverse to return ASC (oldest first)
     let messages_to_process: Vec<Message> = messages_to_process.into_iter().rev().collect();
 
-    let messages_vec = attach_replies(conn, messages_to_process, &state).await;
+    let messages_vec = attach_metadata(conn, messages_to_process, &state, uid).await;
 
     Ok(Json(ListMessagesResponse {
         messages: messages_vec,
@@ -724,6 +779,7 @@ async fn post_message(
         deleted_at: None,
         has_attachments: !body.attachment_ids.is_empty(),
         has_thread: false,
+        has_reactions: false,
     };
 
     let inserted_msg: Message = diesel::insert_into(messages::table)
@@ -767,7 +823,7 @@ async fn post_message(
             })?;
     }
 
-    let response = attach_replies(conn, vec![inserted_msg], &state)
+    let response = attach_metadata(conn, vec![inserted_msg], &state, uid)
         .await
         .into_iter()
         .next()
@@ -867,6 +923,7 @@ async fn post_thread_message(
         deleted_at: None,
         has_attachments: !body.attachment_ids.is_empty(),
         has_thread: false,
+        has_reactions: false,
     };
 
     let inserted_msg: Message = diesel::insert_into(messages::table)
@@ -898,7 +955,7 @@ async fn post_thread_message(
             })?;
     }
 
-    let response = attach_replies(conn, vec![inserted_msg], &state)
+    let response = attach_metadata(conn, vec![inserted_msg], &state, uid)
         .await
         .into_iter()
         .next()
@@ -950,7 +1007,7 @@ async fn post_thread_message(
             .ok();
 
     if let Some(root_msg) = root_msg_updated {
-        let root_response = attach_replies(conn, vec![root_msg], &state)
+        let root_response = attach_metadata(conn, vec![root_msg], &state, uid)
             .await
             .into_iter()
             .next()
@@ -1066,7 +1123,7 @@ async fn patch_message(
             )
         })?;
 
-    let response = attach_replies(conn, vec![updated_message], &state)
+    let response = attach_metadata(conn, vec![updated_message], &state, uid)
         .await
         .into_iter()
         .next()
@@ -1198,7 +1255,7 @@ async fn delete_message(
         }
     }
 
-    let response = attach_replies(conn, vec![deleted_message], &state)
+    let response = attach_metadata(conn, vec![deleted_message], &state, uid)
         .await
         .into_iter()
         .next()
@@ -1254,7 +1311,7 @@ async fn get_message(
         .first(conn)
         .map_err(|_| (StatusCode::NOT_FOUND, "Message not found"))?;
 
-    let messages_vec = attach_replies(conn, vec![message], &state).await;
+    let messages_vec = attach_metadata(conn, vec![message], &state, uid).await;
     let response = messages_vec.into_iter().next().unwrap();
 
     Ok(Json(response))
@@ -1326,6 +1383,182 @@ async fn get_unread_count(
     Ok(Json(UnreadCountResponse { unread_count }))
 }
 
+fn validate_emoji(input: &str) -> Result<String, (StatusCode, &'static str)> {
+    let normalized: String = input
+        .chars()
+        .filter(|c| {
+            // Strip skin tone modifiers (Fitzpatrick scale)
+            !('\u{1F3FB}'..='\u{1F3FF}').contains(c)
+                // Strip variation selectors
+                && *c != '\u{FE0E}'
+                && *c != '\u{FE0F}'
+        })
+        .collect();
+
+    if normalized.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Invalid emoji"));
+    }
+
+    // Every remaining char must be emoji or ZWJ (U+200D)
+    if !normalized
+        .chars()
+        .all(|c| unic_emoji_char::is_emoji(c) || c == '\u{200D}')
+    {
+        return Err((StatusCode::BAD_REQUEST, "Invalid emoji"));
+    }
+
+    Ok(normalized)
+}
+
+fn broadcast_reaction_update(
+    conn: &mut DbConn,
+    state: &AppState,
+    chat_id: i64,
+    message_id: i64,
+) {
+    let counts: Vec<(String, i64)> = message_reactions::table
+        .filter(message_reactions::message_id.eq(message_id))
+        .group_by(message_reactions::emoji)
+        .select((message_reactions::emoji, diesel::dsl::count_star()))
+        .load(conn)
+        .unwrap_or_default();
+
+    let reactions: Vec<ReactionSummary> = counts
+        .into_iter()
+        .map(|(emoji, count)| ReactionSummary {
+            emoji,
+            count,
+            reacted_by_me: None,
+        })
+        .collect();
+
+    let member_uids: Vec<i32> = group_membership::table
+        .filter(group_membership::chat_id.eq(chat_id))
+        .select(group_membership::uid)
+        .load(conn)
+        .unwrap_or_default();
+
+    let ws_msg = std::sync::Arc::new(
+        crate::handlers::ws::messages::ServerWsMessage::ReactionUpdated(
+            crate::handlers::ws::messages::ReactionUpdatePayload {
+                message_id,
+                chat_id,
+                reactions,
+            },
+        ),
+    );
+    state.ws_registry.broadcast_to_uids(&member_uids, ws_msg);
+}
+
+async fn put_reaction(
+    CurrentUid(uid): CurrentUid,
+    State(state): State<AppState>,
+    Path((chat_id, message_id, emoji)): Path<(i64, i64, String)>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let emoji = validate_emoji(&emoji)?;
+    let conn = &mut state.db.get().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database connection failed",
+        )
+    })?;
+    check_membership(conn, chat_id, uid)?;
+
+    // Verify message exists and belongs to this chat
+    let _message: Message = messages::table
+        .filter(messages::id.eq(message_id))
+        .filter(messages::chat_id.eq(chat_id))
+        .filter(messages::deleted_at.is_null())
+        .first(conn)
+        .map_err(|_| (StatusCode::NOT_FOUND, "Message not found"))?;
+
+    // Insert reaction (ON CONFLICT DO NOTHING for idempotency)
+    diesel::insert_into(message_reactions::table)
+        .values(&MessageReaction {
+            message_id,
+            user_uid: uid,
+            emoji,
+            created_at: Utc::now(),
+        })
+        .on_conflict_do_nothing()
+        .execute(conn)
+        .map_err(|e| {
+            tracing::error!("insert reaction: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add reaction")
+        })?;
+
+    // Set denormalized flag
+    diesel::update(messages::table.filter(messages::id.eq(message_id)))
+        .set(messages::has_reactions.eq(true))
+        .execute(conn)
+        .map_err(|e| {
+            tracing::error!("update has_reactions: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to update message",
+            )
+        })?;
+
+    broadcast_reaction_update(conn, &state, chat_id, message_id);
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_reaction(
+    CurrentUid(uid): CurrentUid,
+    State(state): State<AppState>,
+    Path((chat_id, message_id, emoji)): Path<(i64, i64, String)>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let emoji = validate_emoji(&emoji)?;
+    let conn = &mut state.db.get().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database connection failed",
+        )
+    })?;
+    check_membership(conn, chat_id, uid)?;
+
+    let deleted = diesel::delete(
+        message_reactions::table
+            .filter(message_reactions::message_id.eq(message_id))
+            .filter(message_reactions::user_uid.eq(uid))
+            .filter(message_reactions::emoji.eq(&emoji)),
+    )
+    .execute(conn)
+    .map_err(|e| {
+        tracing::error!("delete reaction: {:?}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to remove reaction",
+        )
+    })?;
+
+    if deleted > 0 {
+        let remaining: i64 = message_reactions::table
+            .filter(message_reactions::message_id.eq(message_id))
+            .count()
+            .get_result(conn)
+            .unwrap_or(0);
+
+        if remaining == 0 {
+            diesel::update(messages::table.filter(messages::id.eq(message_id)))
+                .set(messages::has_reactions.eq(false))
+                .execute(conn)
+                .map_err(|e| {
+                    tracing::error!("update has_reactions: {:?}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to update message",
+                    )
+                })?;
+        }
+
+        broadcast_reaction_update(conn, &state, chat_id, message_id);
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<crate::AppState> {
     use axum::routing::*;
     Router::new()
@@ -1341,6 +1574,10 @@ pub fn router() -> Router<crate::AppState> {
                         .route(
                             "/{message_id}",
                             get(get_message).patch(patch_message).delete(delete_message),
+                        )
+                        .route(
+                            "/{message_id}/reactions/{emoji}",
+                            put(put_reaction).delete(delete_reaction),
                         ),
                 )
                 .route("/read", post(mark_as_read))

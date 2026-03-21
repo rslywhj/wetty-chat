@@ -79,6 +79,17 @@ diesel::table! {
         deleted_at -> Nullable<Timestamptz>,
         has_attachments -> Bool,
         has_thread -> Bool,
+        has_reactions -> Bool,
+    }
+}
+
+diesel::table! {
+    message_reactions (message_id, user_uid, emoji) {
+        message_id -> Int8,
+        user_uid -> Int4,
+        #[max_length = 32]
+        emoji -> Varchar,
+        created_at -> Timestamptz,
     }
 }
 
@@ -95,11 +106,13 @@ diesel::table! {
 
 diesel::joinable!(attachments -> messages (message_id));
 diesel::joinable!(group_membership -> groups (chat_id));
+diesel::joinable!(message_reactions -> messages (message_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     attachments,
     group_membership,
     groups,
+    message_reactions,
     messages,
     push_subscriptions,
 );

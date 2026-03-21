@@ -97,6 +97,7 @@ pub struct Message {
     pub deleted_at: Option<DateTime<Utc>>,
     pub has_attachments: bool,
     pub has_thread: bool,
+    pub has_reactions: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -120,6 +121,16 @@ pub struct NewMessage {
     pub deleted_at: Option<DateTime<Utc>>,
     pub has_attachments: bool,
     pub has_thread: bool,
+    pub has_reactions: bool,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[diesel(table_name = schema::message_reactions)]
+pub struct MessageReaction {
+    pub message_id: i64,
+    pub user_uid: i32,
+    pub emoji: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Insertable)]
