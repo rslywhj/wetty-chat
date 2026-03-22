@@ -14,7 +14,6 @@ import {
   IonIcon,
   IonNote,
   IonButtons,
-  IonText,
 } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -23,6 +22,7 @@ import type { RootState } from '@/store/index';
 import { Trans } from '@lingui/react/macro';
 import { FeatureGate } from '@/components/FeatureGate';
 import { CheckForUpdateItem } from '@/components/settings/CheckForUpdateItem';
+import { AppVersionItem } from '@/components/settings/AppVersionItem';
 
 import { usePushNotifications, type PushNotificationErrorCode } from '@/hooks/usePushNotifications';
 import { t } from '@lingui/core/macro';
@@ -189,13 +189,7 @@ export function SettingsCore({ backAction, onOpenGeneral }: SettingsCoreProps) {
         <IonList inset={true}>
           <CheckForUpdateItem />
         </IonList>
-        <IonText
-          color="medium"
-          className="ion-text-center ion-padding-bottom"
-          style={{ display: 'block', fontSize: '0.875rem'}}
-        >
-          {__APP_VERSION__}
-        </IonText>
+        <AppVersionItem />
       </IonContent>
     </IonPage>
   );

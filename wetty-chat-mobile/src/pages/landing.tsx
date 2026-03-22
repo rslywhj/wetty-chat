@@ -12,7 +12,8 @@ import {
     IonTitle,
     IonToolbar,
 } from '@ionic/react';
-import {type ReactNode, useState} from 'react';
+import Cookies from 'js-cookie';
+import {type ReactNode, useEffect, useState} from 'react';
 import {
     ellipsisHorizontal,
     ellipsisVertical,
@@ -22,6 +23,7 @@ import {
     menuOutline, shareOutline
 } from 'ionicons/icons';
 import './landing.scss';
+import { useLocation } from 'react-router';
 
 type PlatformId = 'android' | 'ios' | 'windows' | 'macos' | 'linux';
 
@@ -78,6 +80,15 @@ const detectPlatform = (): PlatformId => {
 export default function LandingPage() {
     const detectedPlatform = detectPlatform();
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformId>(detectedPlatform);
+    const location = useLocation();
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const token = queryParams.get('token');
+        if (queryParams && token) {
+            Cookies.set('device_token', token, { path: '/', expires: 365 });
+        }
+    }, [location]);
 
     return (
         <IonPage>

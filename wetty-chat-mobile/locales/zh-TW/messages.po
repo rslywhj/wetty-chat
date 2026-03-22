@@ -28,6 +28,26 @@ msgstr "[已刪除]"
 msgid "[Image]"
 msgstr "[圖片]"
 
+#: src/pages/chat-settings.tsx
+msgid "1 day"
+msgstr "1 天"
+
+#: src/pages/chat-settings.tsx
+msgid "1 hour"
+msgstr "1 小時"
+
+#: src/pages/chat-settings.tsx
+msgid "30 minutes"
+msgstr "30 分鐘"
+
+#: src/pages/chat-settings.tsx
+msgid "7 days"
+msgstr "7 天"
+
+#: src/pages/chat-settings.tsx
+msgid "8 hours"
+msgstr "8 小時"
+
 #: src/App.tsx
 msgid "A new version of the app is available!"
 msgstr "發現新版本！"
@@ -99,6 +119,7 @@ msgstr "已封鎖"
 #: src/pages/chat-members.tsx
 #: src/pages/chat-members.tsx
 #: src/pages/chat-members.tsx
+#: src/pages/chat-settings.tsx
 #: src/pages/chat-thread.tsx
 msgid "Cancel"
 msgstr "取消"
@@ -273,6 +294,10 @@ msgstr "載入更多失敗"
 msgid "Failed to load newer messages"
 msgstr "載入新訊息失敗"
 
+#: src/pages/chat-settings.tsx
+msgid "Failed to mute"
+msgstr "靜音失敗"
+
 #: src/components/chat/ChatList.tsx
 msgid "Failed to refresh chats"
 msgstr "重新整理聊天失敗"
@@ -298,6 +323,10 @@ msgstr "關閉推播通知失敗"
 #: src/pages/settings.tsx
 msgid "Failed to turn on push notifications"
 msgstr "開啟推播通知失敗"
+
+#: src/pages/chat-settings.tsx
+msgid "Failed to unmute"
+msgstr "取消靜音失敗"
 
 #: src/pages/chat-members.tsx
 msgid "Failed to update role"
@@ -385,6 +414,23 @@ msgstr "訊息不能為空"
 msgid "Messages Font Size"
 msgstr "訊息字體大小"
 
+#: src/pages/chat-settings.tsx
+msgid "Mute notifications"
+msgstr "靜音通知"
+
+#: src/pages/chat-settings.tsx
+msgid "Mute This Group"
+msgstr "將此群組設為靜音"
+
+#: src/pages/chat-settings.tsx
+msgid "Muted indefinitely"
+msgstr "已永久靜音"
+
+#. placeholder {0}: new Date(mutedUntil!).toLocaleString()
+#: src/pages/chat-settings.tsx
+msgid "Muted until {0}"
+msgstr "已靜音至 {0}"
+
 #: src/components/chat/ChatList.tsx
 msgid "New message"
 msgstr "新訊息"
@@ -396,6 +442,10 @@ msgstr "下一張圖片"
 #: src/components/chat/ChatList.tsx
 msgid "No chats yet"
 msgstr "暫無聊天"
+
+#: src/components/settings/AppVersionItem.tsx
+msgid "No device token available"
+msgstr "沒有可用的裝置權杖"
 
 #: src/pages/chat-members.tsx
 msgid "No members found."
@@ -417,6 +467,18 @@ msgstr "未訂閱"
 #: src/pages/settings.tsx
 msgid "Notification permission was not granted"
 msgstr "未授予通知權限"
+
+#: src/pages/chat-settings.tsx
+msgid "Notifications"
+msgstr "通知"
+
+#: src/pages/chat-settings.tsx
+msgid "Notifications muted"
+msgstr "通知已靜音"
+
+#: src/pages/chat-settings.tsx
+msgid "Notifications unmuted"
+msgstr "通知已取消靜音"
 
 #: src/pages/settings.tsx
 msgid "Permission"
@@ -605,6 +667,10 @@ msgstr "關閉推播通知"
 #: src/pages/settings.tsx
 msgid "Turn On Push Notifications"
 msgstr "開啟推播通知"
+
+#: src/pages/chat-settings.tsx
+msgid "Unmute This Group"
+msgstr "取消此群組靜音"
 
 #: src/components/chat/ChatList.tsx
 msgid "Unread"
