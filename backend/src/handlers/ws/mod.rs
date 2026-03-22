@@ -7,24 +7,17 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::Response;
 use axum::Json;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::time::timeout;
-use tracing::trace;
+use tracing::{debug, trace};
 
 use crate::services::ws_registry;
-use crate::utils::auth::CurrentUid;
+use crate::utils::auth::{decode_auth_token, encode_auth_token, AuthClaims, ClientId, CurrentUid};
 use crate::AppState;
 use messages::ServerWsMessage;
 use ws_registry::AppPresenceState;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WsClaims {
-    pub uid: i32,
-    pub exp: usize,
-}
 
 #[derive(Serialize)]
 pub struct TicketResponse {
@@ -33,28 +26,15 @@ pub struct TicketResponse {
 
 async fn get_ws_ticket(
     CurrentUid(uid): CurrentUid,
+    ClientId(client_id): ClientId,
     State(state): State<AppState>,
 ) -> Result<Json<TicketResponse>, (axum::http::StatusCode, &'static str)> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    // 7 days expiration
-    let exp = now as usize + 7 * 24 * 60 * 60;
-
-    let claims = WsClaims { uid, exp };
-    let ticket = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(&state.ws_secret),
-    )
-    .map_err(|_| {
-        (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            "Failed to create ticket",
-        )
-    })?;
+    let claims = AuthClaims {
+        uid,
+        client_id,
+        generation: 0,
+    };
+    let ticket = encode_auth_token(&claims, &state.jwt_signing_key)?;
 
     Ok(Json(TicketResponse { ticket }))
 }
@@ -104,14 +84,10 @@ async fn handle_auth_and_socket(mut socket: WebSocket, state: AppState) {
         Ok(Some(Ok(Message::Text(text)))) => {
             if let Ok(parsed) = serde_json::from_str::<WsAuthMessage>(&text) {
                 if parsed.type_ == "auth" {
-                    match decode::<WsClaims>(
-                        &parsed.ticket,
-                        &DecodingKey::from_secret(&state.ws_secret),
-                        &Validation::default(),
-                    ) {
-                        Ok(token_data) => token_data.claims.uid,
+                    match decode_auth_token(&parsed.ticket, &state.jwt_signing_key) {
+                        Ok(claims) => claims.uid,
                         Err(e) => {
-                            trace!("ws auth rejected (invalid ticket): {:?}", e);
+                            debug!("ws auth rejected (invalid ticket): {:?}", e);
                             return;
                         } // Invalid ticket
                     }

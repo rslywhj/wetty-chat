@@ -1,12 +1,14 @@
 use axum::{
     extract::FromRequestParts,
-    http::{request::Parts, HeaderMap, StatusCode},
+    http::{header::AUTHORIZATION, request::Parts, HeaderMap, StatusCode},
 };
 use base64::{
     engine::{DecodePaddingMode, GeneralPurposeConfig},
     Engine,
 };
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use rc4::{consts::U64, Key, KeyInit, Rc4, StreamCipher};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub const X_USER_ID: &str = "x-user-id";
@@ -17,6 +19,26 @@ pub struct CurrentUid(pub i32);
 
 #[derive(Clone, Debug)]
 pub struct ClientId(pub String);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthSource {
+    Jwt,
+    Legacy,
+}
+
+#[derive(Clone, Debug)]
+pub struct AuthContext {
+    pub uid: i32,
+    pub client_id: Option<String>,
+    pub source: AuthSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AuthClaims {
+    pub uid: i32,
+    pub client_id: String,
+    pub generation: i32,
+}
 
 impl fmt::Display for CurrentUid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,10 +60,21 @@ enum DiscuzCipherError {
     InvalidUid,
 }
 
+fn jwt_validation() -> Validation {
+    let mut validation = Validation::default();
+    validation.validate_exp = false;
+    validation.required_spec_claims.clear();
+    validation
+}
+
 /// Implements the Discuz Cookie Decoding.
 /// TODO the first part of the key is not yet verified.
 /// Note: it is not constant time.
-fn decode(auth: &str, salt_key: &str, config_authkey: &str) -> Result<i32, DiscuzCipherError> {
+fn decode_discuz_auth(
+    auth: &str,
+    salt_key: &str,
+    config_authkey: &str,
+) -> Result<i32, DiscuzCipherError> {
     let auth_key = format!(
         "{:x}",
         md5::compute(format!("{}{}", config_authkey, salt_key))
@@ -86,6 +119,29 @@ pub fn extract_current_uid(
     headers: &HeaderMap,
     state: &crate::AppState,
 ) -> Result<i32, (StatusCode, &'static str)> {
+    extract_auth_context(headers, state).map(|context| context.uid)
+}
+
+pub fn extract_auth_context(
+    headers: &HeaderMap,
+    state: &crate::AppState,
+) -> Result<AuthContext, (StatusCode, &'static str)> {
+    if let Some(token) = bearer_token(headers)? {
+        let claims = decode_auth_token(token, &state.jwt_signing_key)?;
+        return Ok(AuthContext {
+            uid: claims.uid,
+            client_id: Some(claims.client_id),
+            source: AuthSource::Jwt,
+        });
+    }
+
+    extract_legacy_auth_context(headers, state)
+}
+
+fn extract_legacy_auth_context(
+    headers: &HeaderMap,
+    state: &crate::AppState,
+) -> Result<AuthContext, (StatusCode, &'static str)> {
     match state.auth_method {
         crate::AuthMethod::UIDHeader => {
             let value = headers
@@ -99,7 +155,11 @@ pub fn extract_current_uid(
                 .trim()
                 .parse::<i32>()
                 .map_err(|_| (StatusCode::UNAUTHORIZED, "X-User-Id must be a valid i32"))?;
-            Ok(uid)
+            Ok(AuthContext {
+                uid,
+                client_id: None,
+                source: AuthSource::Legacy,
+            })
         }
         crate::AuthMethod::Discuz => {
             let cookies_str = headers
@@ -128,14 +188,68 @@ pub fn extract_current_uid(
             let saltkey =
                 saltkey_cookie.ok_or((StatusCode::UNAUTHORIZED, "Missing saltkey cookie"))?;
 
-            let uid = decode(&auth, saltkey, &state.discuz_authkey).map_err(|err| {
+            let uid = decode_discuz_auth(&auth, saltkey, &state.discuz_authkey).map_err(|err| {
                 tracing::warn!("Discuz decode error: {:?}", err);
                 (StatusCode::UNAUTHORIZED, "Invalid Discuz auth cookie")
             })?;
 
-            Ok(uid)
+            Ok(AuthContext {
+                uid,
+                client_id: None,
+                source: AuthSource::Legacy,
+            })
         }
     }
+}
+
+fn bearer_token(headers: &HeaderMap) -> Result<Option<&str>, (StatusCode, &'static str)> {
+    let Some(value) = headers.get(AUTHORIZATION) else {
+        return Ok(None);
+    };
+
+    let value = value
+        .to_str()
+        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid Authorization header"))?;
+    let token = value
+        .strip_prefix("Bearer ")
+        .ok_or((StatusCode::UNAUTHORIZED, "Invalid Authorization header"))?
+        .trim();
+
+    if token.is_empty() {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header"));
+    }
+
+    Ok(Some(token))
+}
+
+pub fn decode_auth_token(
+    token: &str,
+    jwt_signing_key: &[u8],
+) -> Result<AuthClaims, (StatusCode, &'static str)> {
+    decode::<AuthClaims>(
+        token,
+        &DecodingKey::from_secret(jwt_signing_key),
+        &jwt_validation(),
+    )
+    .map(|data| data.claims)
+    .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid auth token"))
+}
+
+pub fn encode_auth_token(
+    claims: &AuthClaims,
+    jwt_signing_key: &[u8],
+) -> Result<String, (StatusCode, &'static str)> {
+    encode(
+        &Header::default(),
+        claims,
+        &EncodingKey::from_secret(jwt_signing_key),
+    )
+    .map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to create auth token",
+        )
+    })
 }
 
 fn validate_client_id(value: &str) -> bool {
@@ -167,6 +281,17 @@ pub fn optional_client_id(
     }
 }
 
+pub fn resolve_client_id(
+    headers: &HeaderMap,
+    state: &crate::AppState,
+) -> Result<Option<String>, (StatusCode, &'static str)> {
+    let context = extract_auth_context(headers, state)?;
+    match context.client_id {
+        Some(client_id) => Ok(Some(client_id)),
+        None => optional_client_id(headers),
+    }
+}
+
 pub fn required_client_id(headers: &HeaderMap) -> Result<String, (StatusCode, &'static str)> {
     optional_client_id(headers)?.ok_or((StatusCode::BAD_REQUEST, "Missing X-Client-Id header"))
 }
@@ -187,8 +312,73 @@ impl FromRequestParts<crate::AppState> for ClientId {
 
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &crate::AppState,
+        state: &crate::AppState,
     ) -> Result<Self, Self::Rejection> {
-        required_client_id(&parts.headers).map(ClientId)
+        resolve_client_id(&parts.headers, state)?
+            .ok_or((StatusCode::BAD_REQUEST, "Missing X-Client-Id header"))
+            .map(ClientId)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::{HeaderValue, StatusCode};
+
+    #[test]
+    fn bearer_token_requires_bearer_prefix() {
+        let mut headers = HeaderMap::new();
+        headers.insert(AUTHORIZATION, HeaderValue::from_static("Token abc"));
+
+        let result = bearer_token(&headers);
+
+        assert_eq!(
+            result,
+            Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header"))
+        );
+    }
+
+    #[test]
+    fn auth_token_round_trip_preserves_claims() {
+        let claims = AuthClaims {
+            uid: 42,
+            client_id: "client_123".to_string(),
+            generation: 0,
+        };
+
+        let token = encode_auth_token(&claims, b"01234567890123456789012345678901").unwrap();
+        let decoded = decode_auth_token(&token, b"01234567890123456789012345678901").unwrap();
+
+        assert_eq!(decoded, claims);
+    }
+
+    #[test]
+    fn auth_token_rejects_wrong_key() {
+        let claims = AuthClaims {
+            uid: 42,
+            client_id: "client_123".to_string(),
+            generation: 0,
+        };
+
+        let token = encode_auth_token(&claims, b"01234567890123456789012345678901").unwrap();
+        let result = decode_auth_token(&token, b"abcdefabcdefabcdefabcdefabcdefab");
+
+        assert_eq!(
+            result,
+            Err((StatusCode::UNAUTHORIZED, "Invalid auth token"))
+        );
+    }
+
+    #[test]
+    fn optional_client_id_validates_shape() {
+        let mut headers = HeaderMap::new();
+        headers.insert(X_CLIENT_ID, HeaderValue::from_static("bad value"));
+
+        let result = optional_client_id(&headers);
+
+        assert_eq!(
+            result,
+            Err((StatusCode::BAD_REQUEST, "X-Client-Id is invalid"))
+        );
     }
 }

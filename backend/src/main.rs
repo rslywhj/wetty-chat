@@ -1,6 +1,7 @@
 use axum::body::Body;
 use axum::http::Request;
 use axum::{middleware, routing::get, Router};
+use base64::Engine;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -68,7 +69,7 @@ pub(crate) struct AppState {
     pub discuz_authkey: String,
     pub discuz_avatar_public_url: Option<String>,
     pub discuz_avatar_path: Option<String>,
-    pub ws_secret: [u8; 32],
+    pub jwt_signing_key: Vec<u8>,
 }
 
 #[tokio::main]
@@ -139,11 +140,15 @@ async fn main() {
         discuz_avatar_path = std::env::var("DISCUZ_AVATAR_PATH").ok();
     }
 
-    let mut ws_secret = [0u8; 32];
-    let u1 = uuid::Uuid::new_v4();
-    let u2 = uuid::Uuid::new_v4();
-    ws_secret[0..16].copy_from_slice(u1.as_bytes());
-    ws_secret[16..32].copy_from_slice(u2.as_bytes());
+    let jwt_signing_key = base64::engine::general_purpose::STANDARD
+        .decode(
+            std::env::var("JWT_SIGNING_KEY_BASE64").expect("JWT_SIGNING_KEY_BASE64 must be set"),
+        )
+        .expect("JWT_SIGNING_KEY_BASE64 must be valid base64");
+    assert!(
+        jwt_signing_key.len() >= 32,
+        "JWT_SIGNING_KEY_BASE64 must decode to at least 32 bytes"
+    );
 
     let state = AppState {
         db: pool.clone(),
@@ -168,7 +173,7 @@ async fn main() {
         discuz_authkey,
         discuz_avatar_public_url,
         discuz_avatar_path,
-        ws_secret,
+        jwt_signing_key,
     };
 
     let registry = state.ws_registry.clone();
