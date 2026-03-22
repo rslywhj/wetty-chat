@@ -1,5 +1,6 @@
 use axum::body::Body;
-use axum::http::Request;
+use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, ORIGIN};
+use axum::http::{HeaderValue, Method, Request};
 use axum::{middleware, routing::get, Router};
 use base64::Engine;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -9,6 +10,7 @@ use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower::ServiceBuilder;
+use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::request_id::{MakeRequestId, RequestId};
 use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
@@ -16,6 +18,7 @@ use tower_http::LatencyUnit;
 use tower_http::ServiceBuilderExt;
 use tracing::{debug_span, info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use utils::auth::{X_CLIENT_ID, X_USER_ID};
 
 mod db_tracing;
 mod handlers;
@@ -126,6 +129,7 @@ async fn main() {
     };
     let app_addr = read_socket_addr("APP_ADDR", SocketAddr::from(([0, 0, 0, 0], 3000)));
     let metrics_addr = read_socket_addr("METRICS_ADDR", SocketAddr::from(([0, 0, 0, 0], 3001)));
+    let cors_allowed_origins = read_cors_allowed_origins("CORS_ALLOWED_ORIGINS");
 
     let mut discuz_cookie_prefix = String::new();
     let mut discuz_authkey = String::new();
@@ -229,6 +233,35 @@ async fn main() {
             metrics::track_http_metrics,
         ))
         .with_state(state);
+    let app = if let Some(allowed_origins) = cors_allowed_origins {
+        info!(
+            allowed_origins = ?allowed_origins,
+            "Enabling CORS for configured origins"
+        );
+        app.layer(
+            CorsLayer::new()
+                .allow_origin(allowed_origins)
+                .allow_credentials(true)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([
+                    ACCEPT,
+                    AUTHORIZATION,
+                    CONTENT_TYPE,
+                    ORIGIN,
+                    axum::http::header::HeaderName::from_static(X_CLIENT_ID),
+                    axum::http::header::HeaderName::from_static(X_USER_ID),
+                ]),
+        )
+    } else {
+        app
+    };
 
     let metrics_app = Router::new()
         .route("/metrics", get(metrics::metrics_handler))
@@ -262,4 +295,33 @@ fn read_socket_addr(var_name: &str, default: SocketAddr) -> SocketAddr {
                 .unwrap_or_else(|_| panic!("{var_name} must be a valid socket address"))
         })
         .unwrap_or(default)
+}
+
+fn read_cors_allowed_origins(var_name: &str) -> Option<Vec<HeaderValue>> {
+    let raw_value = std::env::var(var_name).ok()?;
+    let raw_value = raw_value.trim();
+    if raw_value.is_empty() {
+        return None;
+    }
+
+    let origins = raw_value
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .map(|origin| {
+            assert!(
+                origin != "*",
+                "{var_name} must list explicit origins when credentials are enabled"
+            );
+            HeaderValue::from_str(origin)
+                .unwrap_or_else(|_| panic!("{var_name} contains an invalid origin: {origin}"))
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        !origins.is_empty(),
+        "{var_name} must contain at least one non-empty origin when set"
+    );
+
+    Some(origins)
 }

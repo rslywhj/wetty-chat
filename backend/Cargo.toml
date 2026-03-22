@@ -28,6 +28,7 @@ tower-http = { version = "0.6", features = [
     "request-id",
     "util",
     "limit",
+    "cors",
 ] }
 prometheus = "0.13"
 chrono = { version = "0.4.44", features = ["serde"] }

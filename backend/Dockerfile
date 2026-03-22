@@ -70,7 +70,8 @@ COPY --from=builder /app/wetty-chat-backend /app/wetty-chat-backend
 EXPOSE 3000
 EXPOSE 3001
 
-# DATABASE_URL must be set at runtime (e.g. via docker run -e or compose environment)
+# Runtime env vars such as DATABASE_URL and optional CORS_ALLOWED_ORIGINS
+# must be set via docker run -e or compose environment.
 ENV RUST_LOG=info
 
 ENTRYPOINT ["/app/wetty-chat-backend"]
