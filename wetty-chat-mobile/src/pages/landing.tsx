@@ -92,14 +92,15 @@ export default function LandingPage() {
         <IonPage>
             <IonHeader translucent={true}>
                 <IonToolbar>
-                    <IonTitle>安装 Wetty Chat</IonTitle>
+                    <IonTitle>安装 茶话</IonTitle>
                 </IonToolbar>
             </IonHeader>
             <IonContent fullscreen={true} className="landing-page">
                 <section className="landing-hero">
                     <div className="landing-hero__copy">
-                        <h1>把 Wetty Chat 添加到主屏幕</h1>
+                        <h1>把 茶话 添加到主屏幕</h1>
                         <p>安装后可以像原生应用一样从桌面直接启动。</p>
+                        <p>如果你要向朋友推荐，请发送论坛帖子的地址，不要直接发送当前页面地址。当前页面的地址包含你的账号登录信息。</p>
                         {isPwa && (
                             <Redirect to="/" />
                         )}
@@ -170,13 +171,13 @@ export default function LandingPage() {
                         {selectedPlatform === 'windows' && (
                             <IonCardContent>
                                 <ol className="landing-steps">
-                                    <li>在 <IconText icon={logoEdge}>Edge 浏览器</IconText> 中打开聊天应用链接。</li>
+                                    <li>使用 <IconText icon={logoEdge}>Edge 浏览器</IconText> 访问本页。</li>
                                     <li>点击 <IconText icon={ellipsisHorizontal}>菜单 </IconText></li>
                                     <li>选择“更多工具” {'>'} “应用” {'>'} “将此站点安装为应用”。</li>
                                     <li>自行选择将图标创建在任务栏、开始菜单或桌面。</li>
                                 </ol>
                                 <IonText color="medium">
-                                    <p className="landing-note">如果浏览器在地址栏显示了 “安装 Wetty Chat 应用” 按钮，直接点安装即可</p>
+                                    <p className="landing-note">如果浏览器在地址栏显示了安装应用按钮，直接点安装即可</p>
                                 </IonText>
                             </IonCardContent>
                         )}

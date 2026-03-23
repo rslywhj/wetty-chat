@@ -92,7 +92,7 @@ export default function OobePage() {
               <IonItem lines="none">
                 <IonLabel>
                   <h2>是否开启通知</h2>
-                  <IonNote color="medium">后面可以随时在设置里更改</IonNote>
+                  <IonNote color="medium">以后可以随时在设置里更改</IonNote>
                 </IonLabel>
                 <IonToggle
                   slot="end"
