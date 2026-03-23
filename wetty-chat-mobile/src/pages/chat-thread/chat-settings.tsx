@@ -1,37 +1,48 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonList,
+  IonIcon,
+  IonInput,
   IonItem,
   IonLabel,
-  IonInput,
-  IonTextarea,
+  IonList,
+  IonListHeader,
+  IonPage,
   IonSelect,
   IonSelectOption,
-  IonButton,
+  IonHeader,
+  IonToolbar,
+  IonTextarea,
+  IonTitle,
+  IonContent,
   IonButtons,
   IonSpinner,
-  IonListHeader,
   useIonToast,
-  useIonActionSheet,
 } from '@ionic/react';
 import { useParams, useHistory } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
+import { documentText, eye, image, people, save } from 'ionicons/icons';
 import { selectChatMeta, setChatMeta, selectChatMutedUntil, setChatMutedUntil } from '@/store/chatsSlice';
 import type { RootState } from '@/store/index';
-import { getGroupInfo, updateGroupInfo, muteChat, unmuteChat } from '@/api/group';
+import { getGroupInfo, updateGroupInfo } from '@/api/group';
 import { BackButton } from '@/components/BackButton';
+import { GroupProfile } from '@/components/chat/GroupProfile';
+import { ChatMuteSettingItem } from '@/components/chat/settings/ChatMuteSettingItem';
 import type { BackAction } from '@/types/back-action';
+import styles from './ChatSettings.module.scss';
+import { FeatureGate } from '@/components/FeatureGate';
 
 interface ChatSettingsCoreProps {
   chatId?: string;
   backAction?: BackAction;
+}
+
+interface ChatSettingsFormState {
+  name: string;
+  description: string;
+  avatar: string;
+  visibility: 'public' | 'private';
 }
 
 function getInitialFormState(cachedMeta?: {
@@ -39,67 +50,119 @@ function getInitialFormState(cachedMeta?: {
   description?: string | null;
   avatar?: string | null;
   visibility?: string;
-}) {
+}): ChatSettingsFormState {
   return {
     name: cachedMeta?.name || '',
     description: cachedMeta?.description || '',
     avatar: cachedMeta?.avatar || '',
     visibility: (cachedMeta?.visibility as 'public' | 'private') || 'public',
-    loading: !cachedMeta?.visibility,
   };
+}
+
+interface ChatSettingsContentProps {
+  chatId: string;
+  formState: ChatSettingsFormState;
+  mutedUntil: string | null;
+  saving: boolean;
+  onNameChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onAvatarChange: (value: string) => void;
+  onVisibilityChange: (value: 'public' | 'private') => void;
+  onSave: () => void;
+}
+
+function ChatSettingsContent({
+  chatId,
+  formState,
+  mutedUntil,
+  saving,
+  onNameChange,
+  onDescriptionChange,
+  onAvatarChange,
+  onVisibilityChange,
+  onSave,
+}: ChatSettingsContentProps) {
+  return (
+    <>
+      <GroupProfile
+        chatId={chatId}
+        name={formState.name}
+        description={formState.description}
+        avatarUrl={formState.avatar}
+      />
+
+      <IonListHeader>
+        <IonLabel><Trans>Notifications</Trans></IonLabel>
+      </IonListHeader>
+      <IonList inset>
+        <ChatMuteSettingItem chatId={chatId} mutedUntil={mutedUntil} />
+      </IonList>
+
+      <FeatureGate>
+        <IonListHeader>
+          <IonLabel><Trans>Group</Trans></IonLabel>
+        </IonListHeader>
+        <IonList inset>
+          <IonItem>
+            <IonIcon aria-hidden="true" icon={people} slot="start" color="primary" />
+            <IonLabel position="stacked"><Trans>Group Name</Trans></IonLabel>
+            <IonInput
+              value={formState.name}
+              placeholder={t`Enter group name`}
+              onIonInput={(event) => onNameChange(event.detail.value ?? '')}
+            />
+          </IonItem>
+          <IonItem>
+            <IonIcon aria-hidden="true" icon={documentText} slot="start" color="tertiary" />
+            <IonLabel position="stacked"><Trans>Description</Trans></IonLabel>
+            <IonTextarea
+              value={formState.description}
+              placeholder={t`Enter group description`}
+              onIonInput={(event) => onDescriptionChange(event.detail.value ?? '')}
+              rows={3}
+            />
+          </IonItem>
+          <IonItem>
+            <IonIcon aria-hidden="true" icon={image} slot="start" color="medium" />
+            <IonLabel position="stacked"><Trans>Avatar URL</Trans></IonLabel>
+            <IonInput
+              type="url"
+              value={formState.avatar}
+              placeholder={t`Enter avatar URL`}
+              onIonInput={(event) => onAvatarChange(event.detail.value ?? '')}
+            />
+          </IonItem>
+          <IonItem>
+            <IonIcon aria-hidden="true" icon={eye} slot="start" color="secondary" />
+            <IonLabel><Trans>Visibility</Trans></IonLabel>
+            <IonSelect
+              value={formState.visibility}
+              onIonChange={(event) => onVisibilityChange(event.detail.value as 'public' | 'private')}
+            >
+              <IonSelectOption value="public"><Trans>Public</Trans></IonSelectOption>
+              <IonSelectOption value="private"><Trans>Private</Trans></IonSelectOption>
+            </IonSelect>
+          </IonItem>
+          <IonItem button detail={false} disabled={saving} onClick={onSave}>
+            <IonIcon aria-hidden="true" icon={save} slot="start" color="primary" />
+            <IonLabel color="primary">
+              {saving ? <Trans>Saving...</Trans> : <Trans>Save Settings</Trans>}
+            </IonLabel>
+          </IonItem>
+        </IonList>
+      </FeatureGate>
+    </>
+  );
 }
 
 function ChatSettingsSession({ chatId, backAction }: { chatId: string; backAction?: BackAction }) {
   const history = useHistory();
   const dispatch = useDispatch();
   const [presentToast] = useIonToast();
-  const [presentActionSheet] = useIonActionSheet();
   const cachedMeta = useSelector((state: RootState) => selectChatMeta(state, chatId));
   const mutedUntil = useSelector((state: RootState) => selectChatMutedUntil(state, chatId));
-  const isMuted = useMemo(() => mutedUntil ? new Date(mutedUntil) > new Date() : false, [mutedUntil]);
-  const initialState = getInitialFormState(cachedMeta);
-
-  const handleMute = (durationSeconds: number | null) => {
-    muteChat(chatId, { duration_seconds: durationSeconds })
-      .then((res) => {
-        dispatch(setChatMutedUntil({ chatId, mutedUntil: res.data.muted_until }));
-        presentToast({ message: t`Notifications muted`, duration: 2000 });
-      })
-      .catch((err: Error) => {
-        presentToast({ message: err.message || t`Failed to mute`, duration: 3000 });
-      });
-  };
-
-  const handleUnmute = () => {
-    unmuteChat(chatId)
-      .then(() => {
-        dispatch(setChatMutedUntil({ chatId, mutedUntil: null }));
-        presentToast({ message: t`Notifications unmuted`, duration: 2000 });
-      })
-      .catch((err: Error) => {
-        presentToast({ message: err.message || t`Failed to unmute`, duration: 3000 });
-      });
-  };
-
-  const showMuteActionSheet = () => {
-    presentActionSheet({
-      header: t`Mute notifications`,
-      buttons: [
-        { text: t`30 minutes`, handler: () => handleMute(1800) },
-        { text: t`1 hour`, handler: () => handleMute(3600) },
-        { text: t`8 hours`, handler: () => handleMute(28800) },
-        { text: t`1 day`, handler: () => handleMute(86400) },
-        { text: t`7 days`, handler: () => handleMute(604800) },
-        { text: t`Cancel`, role: 'cancel' },
-      ],
-    });
-  };
-
-  const [name, setName] = useState(initialState.name);
-  const [description, setDescription] = useState(initialState.description);
-  const [avatar, setAvatar] = useState(initialState.avatar);
-  const [visibility, setVisibility] = useState<'public' | 'private'>(initialState.visibility);
-  const [loading, setLoading] = useState(initialState.loading);
+  const [formState, setFormState] = useState<ChatSettingsFormState>(() => getInitialFormState(cachedMeta));
+  const [loading, setLoading] = useState(() => !cachedMeta?.visibility);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -113,10 +176,7 @@ function ChatSettingsSession({ chatId, backAction }: { chatId: string; backActio
         void id;
         dispatch(setChatMeta({ chatId, meta }));
         dispatch(setChatMutedUntil({ chatId, mutedUntil: muted_until }));
-        setName(meta.name || '');
-        setDescription(meta.description || '');
-        setAvatar(meta.avatar || '');
-        setVisibility((meta.visibility as 'public' | 'private') || 'public');
+        setFormState(getInitialFormState(meta));
       })
       .catch((err: Error) => {
         presentToast({ message: err.message || t`Failed to load chat details`, duration: 3000 });
@@ -125,21 +185,25 @@ function ChatSettingsSession({ chatId, backAction }: { chatId: string; backActio
   }, [chatId, cachedMeta, dispatch, presentToast]);
 
   const handleSave = () => {
-    if (!chatId) return;
     setSaving(true);
+
+    const name = formState.name.trim();
+    const description = formState.description.trim();
+    const avatar = formState.avatar.trim();
+
     updateGroupInfo(chatId, {
-      name: name.trim() || undefined,
-      description: description.trim() || undefined,
-      avatar: avatar.trim() || undefined,
-      visibility,
+      name: name || undefined,
+      description: description || undefined,
+      avatar: avatar || undefined,
+      visibility: formState.visibility,
     })
       .then(() => {
         dispatch(setChatMeta({
           chatId, meta: {
-            name: name.trim() || null,
-            description: description.trim() || null,
-            avatar: avatar.trim() || null,
-            visibility,
+            name: name || null,
+            description: description || null,
+            avatar: avatar || null,
+            visibility: formState.visibility,
           }
         }));
         presentToast({ message: t`Settings saved`, duration: 2000 });
@@ -151,8 +215,12 @@ function ChatSettingsSession({ chatId, backAction }: { chatId: string; backActio
       .finally(() => setSaving(false));
   };
 
+  const updateFormState = <K extends keyof ChatSettingsFormState>(key: K, value: ChatSettingsFormState[K]) => {
+    setFormState((current) => ({ ...current, [key]: value }));
+  };
+
   return (
-    <div className="ion-page">
+    <IonPage>
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
@@ -161,79 +229,26 @@ function ChatSettingsSession({ chatId, backAction }: { chatId: string; backActio
           <IonTitle><Trans>Group Settings</Trans></IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent>
+      <IonContent color="light" className="ion-no-padding">
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+          <div className={styles.loadingState}>
             <IonSpinner />
           </div>
         ) : (
-          <>
-            <IonList>
-              <IonItem>
-                <IonLabel position="stacked"><Trans>Group Name</Trans></IonLabel>
-                <IonInput
-                  value={name}
-                  placeholder={t`Enter group name`}
-                  onIonInput={(e) => setName(e.detail.value ?? '')}
-                />
-              </IonItem>
-              <IonItem>
-                <IonLabel position="stacked"><Trans>Description</Trans></IonLabel>
-                <IonTextarea
-                  value={description}
-                  placeholder={t`Enter group description`}
-                  onIonInput={(e) => setDescription(e.detail.value ?? '')}
-                  rows={3}
-                />
-              </IonItem>
-              <IonItem>
-                <IonLabel position="stacked"><Trans>Avatar URL</Trans></IonLabel>
-                <IonInput
-                  type="url"
-                  value={avatar}
-                  placeholder={t`Enter avatar URL`}
-                  onIonInput={(e) => setAvatar(e.detail.value ?? '')}
-                />
-              </IonItem>
-              <IonItem>
-                <IonLabel><Trans>Visibility</Trans></IonLabel>
-                <IonSelect
-                  value={visibility}
-                  onIonChange={(e) => setVisibility(e.detail.value as 'public' | 'private')}
-                >
-                  <IonSelectOption value="public"><Trans>Public</Trans></IonSelectOption>
-                  <IonSelectOption value="private"><Trans>Private</Trans></IonSelectOption>
-                </IonSelect>
-              </IonItem>
-            </IonList>
-            <div style={{ padding: '16px' }}>
-              <IonButton expand="block" disabled={saving} onClick={handleSave}>
-                {saving ? <Trans>Saving...</Trans> : <Trans>Save Settings</Trans>}
-              </IonButton>
-            </div>
-            <IonList>
-              <IonListHeader><Trans>Notifications</Trans></IonListHeader>
-              {isMuted ? (
-                <IonItem button onClick={handleUnmute}>
-                  <IonLabel>
-                    <h2><Trans>Unmute This Group</Trans></h2>
-                    <p>
-                      {mutedUntil && new Date(mutedUntil).getFullYear() >= 9000
-                        ? <Trans>Muted indefinitely</Trans>
-                        : <Trans>Muted until {new Date(mutedUntil!).toLocaleString()}</Trans>}
-                    </p>
-                  </IonLabel>
-                </IonItem>
-              ) : (
-                <IonItem button onClick={showMuteActionSheet}>
-                  <IonLabel><Trans>Mute This Group</Trans></IonLabel>
-                </IonItem>
-              )}
-            </IonList>
-          </>
+          <ChatSettingsContent
+            chatId={chatId}
+            formState={formState}
+            mutedUntil={mutedUntil}
+            saving={saving}
+            onNameChange={(value) => updateFormState('name', value)}
+            onDescriptionChange={(value) => updateFormState('description', value)}
+            onAvatarChange={(value) => updateFormState('avatar', value)}
+            onVisibilityChange={(value) => updateFormState('visibility', value)}
+            onSave={handleSave}
+          />
         )}
       </IonContent>
-    </div>
+    </IonPage>
   );
 }
 
@@ -250,9 +265,5 @@ export default function ChatSettingsCore({ chatId: propChatId, backAction }: Cha
 
 export function ChatSettingsPage() {
   const { id } = useParams<{ id: string }>();
-  return (
-    <IonPage>
-      <ChatSettingsCore chatId={id} backAction={{ type: 'back', defaultHref: `/chats/chat/${id}` }} />
-    </IonPage>
-  );
+  return <ChatSettingsCore chatId={id} backAction={{ type: 'back', defaultHref: `/chats/chat/${id}` }} />;
 }

@@ -1,0 +1,14 @@
+.row {
+  width: 100%;
+  --inner-padding-top: 6px;
+  --inner-padding-bottom: 6px;
+}
+
+.avatar {
+  margin-right: 12px;
+}
+
+.roleChip {
+  cursor: default;
+  pointer-events: none;
+}

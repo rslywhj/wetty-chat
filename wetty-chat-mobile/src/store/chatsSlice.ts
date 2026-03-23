@@ -59,6 +59,14 @@ function chooseEffectiveLatest(snapshot?: ChatListMeta, live?: ChatListMeta): Me
   return compareMessageOrder(liveMessage, snapshotMessage) >= 0 ? liveMessage : snapshotMessage;
 }
 
+function resolveMutedUntil(snapshot?: ChatListMeta, live?: ChatListMeta): string | null {
+  if (live && Object.prototype.hasOwnProperty.call(live, 'muted_until')) {
+    return live.muted_until ?? null;
+  }
+
+  return snapshot?.muted_until ?? null;
+}
+
 function getEffectiveListMeta(entry?: ChatStateEntry): ChatListMeta {
   const snapshot = entry?.listSnapshot;
   const live = entry?.liveProjection;
@@ -230,14 +238,14 @@ export const selectChatName = (state: RootState, chatId: string): string | null 
 
 export function selectIsChatMuted(state: RootState, chatId: string): boolean {
   const entry = state.chats.byId[chatId];
-  const mutedUntil = entry?.liveProjection?.muted_until ?? entry?.listSnapshot?.muted_until;
+  const mutedUntil = resolveMutedUntil(entry?.listSnapshot, entry?.liveProjection);
   if (!mutedUntil) return false;
   return new Date(mutedUntil) > new Date();
 }
 
 export function selectChatMutedUntil(state: RootState, chatId: string): string | null {
   const entry = state.chats.byId[chatId];
-  return entry?.liveProjection?.muted_until ?? entry?.listSnapshot?.muted_until ?? null;
+  return resolveMutedUntil(entry?.listSnapshot, entry?.liveProjection);
 }
 
 const selectChatsById = (state: RootState) => state.chats.byId;
@@ -255,7 +263,7 @@ export const selectAllChats = createSelector(
           last_message_at: listMeta.last_message_at ?? null,
           unread_count: listMeta.unread_count ?? 0,
           last_message: listMeta.last_message ?? null,
-          muted_until: entry?.liveProjection?.muted_until ?? entry?.listSnapshot?.muted_until ?? null,
+          muted_until: resolveMutedUntil(entry?.listSnapshot, entry?.liveProjection),
         };
       })
       .sort((a, b) => {

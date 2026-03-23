@@ -68,7 +68,6 @@ import {
 } from '@/components/chat/MessageComposeBar';
 import './chat-thread.scss';
 import { t } from '@lingui/core/macro';
-import { FeatureGate } from '@/components/FeatureGate';
 import { UserProfileModal } from '@/components/chat/UserProfileModal';
 import { MessageOverlay, type MessageOverlayAction } from '@/components/chat/MessageOverlay';
 import { ReactionDetailsModal } from '@/components/chat/ReactionDetailsModal';

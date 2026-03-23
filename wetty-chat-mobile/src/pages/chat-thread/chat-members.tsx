@@ -23,6 +23,7 @@ import { FeatureGate } from '@/components/FeatureGate';
 import { BackButton } from '@/components/BackButton';
 import type { BackAction } from '@/types/back-action';
 import { ChatMemberRow } from '@/components/chat-members/ChatMemberRow';
+import styles from './chat-members.module.scss';
 
 const MEMBERS_PAGE_SIZE = 50;
 
@@ -235,7 +236,7 @@ export default function ChatMembersCore({ chatId: propChatId, backAction }: Chat
   const renderMembersFooter = useCallback(() => {
     if (loadingMore) {
       return (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+        <div className={styles.footerState}>
           <IonSpinner />
         </div>
       );
@@ -243,7 +244,7 @@ export default function ChatMembersCore({ chatId: propChatId, backAction }: Chat
 
     if (members.length === 0) {
       return (
-        <div style={{ padding: '16px', color: 'var(--ion-color-medium)' }}>
+        <div className={styles.emptyState}>
           <Trans>No members found.</Trans>
         </div>
       );
@@ -264,23 +265,23 @@ export default function ChatMembersCore({ chatId: propChatId, backAction }: Chat
       </IonHeader>
       <IonContent scrollY={false}>
         {initialLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+          <div className={styles.loadingState}>
             <IonSpinner />
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div className={styles.layout}>
             <FeatureGate>
-              <div style={{ padding: '16px' }}>
+              <div className={styles.addMemberAction}>
                 <IonButton expand="block" onClick={handleAddMember}>
                   <Trans>Add Member</Trans>
                 </IonButton>
               </div>
             </FeatureGate>
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div className={styles.listContainer}>
               <Virtuoso
+                className={`ion-content-scroll-host ${styles.scrollHost}`}
                 data={members}
                 endReached={hasMore ? () => loadMoreMembers() : undefined}
-                style={{ height: '100%' }}
                 components={{ Footer: renderMembersFooter }}
                 itemContent={(_, member) => (
                   <ChatMemberRow

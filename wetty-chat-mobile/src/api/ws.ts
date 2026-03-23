@@ -127,7 +127,9 @@ function showLocalNotification(message: MessageResponse): void {
   const chatEntry = store.getState().chats.byId[message.chat_id];
 
   // Skip notification for muted chats
-  const mutedUntil = chatEntry?.liveProjection?.muted_until ?? chatEntry?.listSnapshot?.muted_until;
+  const mutedUntil = chatEntry?.liveProjection && Object.prototype.hasOwnProperty.call(chatEntry.liveProjection, 'muted_until')
+    ? (chatEntry.liveProjection.muted_until ?? null)
+    : (chatEntry?.listSnapshot?.muted_until ?? null);
   if (mutedUntil && new Date(mutedUntil) > new Date()) return;
 
   const chatName = chatEntry?.details?.name ?? 'New Message';

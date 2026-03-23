@@ -1,3 +1,5 @@
+import styles from './UserAvatar.module.scss';
+
 interface UserAvatarProps {
   name: string;
   avatarUrl?: string | null;
@@ -25,24 +27,17 @@ export function UserAvatar({ name, avatarUrl, size = 36, className, style, onCli
   const base: React.CSSProperties = {
     width: size,
     height: size,
-    borderRadius: '50%',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    userSelect: 'none',
-    cursor: onClick ? 'pointer' : undefined,
     ...style,
   };
+  const classes = [styles.avatar, onClick ? styles.clickable : null, className].filter(Boolean).join(' ');
 
   if (avatarUrl) {
     return (
-      <div className={className} style={base} onClick={onClick}>
+      <div className={classes} style={base} onClick={onClick}>
         <img
           src={avatarUrl}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          className={styles.image}
         />
       </div>
     );
@@ -50,13 +45,11 @@ export function UserAvatar({ name, avatarUrl, size = 36, className, style, onCli
 
   return (
     <div
-      className={className}
+      className={`${classes} ${styles.fallback}`}
       style={{
         ...base,
         backgroundColor: colorForUser(name),
-        color: '#fff',
         fontSize: Math.round(size * 0.36),
-        fontWeight: 600,
       }}
       onClick={onClick}
     >

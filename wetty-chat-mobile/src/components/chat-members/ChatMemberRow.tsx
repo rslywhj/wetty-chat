@@ -2,6 +2,8 @@ import { IonChip, IonItem, IonLabel } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import type { MemberResponse } from '@/api/group';
 import { UserAvatar } from '@/components/UserAvatar';
+import styles from './ChatMemberRow.module.scss';
+import { FeatureGate } from '../FeatureGate';
 
 interface ChatMemberRowProps {
   member: MemberResponse;
@@ -19,6 +21,7 @@ export function ChatMemberRow({
   const displayName = member.username || t`User ${member.uid}`;
   return (
     <IonItem
+      className={styles.row}
       button={isAdmin && !isCurrentUser}
       detail={false}
       onClick={() => onSelect(member)}
@@ -27,15 +30,18 @@ export function ChatMemberRow({
         name={displayName}
         avatarUrl={member.avatar_url}
         size={40}
-        style={{ marginRight: 12 }}
+        className={styles.avatar}
       />
       <IonLabel>{displayName}</IonLabel>
-      <IonChip
-        color={member.role === 'admin' ? 'primary' : 'medium'}
-        slot="end"
-      >
-        {member.role}
-      </IonChip>
+      <FeatureGate>
+        <IonChip
+          className={styles.roleChip}
+          color={member.role === 'admin' ? 'primary' : 'medium'}
+          slot="end"
+        >
+          {member.role}
+        </IonChip>
+      </FeatureGate>
     </IonItem>
   );
 }
