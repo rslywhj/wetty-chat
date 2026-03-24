@@ -193,6 +193,7 @@ export function MessageOverlay({
                 } else if (att.kind.startsWith('video/')) {
                   return <video
                       autoPlay
+                      loop
                       key={att.id}
                       src={att.url}
                       className={styles.attachmentImage}

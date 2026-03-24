@@ -296,6 +296,7 @@ export function ChatBubble({
                           >
                               <video
                                   autoPlay
+                                  loop
                                   src={att.url}
                                   className={styles.attachmentImage}
                                   style={imageLayoutStyle ? undefined : {maxHeight: maxImageHeight}}
