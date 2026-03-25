@@ -16,7 +16,7 @@ import { GroupDetailPage } from '@/pages/group-detail';
 import NotFoundPage from '@/pages/not-found';
 import ComponentDemoPage from '@/pages/component-demo';
 
-import { safeAnimation } from '@/utils/safeAnimation';
+import { safariSafeRouteAnimation } from '@/utils/navigationHistory';
 import styles from './MobileLayout.module.scss';
 
 const TAB_ROOT_PATHS = ['/', '/chats', '/settings', '/demo'];
@@ -55,7 +55,7 @@ const MobileLayout: React.FC = () => {
 
   return (
     <IonTabs className={`${isTabRoot ? '' : styles.tabBarHidden}`}>
-      <IonRouterOutlet animation={safeAnimation}>
+      <IonRouterOutlet animation={safariSafeRouteAnimation}>
         <Route path="/chats" exact component={ChatsPage} />
         <Route path="/chats/new" exact component={CreateChatPage} />
         <Route path="/chats/chat/:id" exact component={ChatThreadPage} />

@@ -1,4 +1,4 @@
-import { IonApp, IonToast, setupIonicReact } from '@ionic/react';
+import { IonApp, IonToast } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Redirect, useRouteMatch } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -20,10 +20,7 @@ import LandingPage from './pages/landing';
 import { initWebSocket } from '@/api/ws';
 import { syncStoredJwtToken } from '@/utils/jwtToken';
 import { useDeviceToken } from './hooks/useDeviceToken';
-
-setupIonicReact({
-  mode: 'ios',
-});
+import { appHistory } from '@/utils/navigationHistory';
 
 const OOBE_STORAGE_KEY = 'oobe';
 
@@ -88,7 +85,7 @@ function AppShell() {
         ]}
       />
       <div className="app-router-shell">
-        <IonReactRouter basename={import.meta.env.BASE_URL}>
+        <IonReactRouter history={appHistory}>
           <AppRouter isDesktop={isDesktop} />
         </IonReactRouter>
       </div>
