@@ -44,14 +44,21 @@ export interface PendingBatch {
 
 export interface LayoutIntent {
   preserveHeightDelta?: number;
-  scrollToBottom?: boolean;
+  scrollToBottom?: { behavior: ScrollBehavior };
   scrollToKey?: { key: string; behavior: ScrollBehavior };
 }
 
 // ── Public API ──
 
+export interface ScrollToBottomOptions {
+  behavior?: ScrollBehavior;
+  ifAlreadyMountedKey?: string;
+  fallbackBehavior?: ScrollBehavior;
+  source?: string;
+}
+
 export interface VirtualScrollHandle {
-  scrollToBottom: () => void;
+  scrollToBottom: (options?: ScrollToBottomOptions) => void;
   scrollToItem: (key: string, behavior?: ScrollBehavior) => void;
 }
 

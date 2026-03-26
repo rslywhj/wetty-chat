@@ -22,6 +22,7 @@ export interface ReplyToMessage {
   sender: Sender;
   is_deleted: boolean;
   attachments?: Attachment[];
+  first_attachment_kind?: string;
 }
 
 export interface Attachment {

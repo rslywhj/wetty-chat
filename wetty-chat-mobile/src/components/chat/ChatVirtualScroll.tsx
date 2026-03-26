@@ -13,6 +13,7 @@ import type {
   MutationType,
   PendingBatch,
   Phase,
+  ScrollToBottomOptions,
 } from './virtualScroll/types';
 import {
   AT_BOTTOM_THRESHOLD_PX,
@@ -92,6 +93,25 @@ function scrollDirection(from: number, to: number): 'up' | 'down' | 'none' {
   if (to > from) return 'down';
   if (to < from) return 'up';
   return 'none';
+}
+
+function detectAlternatingJitter(samples: Array<{ top: number; at: number }>) {
+  if (samples.length < 6) return null;
+  const tops = samples.map((sample) => sample.top);
+  const unique = [...new Set(tops)];
+  if (unique.length !== 2) return null;
+
+  const [a, b] = unique;
+  if (Math.abs(a - b) > 1) return null;
+
+  for (let index = 2; index < tops.length; index += 1) {
+    if (tops[index] !== tops[index - 2]) return null;
+  }
+
+  return {
+    values: unique.sort((left, right) => left - right),
+    durationMs: samples[samples.length - 1].at - samples[0].at,
+  };
 }
 
 function normalizeRange(start: number, end: number, maxIndex: number): MountedWindow | null {
@@ -174,6 +194,8 @@ export function ChatVirtualScroll({
   const pendingScrollKeyRef = useRef<string | null>(null);
   const pendingScrollBehaviorRef = useRef<ScrollBehavior>('auto');
   const pendingScrollToBottomRef = useRef(false);
+  const pendingScrollToBottomBehaviorRef = useRef<ScrollBehavior>('auto');
+  const pendingScrollToBottomSourceRef = useRef<string | null>(null);
   const pendingPrependRestoreRef = useRef<{ key: string; offsetTop: number } | null>(null);
   const pendingPrependCompensationRef = useRef<number | null>(null);
   const pendingLayoutAnchorRestoreRef = useRef<{
@@ -196,6 +218,16 @@ export function ChatVirtualScroll({
   const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRafRef = useRef<number | null>(null);
   const bottomSettleRafRef = useRef<number | null>(null);
+  const bottomSettleFramesRemainingRef = useRef(0);
+  const lastProgrammaticScrollRef = useRef<{
+    source: string;
+    at: number;
+    from: number;
+    to: number;
+    behavior?: ScrollBehavior;
+  } | null>(null);
+  const recentScrollPositionsRef = useRef<Array<{ top: number; at: number }>>([]);
+  const lastJitterLogAtRef = useRef(0);
   const topLoadArmedRef = useRef(true);
   const bottomLoadArmedRef = useRef(true);
 
@@ -368,7 +400,7 @@ export function ChatVirtualScroll({
     }
   }, [loadNewer?.hasMore, onAtBottomChange]);
 
-  const scrollToBottomInternal = useCallback(() => {
+  const scrollToBottomInternal = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -379,8 +411,21 @@ export function ChatVirtualScroll({
       source: 'scrollToBottomInternal',
       from: container.scrollTop,
       to: target,
+      behavior,
+      mode: behavior === 'smooth' ? 'smooth-scroll' : 'jump-scroll',
       direction: scrollDirection(container.scrollTop, target),
     });
+    lastProgrammaticScrollRef.current = {
+      source: 'scrollToBottomInternal',
+      at: performance.now(),
+      from: container.scrollTop,
+      to: target,
+      behavior,
+    };
+    if (behavior === 'smooth') {
+      container.scrollTo({ top: target, behavior });
+      return;
+    }
     container.scrollTop = target;
   }, []);
 
@@ -393,6 +438,14 @@ export function ChatVirtualScroll({
       Math.max(0, Math.min(row.offsetTop, container.scrollHeight - container.clientHeight)),
     );
     if (behavior === 'auto' && !hasMeaningfulScrollDelta(container.scrollTop, target)) return;
+    logVirtualScroll('scroll-to-item-execute', {
+      key,
+      behavior,
+      mode: behavior === 'smooth' ? 'smooth-scroll' : 'jump-scroll',
+      from: container.scrollTop,
+      to: target,
+      mounted: mountedRef.current,
+    });
     container.scrollTo({ top: target, behavior });
   }, []);
 
@@ -414,6 +467,12 @@ export function ChatVirtualScroll({
       to: nextScrollTop,
       direction: scrollDirection(container.scrollTop, nextScrollTop),
     });
+    lastProgrammaticScrollRef.current = {
+      source: 'restoreAnchorOffset',
+      at: performance.now(),
+      from: container.scrollTop,
+      to: nextScrollTop,
+    };
     container.scrollTop = nextScrollTop;
     return true;
   }, []);
@@ -468,22 +527,39 @@ export function ChatVirtualScroll({
     }
 
     let framesRemaining = 2;
+    bottomSettleFramesRemainingRef.current = framesRemaining;
+    logVirtualScroll('bottom-settle-scheduled', {
+      framesRemaining,
+      pendingScrollToBottom: pendingScrollToBottomRef.current,
+      pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+      pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+      mounted: mountedRef.current,
+    });
     const settle = () => {
       const container = containerRef.current;
       if (!container) {
         bottomSettleRafRef.current = null;
+        bottomSettleFramesRemainingRef.current = 0;
         return;
       }
 
+      logVirtualScroll('bottom-settle-tick', {
+        framesRemaining,
+        scrollTop: container.scrollTop,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+      });
       scrollToBottomInternal();
       updateAtBottom();
       framesRemaining -= 1;
+      bottomSettleFramesRemainingRef.current = framesRemaining;
       if (framesRemaining > 0) {
         bottomSettleRafRef.current = requestAnimationFrame(settle);
         return;
       }
 
       bottomSettleRafRef.current = null;
+      bottomSettleFramesRemainingRef.current = 0;
     };
 
     bottomSettleRafRef.current = requestAnimationFrame(settle);
@@ -704,6 +780,26 @@ export function ChatVirtualScroll({
     if (desired.start < mounted.start - RECENTER_ROW_THRESHOLD || desired.end > mounted.end + RECENTER_ROW_THRESHOLD) {
       const visible = deriveVisibleRange(container.scrollTop, container.clientHeight);
       const targetIndex = visible ? Math.floor((visible.start + visible.end) / 2) : desired.start;
+      logVirtualScroll('recenter-eval', {
+        reason: 'mounted-outside-threshold',
+        mounted,
+        desired,
+        visible,
+        threshold: RECENTER_ROW_THRESHOLD,
+        startGap: mounted.start - desired.start,
+        endGap: desired.end - mounted.end,
+        scrollTop: container.scrollTop,
+        clientHeight: container.clientHeight,
+        pendingBatch: pendingBatch
+          ? {
+              reason: pendingBatch.reason,
+              direction: pendingBatch.direction,
+              size: pendingBatch.keys.length,
+            }
+          : null,
+        pendingScrollToBottom: pendingScrollToBottomRef.current,
+        pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+      });
       logVirtualScroll('recenter-trigger', {
         mounted,
         desired,
@@ -776,16 +872,34 @@ export function ChatVirtualScroll({
   const ensureBottomMeasured = useCallback(() => {
     if (rowKeys.length === 0 || pendingBatch) return;
 
-    const start = Math.max(0, rowKeys.length - BOOTSTRAP_BOTTOM_SEED);
-    if (allMeasured(start, rowKeys.length - 1)) {
-      updateMountedRange(capRange({ start, end: rowKeys.length - 1 }, rowKeys.length - 1));
-      layoutIntentRef.current = { scrollToBottom: true };
+    const container = containerRef.current;
+    const fallbackRange = { start: Math.max(0, rowKeys.length - BOOTSTRAP_BOTTOM_SEED), end: rowKeys.length - 1 };
+    const targetScrollTop = container ? roundScrollValue(container.scrollHeight - container.clientHeight) : 0;
+    const desiredRange = container ? deriveDesiredRange(targetScrollTop, container.clientHeight) : null;
+    const range = desiredRange ? capRange(desiredRange, rowKeys.length - 1) : fallbackRange;
+    const alreadyMeasured = allMeasured(range.start, range.end);
+    logVirtualScroll('ensure-bottom-measured', {
+      start: range.start,
+      end: range.end,
+      alreadyMeasured,
+      desiredRange,
+      targetScrollTop,
+      pendingScrollToBottom: pendingScrollToBottomRef.current,
+      pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+      pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+      mounted: mountedRef.current,
+    });
+    if (alreadyMeasured) {
+      updateMountedRange(range);
+      layoutIntentRef.current = {
+        scrollToBottom: { behavior: pendingScrollToBottomBehaviorRef.current },
+      };
       triggerRender();
       return;
     }
 
-    queueRangeBatch(start, rowKeys.length - 1, 'forward', 'jump');
-  }, [allMeasured, pendingBatch, queueRangeBatch, rowKeys.length, triggerRender, updateMountedRange]);
+    queueRangeBatch(range.start, range.end, 'forward', 'jump');
+  }, [allMeasured, deriveDesiredRange, pendingBatch, queueRangeBatch, rowKeys.length, triggerRender, updateMountedRange]);
 
   const handleMountedMeasure = useCallback(
     (key: string, height: number) => {
@@ -925,6 +1039,48 @@ export function ChatVirtualScroll({
   }, [isAtBottomEdge, isAtTopEdge, loadNewer, loadOlder, maybeUpdateMountedForScroll, pendingBatch, scrollDistances]);
 
   const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (container) {
+      const now = performance.now();
+      const recent = recentScrollPositionsRef.current;
+      recent.push({ top: roundScrollValue(container.scrollTop), at: now });
+      while (recent.length > 8) recent.shift();
+
+      const jitter = detectAlternatingJitter(recent);
+      if (jitter && now - lastJitterLogAtRef.current > 250) {
+        lastJitterLogAtRef.current = now;
+        const distances = scrollDistances();
+        const payload = {
+          positions: recent.map((sample) => sample.top),
+          values: jitter.values,
+          durationMs: jitter.durationMs,
+          lastProgrammaticScroll: lastProgrammaticScrollRef.current,
+          lastProgrammaticScrollAgeMs: lastProgrammaticScrollRef.current
+            ? Math.round(now - lastProgrammaticScrollRef.current.at)
+            : null,
+          pendingBatch: pendingBatch
+            ? {
+                reason: pendingBatch.reason,
+                direction: pendingBatch.direction,
+                size: pendingBatch.keys.length,
+              }
+            : null,
+          pendingScrollToBottom: pendingScrollToBottomRef.current,
+          pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+          pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+          bottomSettleFramesRemaining: bottomSettleFramesRemainingRef.current,
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+          clientHeight: container.clientHeight,
+          topDistance: distances?.fromTop ?? null,
+          bottomDistance: distances?.fromBottom ?? null,
+          mounted: mountedRef.current,
+        };
+        logVirtualScroll('scroll-jitter-detected', payload);
+        console.log(`[ChatVirtualScroll] scroll-jitter-json ${JSON.stringify(payload)}`);
+      }
+    }
+
     if (scrollRafRef.current == null) {
       scrollRafRef.current = requestAnimationFrame(() => {
         scrollRafRef.current = null;
@@ -946,7 +1102,7 @@ export function ChatVirtualScroll({
     if (distances.fromBottom >= EDGE_REARM_PX) {
       bottomLoadArmedRef.current = true;
     }
-  }, [handleScrollIdle, maybeUpdateMountedForScroll, scrollDistances, updateAtBottom]);
+  }, [handleScrollIdle, maybeUpdateMountedForScroll, pendingBatch, scrollDistances, updateAtBottom]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -965,17 +1121,36 @@ export function ChatVirtualScroll({
           to: nextScrollTop,
           direction: scrollDirection(container.scrollTop, nextScrollTop),
         });
+        lastProgrammaticScrollRef.current = {
+          source: 'preserveHeightDelta',
+          at: performance.now(),
+          from: container.scrollTop,
+          to: nextScrollTop,
+        };
         container.scrollTop = nextScrollTop;
       }
     }
 
     if (intent?.scrollToBottom) {
-      scrollToBottomInternal();
+      logVirtualScroll('layout-intent-scroll-to-bottom', {
+        pendingScrollToBottom: pendingScrollToBottomRef.current,
+        pendingScrollToBottomBehavior: intent.scrollToBottom.behavior,
+        pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+        mounted: mountedRef.current,
+      });
+      scrollToBottomInternal(intent.scrollToBottom.behavior);
       scheduleBottomSettle();
       pendingScrollToBottomRef.current = false;
+      pendingScrollToBottomBehaviorRef.current = 'auto';
+      pendingScrollToBottomSourceRef.current = null;
     }
 
     if (intent?.scrollToKey) {
+      logVirtualScroll('layout-intent-scroll-to-item', {
+        key: intent.scrollToKey.key,
+        behavior: intent.scrollToKey.behavior,
+        mounted: mountedRef.current,
+      });
       scrollToKeyInternal(intent.scrollToKey.key, intent.scrollToKey.behavior);
       if (pendingScrollKeyRef.current === intent.scrollToKey.key) {
         pendingScrollKeyRef.current = null;
@@ -985,6 +1160,11 @@ export function ChatVirtualScroll({
     if (pendingScrollKeyRef.current && !intent?.scrollToKey) {
       const targetRow = rowRefsMap.current.get(pendingScrollKeyRef.current);
       if (targetRow) {
+        logVirtualScroll('pending-scroll-to-item-execute', {
+          key: pendingScrollKeyRef.current,
+          behavior: pendingScrollBehaviorRef.current,
+          mounted: mountedRef.current,
+        });
         scrollToKeyInternal(pendingScrollKeyRef.current, pendingScrollBehaviorRef.current);
         pendingScrollKeyRef.current = null;
       }
@@ -999,6 +1179,12 @@ export function ChatVirtualScroll({
         from: container.scrollTop,
         to: nextScrollTop,
       });
+      lastProgrammaticScrollRef.current = {
+        source: 'prepend-height-compensation',
+        at: performance.now(),
+        from: container.scrollTop,
+        to: nextScrollTop,
+      };
       container.scrollTop = nextScrollTop;
       pendingPrependCompensationRef.current = null;
     }
@@ -1067,8 +1253,14 @@ export function ChatVirtualScroll({
     } else if (mutation === 'append' && isAtBottomRef.current && !intent?.scrollToKey) {
       logVirtualScroll('append-bottom-lock', {
         pendingScrollToBottom: pendingScrollToBottomRef.current,
+        pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+        pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+        visualBottomDistance: container.scrollHeight - (container.scrollTop + container.clientHeight),
+        mounted: mountedRef.current,
       });
       pendingScrollToBottomRef.current = true;
+      pendingScrollToBottomBehaviorRef.current = 'smooth';
+      pendingScrollToBottomSourceRef.current = 'append-detected';
       ensureBottomMeasured();
     } else if (mutation === 'append') {
       logVirtualScroll('append-preserve-natural-position', {
@@ -1205,6 +1397,8 @@ export function ChatVirtualScroll({
     recenterTargetIndexRef.current = null;
     pendingScrollKeyRef.current = null;
     pendingScrollToBottomRef.current = false;
+    pendingScrollToBottomBehaviorRef.current = 'auto';
+    pendingScrollToBottomSourceRef.current = null;
     pendingPrependRestoreRef.current = null;
     pendingPrependCompensationRef.current = null;
     pendingLayoutAnchorRestoreRef.current = null;
@@ -1295,7 +1489,7 @@ export function ChatVirtualScroll({
         viewportBottom,
         action: 'scrollToBottom',
       });
-      layoutIntentRef.current = { scrollToBottom: true };
+      layoutIntentRef.current = { scrollToBottom: { behavior: 'auto' } };
       updateMountedRange(capRange(mounted, rowKeys.length - 1));
       setPhaseState('READY');
       triggerRender();
@@ -1379,7 +1573,16 @@ export function ChatVirtualScroll({
           scrollToKey: { key: pendingScrollKeyRef.current, behavior: pendingScrollBehaviorRef.current },
         };
       } else if (pendingScrollToBottomRef.current) {
-        layoutIntentRef.current = { scrollToBottom: true };
+        logVirtualScroll('recenter-ready-with-pending-bottom-scroll', {
+          targetIndex,
+          desired,
+          mounted,
+          pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+          pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+        });
+        layoutIntentRef.current = {
+          scrollToBottom: { behavior: pendingScrollToBottomBehaviorRef.current },
+        };
       }
 
       setPhaseState('READY');
@@ -1411,6 +1614,11 @@ export function ChatVirtualScroll({
     if (phase !== 'READY') return;
 
     if (pendingScrollToBottomRef.current) {
+      logVirtualScroll('ready-effect-pending-bottom-scroll', {
+        pendingScrollToBottomBehavior: pendingScrollToBottomBehaviorRef.current,
+        pendingScrollToBottomSource: pendingScrollToBottomSourceRef.current,
+        mounted: mountedRef.current,
+      });
       ensureBottomMeasured();
       return;
     }
@@ -1449,10 +1657,35 @@ export function ChatVirtualScroll({
   useEffect(() => {
     if (!scrollApiRef) return;
 
-    scrollApiRef.current = {
-      scrollToBottom: () => {
+      scrollApiRef.current = {
+      scrollToBottom: (options?: ScrollToBottomOptions) => {
         pendingScrollKeyRef.current = null;
         pendingScrollToBottomRef.current = true;
+        const {
+          behavior = 'auto',
+          ifAlreadyMountedKey,
+          fallbackBehavior = 'auto',
+          source = 'scrollApi.scrollToBottom',
+        } = options ?? {};
+        const targetIndex = ifAlreadyMountedKey ? keyToIndex.get(ifAlreadyMountedKey) : null;
+        const mounted = mountedRef.current;
+        const shouldUsePrimaryBehavior =
+          ifAlreadyMountedKey == null ||
+          (targetIndex != null && mounted != null && targetIndex >= mounted.start && targetIndex <= mounted.end);
+        const resolvedBehavior = shouldUsePrimaryBehavior ? behavior : fallbackBehavior;
+        pendingScrollToBottomBehaviorRef.current = resolvedBehavior;
+        pendingScrollToBottomSourceRef.current = source;
+        logVirtualScroll('scroll-to-bottom-requested', {
+          source: pendingScrollToBottomSourceRef.current,
+          requestedBehavior: behavior,
+          resolvedBehavior,
+          fallbackBehavior,
+          shouldUsePrimaryBehavior,
+          ifAlreadyMountedKey: ifAlreadyMountedKey ?? null,
+          targetIndex: targetIndex ?? null,
+          phase: phaseRef.current,
+          mounted,
+        });
 
         if (phaseRef.current === 'READY') {
           ensureBottomMeasured();
@@ -1460,20 +1693,52 @@ export function ChatVirtualScroll({
       },
       scrollToItem: (key: string, behavior: ScrollBehavior = 'auto') => {
         const targetIndex = keyToIndex.get(key);
-        if (targetIndex == null) return;
-
-        pendingScrollBehaviorRef.current = behavior;
-        pendingScrollKeyRef.current = key;
-        pendingScrollToBottomRef.current = false;
+        if (targetIndex == null) {
+          logVirtualScroll('scroll-to-item-requested', {
+            key,
+            requestedBehavior: behavior,
+            resolvedBehavior: behavior,
+            targetIndex: null,
+            mounted: mountedRef.current,
+            phase: phaseRef.current,
+            found: false,
+          });
+          return;
+        }
 
         const mounted = mountedRef.current;
+        const isMounted = mounted != null && targetIndex >= mounted.start && targetIndex <= mounted.end;
+        const resolvedBehavior = isMounted ? behavior : behavior === 'smooth' ? 'auto' : behavior;
+        pendingScrollBehaviorRef.current = resolvedBehavior;
+        pendingScrollKeyRef.current = key;
+        pendingScrollToBottomRef.current = false;
+        pendingScrollToBottomBehaviorRef.current = 'auto';
+        pendingScrollToBottomSourceRef.current = null;
+        logVirtualScroll('scroll-to-item-requested', {
+          key,
+          requestedBehavior: behavior,
+          resolvedBehavior,
+          targetIndex,
+          mounted,
+          phase: phaseRef.current,
+          found: true,
+          isMounted,
+        });
+
         if (mounted && targetIndex >= mounted.start && targetIndex <= mounted.end) {
-          scrollToKeyInternal(key, behavior);
+          scrollToKeyInternal(key, resolvedBehavior);
           pendingScrollKeyRef.current = null;
           return;
         }
 
         if (phaseRef.current === 'READY') {
+          logVirtualScroll('scroll-to-item-recenter-requested', {
+            key,
+            targetIndex,
+            requestedBehavior: behavior,
+            resolvedBehavior,
+            mounted,
+          });
           enterRecentering(targetIndex);
         }
       },

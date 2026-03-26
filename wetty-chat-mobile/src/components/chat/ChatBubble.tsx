@@ -38,6 +38,7 @@ interface ChatBubbleProps {
     senderName: string;
     message?: string | null;
     attachments?: Attachment[];
+    firstAttachmentKind?: string | null;
     isDeleted?: boolean;
   };
   timestamp?: string;
@@ -278,6 +279,7 @@ export function ChatBubble({
                   {getMessagePreviewText({
                     message: replyTo.message,
                     attachments: replyTo.attachments,
+                    firstAttachmentKind: replyTo.firstAttachmentKind,
                     isDeleted: replyTo.isDeleted,
                   })}
                 </div>

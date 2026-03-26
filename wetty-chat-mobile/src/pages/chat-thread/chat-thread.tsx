@@ -188,6 +188,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingMoreRef = useRef(false);
   const loadingNewerRef = useRef(false);
+  const pendingSendScrollKeyRef = useRef<string | null>(null);
   const [initialAnchor, setInitialAnchor] = useState<VirtualScrollAnchor>({ type: 'bottom', token: 0 });
 
   const chatRows = useChatRows(messages, formatDateSeparator);
@@ -230,6 +231,29 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       initialAnchor,
     });
   }, [chatId, storeChatId, messages, chatRows.length, initialAnchor]);
+
+  useEffect(() => {
+    const pendingKey = pendingSendScrollKeyRef.current;
+    if (!pendingKey) return;
+    if (!chatRows.some((row) => row.key === pendingKey)) return;
+
+    if (import.meta.env.DEV) {
+      console.log('[ChatThread] execute-pending-send-scroll', {
+        chatId,
+        storeChatId,
+        threadId: threadId ?? null,
+        pendingKey,
+      });
+    }
+
+    scrollApiRef.current?.scrollToBottom({
+      behavior: 'smooth',
+      ifAlreadyMountedKey: pendingKey,
+      fallbackBehavior: 'auto',
+      source: 'chat-thread-send',
+    });
+    pendingSendScrollKeyRef.current = null;
+  }, [chatId, chatRows, storeChatId, threadId]);
 
   const getMessageKey = useCallback(
     (message: MessageResponse) => `msg:${message.client_generated_id || message.id}`,
@@ -612,7 +636,21 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         }),
       );
       setReplyingTo(null);
-      setTimeout(() => scrollApiRef.current?.scrollToBottom(), 50);
+      if (!atBottom) {
+        pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
+        if (import.meta.env.DEV) {
+          console.log('[ChatThread] schedule-pending-send-scroll', {
+            chatId,
+            storeChatId,
+            threadId: threadId ?? null,
+            clientGeneratedId,
+            pendingKey: pendingSendScrollKeyRef.current,
+            atBottom,
+          });
+        }
+      } else {
+        pendingSendScrollKeyRef.current = null;
+      }
 
       const messagePayload = {
         message: text,
@@ -676,6 +714,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       currentUserName,
       currentUserAvatarUrl,
       messageLookup,
+      atBottom,
     ],
   );
 
@@ -816,8 +855,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
               ? {
                   senderName: msg.reply_to_message.sender.name ?? `User ${msg.reply_to_message.sender.uid}`,
                   message: msg.reply_to_message.message,
-                  attachments:
-                    messageLookup.get(msg.reply_to_message.id)?.attachments ?? msg.reply_to_message.attachments,
+                  firstAttachmentKind: msg.reply_to_message.first_attachment_kind ?? null,
                   isDeleted: msg.reply_to_message.is_deleted,
                 }
               : undefined
@@ -825,7 +863,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         />
       );
     },
-    [currentUserId, threadId, chatId, history, jumpToMessage, onClickChatItem, handleReactionToggle, messageLookup],
+    [currentUserId, threadId, chatId, history, jumpToMessage, onClickChatItem, handleReactionToggle],
   );
 
   return (
@@ -930,7 +968,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
                     overlayMessage.message.reply_to_message.sender.name ??
                     `User ${overlayMessage.message.reply_to_message.sender.uid}`,
                   message: overlayMessage.message.reply_to_message.message,
-                  attachments: overlayMessage.message.reply_to_message.attachments,
+                  firstAttachmentKind: overlayMessage.message.reply_to_message.first_attachment_kind ?? null,
                   isDeleted: overlayMessage.message.reply_to_message.is_deleted,
                 }
               : undefined

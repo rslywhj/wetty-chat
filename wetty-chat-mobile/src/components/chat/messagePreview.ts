@@ -4,10 +4,11 @@ import type { Attachment } from '@/api/messages';
 interface PreviewMessage {
   message?: string | null;
   attachments?: Attachment[];
+  firstAttachmentKind?: string | null;
   isDeleted?: boolean;
 }
 
-export function getMessagePreviewText({ message, attachments, isDeleted }: PreviewMessage): string {
+export function getMessagePreviewText({ message, attachments, firstAttachmentKind, isDeleted }: PreviewMessage): string {
   if (isDeleted) {
     return t`[Deleted]`;
   }
@@ -20,11 +21,23 @@ export function getMessagePreviewText({ message, attachments, isDeleted }: Previ
     return t`[Image]`;
   }
 
+  if (firstAttachmentKind?.startsWith('image/')) {
+    return t`[Image]`;
+  }
+
   if (attachments?.some((attachment) => attachment.kind.startsWith('video/'))) {
     return t`[Video]`;
   }
 
+  if (firstAttachmentKind?.startsWith('video/')) {
+    return t`[Video]`;
+  }
+
   if (attachments && attachments.length > 0) {
+    return t`[Attachment]`;
+  }
+
+  if (firstAttachmentKind) {
     return t`[Attachment]`;
   }
 
