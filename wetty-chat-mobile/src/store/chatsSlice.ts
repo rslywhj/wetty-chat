@@ -101,6 +101,7 @@ const chatsSlice = createSlice({
         entry.details = {
           ...entry.details,
           name: chat.name ?? entry.details.name,
+          avatar: chat.avatar ?? entry.details.avatar ?? null,
         };
         entry.listSnapshot = {
           last_message: chat.last_message,
@@ -263,6 +264,7 @@ export const selectAllChats = createSelector([selectChatsById], (byId): ChatList
       return {
         id,
         name: entry.details.name ?? null,
+        avatar: entry.details.avatar ?? null,
         last_message_at: listMeta.last_message_at ?? null,
         unread_count: listMeta.unread_count ?? 0,
         last_message: listMeta.last_message ?? null,

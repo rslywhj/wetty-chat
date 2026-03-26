@@ -5,6 +5,7 @@ import type { MessageResponse } from './messages';
 export interface ChatListItem {
   id: string;
   name: string | null;
+  avatar: string | null;
   last_message_at: string | null;
   unread_count: number;
   last_message: MessageResponse | null;

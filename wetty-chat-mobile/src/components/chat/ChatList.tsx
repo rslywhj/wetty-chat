@@ -22,6 +22,7 @@ import { Trans } from '@lingui/react/macro';
 import { markMessagesAsRead, type MessageResponse } from '@/api/messages';
 import { t } from '@lingui/core/macro';
 import { clearAppBadgeCount, setAppBadgeCount } from '@/utils/badges';
+import { UserAvatar } from '@/components/UserAvatar';
 import { getMessagePreviewText } from './messagePreview';
 import styles from './ChatList.module.scss';
 
@@ -243,8 +244,13 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
                 className={`${styles.chatListItem} ${activeChatId === chat.id ? styles.active : ''}`}
                 onClick={() => onChatSelect(chat.id)}
               >
-                <div slot="start" className={styles.chatsListAvatar}>
-                  {chat.name && chat.name.trim() ? chat.name.trim().charAt(0).toUpperCase() : '?'}
+                <div slot="start">
+                  <UserAvatar
+                    name={chatDisplayName(chat)}
+                    avatarUrl={chat.avatar}
+                    size={48}
+                    className={styles.chatsListAvatar}
+                  />
                 </div>
                 <IonLabel className={styles.chatsListLabel}>
                   <h2 className={styles.chatsListTitle}>
