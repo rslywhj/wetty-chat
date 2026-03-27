@@ -1,0 +1,76 @@
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.avatar {
+  box-shadow: 0 10px 24px rgba(125, 95, 41, 0.18);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #876b2a;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  line-height: 1.1;
+  color: #241f14;
+}
+
+.description {
+  margin: 0;
+  color: #5d5748;
+  line-height: 1.5;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chip {
+  --background: rgba(185, 153, 82, 0.14);
+  --color: #6f5418;
+  font-weight: 600;
+}
+
+.status {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(91, 76, 33, 0.07);
+  color: #4c432c;
+  line-height: 1.45;
+}
+
+.statusError {
+  background: rgba(180, 52, 43, 0.1);
+  color: #7e241d;
+}
+
+.actions {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.actions ion-button {
+  margin: 0;
+}
+
+.supporting {
+  margin-top: 12px;
+  text-align: center;
+  color: var(--ion-color-medium);
+}
