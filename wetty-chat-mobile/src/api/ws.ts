@@ -4,7 +4,6 @@ import type { MessageResponse, ReactionSummary } from '@/api/messages';
 import { setActiveConnections, setWsConnected } from '@/store/connectionSlice';
 import store from '@/store/index';
 import { messageAdded, messageConfirmed, messagePatched, reactionsUpdated } from '@/store/messageEvents';
-import { setAppBadgeCount } from '@/utils/badges';
 import { getStoredJwtToken } from '@/utils/jwtToken';
 
 const WS_PATH = (__API_BASE__ ?? import.meta.env.BASE_URL + '_api') + '/ws';
@@ -165,14 +164,6 @@ function showLocalNotification(message: MessageResponse): void {
       .catch(() => {
         /* SW not available */
       });
-  }
-
-  if ('setAppBadge' in navigator) {
-    const totalUnread = Object.values(store.getState().chats.byId).reduce((sum, entry) => {
-      const unread = entry.liveProjection?.unread_count ?? entry.listSnapshot?.unread_count ?? 0;
-      return sum + unread;
-    }, 0);
-    setAppBadgeCount(navigator, totalUnread)?.catch(() => {});
   }
 }
 

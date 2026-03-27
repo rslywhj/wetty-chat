@@ -1,7 +1,6 @@
 /// <reference lib="webworker" />
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { setAppBadgeCount } from './utils/badges';
 import { loadClientIdForServiceWorker } from './utils/clientId';
 
 declare let self: ServiceWorkerGlobalScope;
@@ -73,10 +72,6 @@ self.addEventListener('push', (event) => {
       const payload = event.data.json();
       const title = payload.title || 'New Message';
       const body = payload.body;
-
-      if (typeof payload.unread_count === 'number' && 'setAppBadge' in self.navigator) {
-        setAppBadgeCount(self.navigator, payload.unread_count)?.catch(console.error);
-      }
 
       const chatId = payload.data?.chat_id;
       const messageId = payload.data?.message_id;

@@ -83,6 +83,7 @@ import { getGroupInfo } from '@/api/group';
 import { BackButton } from '@/components/BackButton';
 import type { BackAction } from '@/types/back-action';
 import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
+import { syncAppBadgeCount } from '@/utils/badges';
 
 const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -332,6 +333,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       markMessagesAsRead(chatId, latestMessage.id)
         .then(() => {
           dispatch(markChatAsRead({ chatId: chatId, lastReadMessageId: latestMessage.id }));
+          void syncAppBadgeCount();
         })
         .catch((err) => {
           console.error('Failed to mark as read', err);

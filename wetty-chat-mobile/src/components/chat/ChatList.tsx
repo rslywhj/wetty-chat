@@ -15,7 +15,7 @@ import {
 } from '@ionic/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { checkmarkDone, mailUnreadOutline, notificationsOffOutline } from 'ionicons/icons';
-import { type ChatListItem, getChats, getUnreadCount } from '@/api/chats';
+import { type ChatListItem, getChats } from '@/api/chats';
 import {
   markChatAsRead,
   selectAllChats,
@@ -27,7 +27,7 @@ import { selectEffectiveLocale } from '@/store/settingsSlice';
 import { Trans } from '@lingui/react/macro';
 import { markMessagesAsRead, type MessageResponse } from '@/api/messages';
 import { t } from '@lingui/core/macro';
-import { clearAppBadgeCount, setAppBadgeCount } from '@/utils/badges';
+import { syncAppBadgeCount } from '@/utils/badges';
 import { UserAvatar } from '@/components/UserAvatar';
 import { getMessagePreviewText } from './messagePreview';
 import styles from './ChatList.module.scss';
@@ -124,17 +124,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   }, [dispatch]);
 
   const updateAppBadge = useCallback(async () => {
-    try {
-      const res = await getUnreadCount();
-      if (res.data.unread_count > 0) {
-        setAppBadgeCount(navigator, res.data.unread_count)?.catch(console.error);
-      } else {
-        clearAppBadgeCount(navigator)?.catch(console.error);
-      }
-    } catch (error) {
-      clearAppBadgeCount(navigator);
-      console.error(error);
-    }
+    await syncAppBadgeCount();
   }, []);
 
   useEffect(() => {
@@ -150,7 +140,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       dispatch(markChatAsRead({ chatId: chat.id, lastReadMessageId: chat.last_message.id }));
       try {
         await markMessagesAsRead(chat.id, chat.last_message.id);
-        updateAppBadge();
+        await updateAppBadge();
       } catch (err) {
         console.error('Failed to mark as read', err);
       }
@@ -160,7 +150,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         dispatch(setChatUnreadCount({ chatId: chat.id, unreadCount: 1 }));
         dispatch(setChatLastReadMessageId({ chatId: chat.id, lastReadMessageId: prevId }));
         await markMessagesAsRead(chat.id, prevId);
-        updateAppBadge();
+        await updateAppBadge();
       } catch (err) {
         console.error('Failed to mark as unread', err);
       }
@@ -185,7 +175,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
           event.detail.complete();
         }, delay);
       });
-    updateAppBadge();
+    void updateAppBadge();
   };
 
   return (

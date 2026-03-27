@@ -1,8 +1,9 @@
-import { type ChatListItem, getChats, getUnreadCount } from '@/api/chats';
+import { type ChatListItem, getChats } from '@/api/chats';
 import { getMessages } from '@/api/messages';
 import { setChatsList } from '@/store/chatsSlice';
 import { appendMessages } from '@/store/messagesSlice';
 import store from '@/store/index';
+import { syncAppBadgeCount } from '@/utils/badges';
 
 let isSyncing = false;
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -31,20 +32,7 @@ export async function syncApp() {
       const chats = chatsRes.data.chats || [];
       store.dispatch(setChatsList(chats));
 
-      try {
-        const badgeRes = await getUnreadCount();
-        if (badgeRes.data.unread_count > 0) {
-          if (navigator.setAppBadge) {
-            navigator.setAppBadge(badgeRes.data.unread_count).catch(console.error);
-          }
-        } else {
-          if (navigator.clearAppBadge) {
-            navigator.clearAppBadge().catch(console.error);
-          }
-        }
-      } catch (badgeErr) {
-        console.error('Failed to sync app badge', badgeErr);
-      }
+      await syncAppBadgeCount();
 
       // 2. Sync Active Message Windows
       const state = store.getState();
