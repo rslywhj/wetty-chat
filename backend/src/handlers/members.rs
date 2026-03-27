@@ -6,9 +6,12 @@ use axum::{
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::Serialize;
+use serde_json::json;
 use std::collections::HashMap;
 
-use crate::models::{GroupMembership, GroupRole, NewGroupMembership, UserGroupInfo};
+use crate::models::{
+    GroupJoinReason, GroupMembership, GroupRole, NewGroupMembership, UserGroupInfo,
+};
 use crate::schema::{self, group_membership};
 use crate::services::user::{
     lookup_user_avatars, lookup_user_profiles, parse_user_search_query, search_group_member_uids,
@@ -287,6 +290,8 @@ async fn post_add_member(
         uid: body.uid,
         role: role.clone(),
         joined_at: now,
+        join_reason: GroupJoinReason::DirectInvite,
+        join_reason_extra: Some(json!({ "inviter_uid": uid })),
     };
 
     diesel::insert_into(group_membership::table)

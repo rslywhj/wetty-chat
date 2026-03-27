@@ -2,12 +2,20 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "group_join_reason"))]
+    pub struct GroupJoinReason;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "group_role"))]
     pub struct GroupRole;
 
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "group_visibility"))]
     pub struct GroupVisibility;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "invite_type"))]
+    pub struct InviteType;
 
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "media_purpose"))]
@@ -62,6 +70,7 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::GroupRole;
+    use super::sql_types::GroupJoinReason;
 
     group_membership (chat_id, uid) {
         chat_id -> Int8,
@@ -70,6 +79,8 @@ diesel::table! {
         joined_at -> Timestamptz,
         last_read_message_id -> Nullable<Int8>,
         muted_until -> Nullable<Timestamptz>,
+        join_reason -> GroupJoinReason,
+        join_reason_extra -> Nullable<Jsonb>,
     }
 }
 
@@ -87,6 +98,26 @@ diesel::table! {
         last_message_id -> Nullable<Int8>,
         last_message_at -> Nullable<Timestamptz>,
         avatar_image_id -> Nullable<Int8>,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::InviteType;
+
+    invites (id) {
+        id -> Int8,
+        #[max_length = 12]
+        code -> Varchar,
+        chat_id -> Int8,
+        invite_type -> InviteType,
+        creator_uid -> Nullable<Int4>,
+        target_uid -> Nullable<Int4>,
+        required_chat_id -> Nullable<Int8>,
+        created_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+        revoked_at -> Nullable<Timestamptz>,
+        used_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -240,6 +271,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     clients,
     group_membership,
     groups,
+    invites,
     media,
     message_reactions,
     messages,

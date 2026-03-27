@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 
 use crate::handlers::members::check_membership;
 use crate::models::{
-    GroupRole, GroupVisibility, Media, MediaPurpose, NewGroup, NewGroupMembership, NewMedia,
-    UpdateGroup,
+    GroupJoinReason, GroupRole, GroupVisibility, Media, MediaPurpose, NewGroup, NewGroupMembership,
+    NewMedia, UpdateGroup,
 };
 use crate::schema::{group_membership, groups, media};
 use crate::services::media::{build_public_object_url, build_storage_key, presign_public_upload};
@@ -216,6 +216,8 @@ async fn post_group(
             uid,
             role: GroupRole::Admin,
             joined_at: now,
+            join_reason: GroupJoinReason::Creator,
+            join_reason_extra: None,
         })
         .execute(conn)
         .map_err(|e| {

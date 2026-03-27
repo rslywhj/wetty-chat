@@ -22,11 +22,30 @@ pub enum MediaPurpose {
 }
 
 #[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[ExistingTypePath = "crate::schema::sql_types::GroupJoinReason"]
+#[serde(rename_all = "snake_case")]
+pub enum GroupJoinReason {
+    Other,
+    Creator,
+    InviteCode,
+    DirectInvite,
+}
+
+#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::GroupRole"]
 #[serde(rename_all = "snake_case")]
 pub enum GroupRole {
     Member,
     Admin,
+}
+
+#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[ExistingTypePath = "crate::schema::sql_types::InviteType"]
+#[serde(rename_all = "snake_case")]
+pub enum InviteType {
+    Generic,
+    Targeted,
+    Membership,
 }
 
 #[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -197,6 +216,8 @@ pub struct GroupMembership {
     pub joined_at: DateTime<Utc>,
     pub last_read_message_id: Option<i64>,
     pub muted_until: Option<DateTime<Utc>>,
+    pub join_reason: GroupJoinReason,
+    pub join_reason_extra: Option<serde_json::Value>,
 }
 
 /// For inserting a membership. Use `"member"` and `Utc::now()` for `role` and `joined_at` to match DB defaults.
@@ -207,6 +228,40 @@ pub struct NewGroupMembership {
     pub uid: i32,
     pub role: GroupRole,
     pub joined_at: DateTime<Utc>,
+    pub join_reason: GroupJoinReason,
+    pub join_reason_extra: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = schema::invites)]
+pub struct Invite {
+    pub id: i64,
+    pub code: String,
+    pub chat_id: i64,
+    pub invite_type: InviteType,
+    pub creator_uid: Option<i32>,
+    pub target_uid: Option<i32>,
+    pub required_chat_id: Option<i64>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub used_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::invites)]
+pub struct NewInvite {
+    pub id: i64,
+    pub code: String,
+    pub chat_id: i64,
+    pub invite_type: InviteType,
+    pub creator_uid: Option<i32>,
+    pub target_uid: Option<i32>,
+    pub required_chat_id: Option<i64>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub used_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable, Serialize)]
