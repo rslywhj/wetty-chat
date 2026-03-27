@@ -75,8 +75,11 @@ export function MessageOverlay({
     if (!content) return;
     const contentRect = content.getBoundingClientRect();
     const pad = 40;
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
+    const visualViewport = window.visualViewport;
+    const vh = visualViewport?.height ?? window.innerHeight;
+    const vw = visualViewport?.width ?? window.innerWidth;
+    const offsetTop = visualViewport?.offsetTop ?? 0;
+    const offsetLeft = visualViewport?.offsetLeft ?? 0;
 
     // Start at the original bubble position, offset by the bubble clone's
     // position within the content container (reactions may be above it)
@@ -89,19 +92,19 @@ export function MessageOverlay({
     let left = isSent ? sourceRect.right - contentRect.width : sourceRect.left;
 
     // Clamp vertically: ensure the entire content (reactions + bubble + actions) fits
-    if (top + contentRect.height > vh - pad) {
-      top = vh - pad - contentRect.height;
+    if (top + contentRect.height > offsetTop + vh - pad) {
+      top = offsetTop + vh - pad - contentRect.height;
     }
-    if (top < pad) {
-      top = pad;
+    if (top < offsetTop + pad) {
+      top = offsetTop + pad;
     }
 
     // Clamp horizontally
-    if (left + contentRect.width > vw - pad) {
-      left = vw - pad - contentRect.width;
+    if (left + contentRect.width > offsetLeft + vw - pad) {
+      left = offsetLeft + vw - pad - contentRect.width;
     }
-    if (left < pad) {
-      left = pad;
+    if (left < offsetLeft + pad) {
+      left = offsetLeft + pad;
     }
 
     content.style.top = `${top}px`;

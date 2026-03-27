@@ -69,6 +69,7 @@ import { useChatRows } from '@/components/chat/useChatRows';
 import { ChatBubble } from '@/components/chat/ChatBubble';
 import {
   type ComposeSendPayload,
+  type MessageComposeBarHandle,
   type ComposeUploadedAttachment,
   type ComposeUploadInput,
   type EditingMessage,
@@ -84,6 +85,7 @@ import { BackButton } from '@/components/BackButton';
 import type { BackAction } from '@/types/back-action';
 import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
 import { syncAppBadgeCount } from '@/utils/badges';
+import { useIsDesktop } from '@/hooks/platformHooks';
 
 const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -157,6 +159,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const currentUserName = useSelector((state: RootState) => state.user.username);
   const currentUserAvatarUrl = useSelector((state: RootState) => state.user.avatar_url);
   const wsConnected = useSelector((state: RootState) => state.connection.wsConnected);
+  const isDesktop = useIsDesktop();
   const storedName = useSelector((state: RootState) => selectChatName(state, chatId));
   const isMuted = useSelector((state: RootState) => selectIsChatMuted(state, chatId));
   const lastReadMessageId = useSelector((state: RootState) => selectChatLastReadMessageId(state, chatId));
@@ -198,6 +201,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   }, []);
 
   const scrollApiRef = useRef<VirtualScrollHandle | null>(null);
+  const composeBarRef = useRef<MessageComposeBarHandle | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingMoreRef = useRef(false);
@@ -212,6 +216,9 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const [profileSender, setProfileSender] = useState<Sender | null>(null);
   const [reactionDetail, setReactionDetail] = useState<{ messageId: string; emoji?: string } | null>(null);
   const [editingSession, setEditingSession] = useState<EditSession | null>(null);
+  const [composeFocused, setComposeFocused] = useState(false);
+  const [baselineViewportHeight, setBaselineViewportHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
+  const [viewportHeight, setViewportHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
 
   const [presentToast] = useIonToast();
   const [presentAlert] = useIonAlert();
@@ -232,6 +239,34 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       });
     };
   }, [chatId, storeChatId, threadId]);
+
+  useEffect(() => {
+    if (isDesktop) return;
+
+    const visualViewport = window.visualViewport;
+    const getViewportHeight = () => visualViewport?.height ?? window.innerHeight;
+    const updateViewportMetrics = () => {
+      const nextViewportHeight = getViewportHeight();
+      setViewportHeight(nextViewportHeight);
+      if (!composeFocused) {
+        setBaselineViewportHeight(nextViewportHeight);
+      }
+    };
+
+    const target = visualViewport ?? window;
+    target.addEventListener('resize', updateViewportMetrics);
+
+    return () => {
+      target.removeEventListener('resize', updateViewportMetrics);
+    };
+  }, [composeFocused, isDesktop]);
+
+  const handleComposeFocusChange = useCallback((focused: boolean) => {
+    setComposeFocused(focused);
+    if (!focused) {
+      setBaselineViewportHeight(window.visualViewport?.height ?? window.innerHeight);
+    }
+  }, []);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -759,9 +794,22 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     ],
   );
 
-  const onClickChatItem = useCallback((msg: MessageResponse, sourceRect: DOMRect) => {
-    setOverlayMessage({ message: msg, sourceRect });
-  }, []);
+  const isKeyboardOpen =
+    !isDesktop &&
+    composeFocused &&
+    baselineViewportHeight - viewportHeight > 120;
+
+  const onClickChatItem = useCallback(
+    (msg: MessageResponse, sourceRect: DOMRect) => {
+      if (isKeyboardOpen) {
+        composeBarRef.current?.blurInput();
+        return;
+      }
+
+      setOverlayMessage({ message: msg, sourceRect });
+    },
+    [isKeyboardOpen],
+  );
 
   const overlayActions = useMemo((): MessageOverlayAction[] => {
     if (!overlayMessage) return [];
@@ -966,8 +1014,10 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
 
       <IonFooter className="chat-thread-footer">
         <MessageComposeBar
+          ref={composeBarRef}
           onSend={handleSend}
           uploadAttachment={uploadAttachment}
+          onFocusChange={handleComposeFocusChange}
           replyTo={
             replyingTo
               ? {

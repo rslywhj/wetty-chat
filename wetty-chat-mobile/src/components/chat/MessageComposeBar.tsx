@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { IonButton, IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import { addCircleOutline, closeCircle, happyOutline, send } from 'ionicons/icons';
@@ -66,6 +66,13 @@ interface MessageComposeBarProps {
   editing?: EditingMessage;
   onCancelEdit?: () => void;
   onRequestEditLastMessage?: () => boolean;
+  onFocusChange?: (focused: boolean) => void;
+}
+
+export interface MessageComposeBarHandle {
+  focusInput: () => void;
+  blurInput: () => void;
+  isFocused: () => boolean;
 }
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
@@ -78,15 +85,19 @@ const createDraftId = () => {
   return `draft_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 };
 
-export function MessageComposeBar({
-  onSend,
-  uploadAttachment,
-  replyTo,
-  onCancelReply,
-  editing,
-  onCancelEdit,
-  onRequestEditLastMessage,
-}: MessageComposeBarProps) {
+export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComposeBarProps>(function MessageComposeBar(
+  {
+    onSend,
+    uploadAttachment,
+    replyTo,
+    onCancelReply,
+    editing,
+    onCancelEdit,
+    onRequestEditLastMessage,
+    onFocusChange,
+  }: MessageComposeBarProps,
+  ref,
+) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftsRef = useRef<DraftUploadRecord[]>([]);
@@ -95,6 +106,16 @@ export function MessageComposeBar({
   const prevTextLenRef = useRef(0);
   const [drafts, setDrafts] = useState<DraftUploadRecord[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusInput: () => textareaRef.current?.focus(),
+      blurInput: () => textareaRef.current?.blur(),
+      isFocused: () => document.activeElement === textareaRef.current,
+    }),
+    [],
+  );
 
   const resizeTextarea = useCallback(() => {
     const ta = textareaRef.current;
@@ -555,6 +576,8 @@ export function MessageComposeBar({
               const newLen = e.target.value.length;
               prevTextLenRef.current = newLen;
             }}
+            onFocus={() => onFocusChange?.(true)}
+            onBlur={() => onFocusChange?.(false)}
           />
           <FeatureGate>
             <button type="button" className={styles.stickerBtn} aria-label={t`Sticker`}>
@@ -576,4 +599,4 @@ export function MessageComposeBar({
       </IonButton>
     </div>
   );
-}
+});
