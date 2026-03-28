@@ -23,24 +23,24 @@ type InviteAction = {
 type InviteViewState =
   | { kind: 'loading' }
   | {
-      kind: 'error';
-      eyebrow: ReactNode;
-      title: string;
-      description: string;
-      statusMessage: string;
-      statusTone: 'error';
-    }
+    kind: 'error';
+    eyebrow: ReactNode;
+    title: string;
+    description: string;
+    statusMessage: string;
+    statusTone: 'error';
+  }
   | {
-      kind: 'loaded';
-      eyebrow: ReactNode;
-      title: string;
-      description: string;
-      statusMessage?: string;
-      statusTone?: 'info' | 'error';
-      supporting?: ReactNode;
-      avatarUrl: string | null;
-      actions: [InviteAction, InviteAction];
-    };
+    kind: 'loaded';
+    eyebrow: ReactNode;
+    title: string;
+    description: string;
+    statusMessage?: string;
+    statusTone?: 'info' | 'error';
+    supporting?: ReactNode;
+    avatarUrl: string | null;
+    actions: [InviteAction, InviteAction];
+  };
 
 type InviteErrorCopy = {
   title: string;
@@ -176,8 +176,8 @@ export function InvitePreviewCard({ inviteCode, onResolved, onCancel }: InvitePr
         kind: 'loaded',
         eyebrow: <Trans>Invite</Trans>,
         title: displayName,
-        description: t`You are already a member of this chat.`,
-        statusMessage: t`This invite points to a chat you already joined.`,
+        description: previewState.data.chat.description?.trim() || t`Join this chat to start reading and sending messages.`,
+        statusMessage: t`You are already a member`,
         avatarUrl: previewState.data.chat.avatar,
         actions: [
           {

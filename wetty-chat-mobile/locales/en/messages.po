@@ -56,10 +56,6 @@ msgid "30 days"
 msgstr "30 days"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "30 minutes"
-#~ msgstr "30 minutes"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "7 days"
 msgstr "7 days"
@@ -101,10 +97,6 @@ msgstr "Anyone with this invite link can use it until it expires or is revoked."
 msgid "Are you sure you want to delete this message?"
 msgstr "Are you sure you want to delete this message?"
 
-#: src/pages/chat-members.tsx
-#~ msgid "Are you sure you want to leave this group?"
-#~ msgstr "Are you sure you want to leave this group?"
-
 #: src/pages/settings.tsx
 msgid "Ask first"
 msgstr "Ask first"
@@ -133,10 +125,6 @@ msgstr "Auto"
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Avatar uploaded"
 msgstr "Avatar uploaded"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Avatar URL"
-#~ msgstr "Avatar URL"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Back"
@@ -167,12 +155,6 @@ msgstr "Cancel edit"
 #: src/components/chat/MessageComposeBar.tsx
 msgid "Cancel reply"
 msgstr "Cancel reply"
-
-#: src/components/chat/ChatList.tsx
-#: src/components/group-selector/GroupSelector.tsx
-#: src/components/invites/useInvitePreview.ts
-#~ msgid "Chat {0}"
-#~ msgstr "Chat {0}"
 
 #: src/utils/chatDisplay.ts
 msgid "Chat {chatId}"
@@ -279,10 +261,6 @@ msgid "Destination Group"
 msgstr "Destination Group"
 
 #: src/App.tsx
-#~ msgid "Disconnected. Retrying…"
-#~ msgstr "Disconnected. Retrying…"
-
-#: src/App.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -309,10 +287,6 @@ msgstr "Edit message"
 #: src/components/chat/messages/ChatBubbleBase.tsx
 msgid "Edited"
 msgstr "Edited"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Enter avatar URL"
-#~ msgstr "Enter avatar URL"
 
 #: src/components/chat/ImageViewer.tsx
 #: src/components/chat/ImageViewer.tsx
@@ -367,10 +341,6 @@ msgstr "Failed to edit message"
 #: src/pages/chat-thread/chat-thread.tsx
 msgid "Failed to jump to message"
 msgstr "Failed to jump to message"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Failed to leave group"
-#~ msgstr "Failed to leave group"
 
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Failed to load chat details"
@@ -478,10 +448,6 @@ msgstr "Group Members"
 msgid "Group Name"
 msgstr "Group Name"
 
-#: src/pages/component-demo.tsx
-#~ msgid "Group Selector Demo"
-#~ msgstr "Group Selector Demo"
-
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Group Settings"
 msgstr "Group Settings"
@@ -530,6 +496,7 @@ msgid "Join chat"
 msgstr "Join chat"
 
 #: src/components/invites/InvitePreviewCard.tsx
+#: src/components/invites/InvitePreviewCard.tsx
 msgid "Join this chat to start reading and sending messages."
 msgstr "Join this chat to start reading and sending messages."
 
@@ -545,23 +512,6 @@ msgstr "Language"
 #: src/pages/settings/general.tsx
 msgid "Large"
 msgstr "Large"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Last selected: {selectedGroupName}"
-#~ msgstr "Last selected: {selectedGroupName}"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Leave"
-#~ msgstr "Leave"
-
-#: src/pages/chat-members.tsx
-#: src/pages/chat-members.tsx
-#~ msgid "Leave Group"
-#~ msgstr "Leave Group"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Left group"
-#~ msgstr "Left group"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Loading invite…"
@@ -584,10 +534,6 @@ msgstr "Loading…"
 #: src/pages/chat-thread/chat-invites.tsx
 msgid "Manage Invite Links"
 msgstr "Manage Invite Links"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Manageable Groups"
-#~ msgstr "Manageable Groups"
 
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Member added"
@@ -635,10 +581,6 @@ msgid "Mute notifications"
 msgstr "Mute notifications"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "Mute This Group"
-#~ msgstr "Mute This Group"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Muted indefinitely"
 msgstr "Muted indefinitely"
 
@@ -667,10 +609,6 @@ msgstr "Next image"
 #: src/components/chat/ChatList.tsx
 msgid "No chats yet"
 msgstr "No chats yet"
-
-#: src/components/settings/AppVersionItem.tsx
-#~ msgid "No device token available"
-#~ msgstr "No device token available"
 
 #: src/components/chat/GroupProfile.tsx
 msgid "No group description yet."
@@ -717,10 +655,6 @@ msgstr "Not subscribed"
 #: src/pages/settings.tsx
 msgid "Notification permission was not granted"
 msgstr "Notification permission was not granted"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Notifications"
-#~ msgstr "Notifications"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Notifications muted"
@@ -858,10 +792,6 @@ msgstr "reply"
 msgid "Reply"
 msgstr "Reply"
 
-#: src/pages/chat-thread.tsx
-#~ msgid "Reply in Thread"
-#~ msgstr "Reply in Thread"
-
 #. placeholder {0}: replyTo.username
 #: src/components/chat/MessageComposeBar.tsx
 msgid "Replying to {0}"
@@ -879,10 +809,6 @@ msgstr "Save Settings"
 msgid "Saving..."
 msgstr "Saving..."
 
-#: src/pages/component-demo.tsx
-#~ msgid "Search and select a group. The selected row is logged to the console."
-#~ msgstr "Search and select a group. The selected row is logged to the console."
-
 #: src/components/group-selector/GroupSelector.tsx
 msgid "Search groups"
 msgstr "Search groups"
@@ -899,10 +825,6 @@ msgstr "Select"
 #: src/layouts/DesktopSplitLayout.tsx
 msgid "Select a chat"
 msgstr "Select a chat"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Select a group to test the callback."
-#~ msgstr "Select a group to test the callback."
 
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
 msgid "Select Group"
@@ -953,10 +875,6 @@ msgstr "Sticker"
 msgid "Subscribed"
 msgstr "Subscribed"
 
-#: src/components/chat/ChatList.tsx
-#~ msgid "Text message"
-#~ msgstr "Text message"
-
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "This invite is invalid or has expired."
 msgstr "This invite is invalid or has expired."
@@ -968,10 +886,6 @@ msgstr "This invite is not available for your account."
 #: src/components/chat/messages/InviteMessageCard.tsx
 msgid "This invite may have expired or been revoked. Open it to check the latest status."
 msgstr "This invite may have expired or been revoked. Open it to check the latest status."
-
-#: src/components/invites/InvitePreviewCard.tsx
-msgid "This invite points to a chat you already joined."
-msgstr "This invite points to a chat you already joined."
 
 #: src/pages/settings/general.tsx
 msgid "This is how your messages will look in chat."
@@ -997,10 +911,6 @@ msgstr "Turn Off Push Notifications"
 #: src/pages/settings.tsx
 msgid "Turn On Push Notifications"
 msgstr "Turn On Push Notifications"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "Unmute This Group"
-#~ msgstr "Unmute This Group"
 
 #: src/components/chat/ChatList.tsx
 msgid "Unread"
@@ -1055,10 +965,6 @@ msgstr "User ID"
 msgid "View image {0}"
 msgstr "View image {0}"
 
-#: src/components/chat/ChatBubble.tsx
-#~ msgid "View Thread"
-#~ msgstr "View Thread"
-
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Visibility"
 msgstr "Visibility"
@@ -1072,6 +978,9 @@ msgid "Yesterday"
 msgstr "Yesterday"
 
 #: src/components/invites/InvitePreviewCard.tsx
+msgid "You are already a member"
+msgstr "You are already a member"
+
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "You are already a member of this chat."
 msgstr "You are already a member of this chat."

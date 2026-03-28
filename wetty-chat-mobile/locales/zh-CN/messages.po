@@ -56,10 +56,6 @@ msgid "30 days"
 msgstr "30 天"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "30 minutes"
-#~ msgstr "30 分钟"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "7 days"
 msgstr "7 天"
@@ -101,10 +97,6 @@ msgstr "任何拥有此邀请链接的人都可以在链接过期或被撤销前
 msgid "Are you sure you want to delete this message?"
 msgstr "确定要撤回这条消息吗？"
 
-#: src/pages/chat-members.tsx
-#~ msgid "Are you sure you want to leave this group?"
-#~ msgstr "确定要退出该群组吗？"
-
 #: src/pages/settings.tsx
 msgid "Ask first"
 msgstr "先询问"
@@ -133,10 +125,6 @@ msgstr "自动"
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Avatar uploaded"
 msgstr "头像已上传"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Avatar URL"
-#~ msgstr "头像链接"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Back"
@@ -167,12 +155,6 @@ msgstr "取消编辑"
 #: src/components/chat/MessageComposeBar.tsx
 msgid "Cancel reply"
 msgstr "取消回复"
-
-#: src/components/chat/ChatList.tsx
-#: src/components/group-selector/GroupSelector.tsx
-#: src/components/invites/useInvitePreview.ts
-#~ msgid "Chat {0}"
-#~ msgstr "聊天 {0}"
 
 #: src/utils/chatDisplay.ts
 msgid "Chat {chatId}"
@@ -279,10 +261,6 @@ msgid "Destination Group"
 msgstr "目标群组"
 
 #: src/App.tsx
-#~ msgid "Disconnected. Retrying…"
-#~ msgstr "已断开连接。正在重试…"
-
-#: src/App.tsx
 msgid "Dismiss"
 msgstr "忽略"
 
@@ -309,10 +287,6 @@ msgstr "编辑消息"
 #: src/components/chat/messages/ChatBubbleBase.tsx
 msgid "Edited"
 msgstr "已编辑"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Enter avatar URL"
-#~ msgstr "输入头像链接"
 
 #: src/components/chat/ImageViewer.tsx
 #: src/components/chat/ImageViewer.tsx
@@ -367,10 +341,6 @@ msgstr "编辑消息失败"
 #: src/pages/chat-thread/chat-thread.tsx
 msgid "Failed to jump to message"
 msgstr "跳转到消息失败"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Failed to leave group"
-#~ msgstr "退出群组失败"
 
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Failed to load chat details"
@@ -478,10 +448,6 @@ msgstr "群组成员"
 msgid "Group Name"
 msgstr "群组名称"
 
-#: src/pages/component-demo.tsx
-#~ msgid "Group Selector Demo"
-#~ msgstr "群组选择器演示"
-
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Group Settings"
 msgstr "群组设置"
@@ -530,6 +496,7 @@ msgid "Join chat"
 msgstr "加入聊天"
 
 #: src/components/invites/InvitePreviewCard.tsx
+#: src/components/invites/InvitePreviewCard.tsx
 msgid "Join this chat to start reading and sending messages."
 msgstr "加入此聊天即可开始阅读和发送消息。"
 
@@ -545,23 +512,6 @@ msgstr "语言"
 #: src/pages/settings/general.tsx
 msgid "Large"
 msgstr "大"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Last selected: {selectedGroupName}"
-#~ msgstr "上次选择：{selectedGroupName}"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Leave"
-#~ msgstr "退出"
-
-#: src/pages/chat-members.tsx
-#: src/pages/chat-members.tsx
-#~ msgid "Leave Group"
-#~ msgstr "退出群组"
-
-#: src/pages/chat-members.tsx
-#~ msgid "Left group"
-#~ msgstr "已退出群组"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Loading invite…"
@@ -584,10 +534,6 @@ msgstr "正在加载…"
 #: src/pages/chat-thread/chat-invites.tsx
 msgid "Manage Invite Links"
 msgstr "管理邀请链接"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Manageable Groups"
-#~ msgstr "可管理的群组"
 
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Member added"
@@ -635,10 +581,6 @@ msgid "Mute notifications"
 msgstr "静音通知"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "Mute This Group"
-#~ msgstr "将此群组设为静音"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Muted indefinitely"
 msgstr "已永久静音"
 
@@ -667,10 +609,6 @@ msgstr "下一张图片"
 #: src/components/chat/ChatList.tsx
 msgid "No chats yet"
 msgstr "暂无聊天"
-
-#: src/components/settings/AppVersionItem.tsx
-#~ msgid "No device token available"
-#~ msgstr "没有可用的设备令牌"
 
 #: src/components/chat/GroupProfile.tsx
 msgid "No group description yet."
@@ -717,10 +655,6 @@ msgstr "未订阅"
 #: src/pages/settings.tsx
 msgid "Notification permission was not granted"
 msgstr "通知权限未授予"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Notifications"
-#~ msgstr "通知"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Notifications muted"
@@ -875,10 +809,6 @@ msgstr "保存设置"
 msgid "Saving..."
 msgstr "保存中..."
 
-#: src/pages/component-demo.tsx
-#~ msgid "Search and select a group. The selected row is logged to the console."
-#~ msgstr "搜索并选择一个群组。选中的行会记录到控制台。"
-
 #: src/components/group-selector/GroupSelector.tsx
 msgid "Search groups"
 msgstr "搜索群组"
@@ -895,10 +825,6 @@ msgstr "选择"
 #: src/layouts/DesktopSplitLayout.tsx
 msgid "Select a chat"
 msgstr "选择一个聊天"
-
-#: src/pages/component-demo.tsx
-#~ msgid "Select a group to test the callback."
-#~ msgstr "选择一个群组以测试回调。"
 
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
 msgid "Select Group"
@@ -949,10 +875,6 @@ msgstr "贴纸"
 msgid "Subscribed"
 msgstr "已订阅"
 
-#: src/components/chat/ChatList.tsx
-#~ msgid "Text message"
-#~ msgstr "文本消息"
-
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "This invite is invalid or has expired."
 msgstr "此邀请无效或已过期。"
@@ -964,10 +886,6 @@ msgstr "此邀请对你的账号不可用。"
 #: src/components/chat/messages/InviteMessageCard.tsx
 msgid "This invite may have expired or been revoked. Open it to check the latest status."
 msgstr "此邀请可能已过期或被撤销。打开以查看最新状态。"
-
-#: src/components/invites/InvitePreviewCard.tsx
-msgid "This invite points to a chat you already joined."
-msgstr "此邀请指向你已加入的聊天。"
 
 #: src/pages/settings/general.tsx
 msgid "This is how your messages will look in chat."
@@ -993,10 +911,6 @@ msgstr "关闭推送通知"
 #: src/pages/settings.tsx
 msgid "Turn On Push Notifications"
 msgstr "开启推送通知"
-
-#: src/components/chat/settings/ChatMuteSettingItem.tsx
-#~ msgid "Unmute This Group"
-#~ msgstr "取消此群组静音"
 
 #: src/components/chat/ChatList.tsx
 msgid "Unread"
@@ -1051,10 +965,6 @@ msgstr "用户 ID"
 msgid "View image {0}"
 msgstr "查看图片 {0}"
 
-#: src/components/chat/ChatBubble.tsx
-#~ msgid "View Thread"
-#~ msgstr "查看话题"
-
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Visibility"
 msgstr "可见性"
@@ -1068,6 +978,9 @@ msgid "Yesterday"
 msgstr "昨天"
 
 #: src/components/invites/InvitePreviewCard.tsx
+msgid "You are already a member"
+msgstr "你已经是成员"
+
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "You are already a member of this chat."
 msgstr "你已经是此聊天的成员。"
