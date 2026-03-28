@@ -80,3 +80,7 @@ export function createInvite(body: CreateInviteBody): Promise<AxiosResponse<Invi
 export function sendInviteMessage(body: SendInviteMessageBody): Promise<AxiosResponse<SendInviteMessageResponse>> {
   return apiClient.post('/invites/send', body);
 }
+
+export function deleteInvite(inviteId: string): Promise<AxiosResponse<void>> {
+  return apiClient.delete(`/invites/invite/${inviteId}`);
+}

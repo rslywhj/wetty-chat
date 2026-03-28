@@ -49,6 +49,10 @@
   width: 100%;
 }
 
+.cardDisabled {
+  cursor: default;
+}
+
 .ionCard {
   margin: 0;
   overflow: hidden;
@@ -60,6 +64,10 @@
 
 .cardSent .ionCard {
   --background: var(--ion-color-step-50, #fcfcfc);
+}
+
+.cardDisabled .ionCard {
+  opacity: 0.92;
 }
 
 .cardHeader {

@@ -7,7 +7,7 @@ import { ChatList } from '@/components/chat/ChatList';
 import ChatThreadCore from '@/pages/chat-thread/chat-thread';
 import ChatSettingsCore from '@/pages/chat-thread/chat-settings';
 import ChatMembersCore from '@/pages/chat-thread/chat-members';
-import ChatInvitesCore from '@/pages/chat-thread/chat-invites';
+import ChatInvitesCore from '@/pages/chat-thread/manage-invites';
 import CreateChatCore from '@/pages/create-chat';
 import { InvitePreviewCore } from '@/pages/invite-preview';
 import { JoinChatCore } from '@/pages/join-chat';

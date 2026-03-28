@@ -145,6 +145,7 @@ msgstr "已封鎖"
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-thread.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Cancel"
 msgstr "取消"
 
@@ -183,6 +184,7 @@ msgid "Choose the member group first"
 msgstr "請先選擇成員群組"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Clipboard is not available on this device"
 msgstr "此裝置無法使用剪貼簿"
 
@@ -199,11 +201,21 @@ msgstr "關閉"
 msgid "Close viewer"
 msgstr "關閉檢視器"
 
+#: src/pages/join-chat.tsx
+msgid "Code"
+msgstr "邀請碼"
+
+#: src/pages/join-chat.tsx
+#: src/pages/join-chat.tsx
+msgid "Continue"
+msgstr "繼續"
+
 #: src/pages/chat-thread/chat-thread.tsx
 msgid "Copy"
 msgstr "複製"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Copy code"
 msgstr "複製代碼"
 
@@ -219,13 +231,18 @@ msgstr "無法加入聊天"
 msgid "Could not load invite"
 msgstr "無法載入邀請"
 
+#: src/pages/join-chat.tsx
+msgid "Could not validate invite code"
+msgstr "無法驗證邀請碼"
+
+#: src/layouts/DesktopSplitLayout.tsx
+#: src/pages/chats.tsx
+msgid "Create Chat"
+msgstr "建立聊天"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Create Invite"
 msgstr "建立邀請"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Create Share Link"
-#~ msgstr "建立分享連結"
 
 #: src/pages/chat-thread/chat-thread.tsx
 #: src/pages/chat-thread/chat-thread.tsx
@@ -288,6 +305,10 @@ msgstr "編輯訊息"
 msgid "Edited"
 msgstr "已編輯"
 
+#: src/pages/join-chat.tsx
+msgid "Enter an invite code"
+msgstr "輸入邀請碼"
+
 #: src/components/chat/ImageViewer.tsx
 #: src/components/chat/ImageViewer.tsx
 msgid "Enter fullscreen"
@@ -314,6 +335,10 @@ msgstr "錯誤"
 msgid "Exit fullscreen"
 msgstr "退出全螢幕"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Expire Date"
+msgstr "到期日期"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Expires"
 msgstr "到期時間"
@@ -323,6 +348,7 @@ msgid "Failed to add member"
 msgstr "新增成員失敗"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to copy invite code"
 msgstr "複製邀請碼失敗"
 
@@ -355,6 +381,10 @@ msgstr "載入聊天失敗"
 msgid "Failed to load groups"
 msgstr "載入群組失敗"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Failed to load invite links"
+msgstr "載入邀請連結失敗"
+
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Failed to load members"
@@ -384,6 +414,10 @@ msgstr "重新整理聊天失敗"
 msgid "Failed to remove member"
 msgstr "移除成員失敗"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Failed to revoke invite"
+msgstr "撤銷邀請失敗"
+
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Failed to save settings"
 msgstr "儲存設定失敗"
@@ -393,6 +427,7 @@ msgid "Failed to send"
 msgstr "傳送失敗"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to send invite"
 msgstr "傳送邀請失敗"
 
@@ -462,7 +497,13 @@ msgstr "無效的使用者 ID"
 msgid "Invite"
 msgstr "邀請"
 
+#: src/pages/chat-thread/manage-invites.tsx
+#: src/pages/join-chat.tsx
+msgid "Invite Code"
+msgstr "邀請碼"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Invite code copied"
 msgstr "邀請碼已複製"
 
@@ -475,16 +516,21 @@ msgstr "邀請連結"
 msgid "Invite Link Created"
 msgstr "邀請連結已建立"
 
-#: src/pages/chat-thread/chat-invites.tsx
-msgid "Invite link management is coming next. This screen is reserved for active links, resending, and revoke actions."
-msgstr "邀請連結管理即將推出。此畫面將用於顯示有效連結、重新傳送與撤銷操作。"
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite revoked"
+msgstr "邀請已撤銷"
 
+#. placeholder {0}: getChatDisplayName(group.id, group.name)
 #. placeholder {0}: getChatDisplayName(selectedDestinationGroup.id, selectedDestinationGroup.name)
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Invite sent to {0}"
 msgstr "邀請已傳送給 {0}"
 
-#: src/components/chat/messages/InviteMessageCard.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite Type"
+msgstr "邀請類型"
+
 #: src/components/chat/messages/InviteMessageCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
@@ -500,6 +546,12 @@ msgstr "加入聊天"
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Join this chat to start reading and sending messages."
 msgstr "加入此聊天即可開始閱讀與傳送訊息。"
+
+#: src/layouts/DesktopSplitLayout.tsx
+#: src/pages/chats.tsx
+#: src/pages/join-chat.tsx
+msgid "Join via Code"
+msgstr "透過邀請碼加入"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Joining…"
@@ -527,12 +579,13 @@ msgstr "正在載入..."
 #: src/components/chat/ChatVirtualScroll.tsx
 #: src/components/chat/ChatVirtualScroll.tsx
 #: src/components/chat/ChatVirtualScroll.tsx
+#: src/pages/join-chat.tsx
+#: src/pages/join-chat.tsx
 msgid "Loading…"
 msgstr "正在載入…"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
-#: src/pages/chat-thread/chat-invites.tsx
-#: src/pages/chat-thread/chat-invites.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Manage Invite Links"
 msgstr "管理邀請連結"
 
@@ -557,6 +610,7 @@ msgid "Member removed"
 msgstr "成員已移除"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Membership"
 msgstr "成員資格"
 
@@ -592,6 +646,7 @@ msgstr "已靜音至 {0}"
 
 #: src/components/chat/settings/shareInviteHelpers.ts
 #: src/components/chat/settings/shareInviteHelpers.ts
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Never"
 msgstr "永不"
 
@@ -606,6 +661,10 @@ msgstr "較新的訊息"
 #: src/components/chat/ImageViewer.tsx
 msgid "Next image"
 msgstr "下一張圖片"
+
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "No active invite links created by you."
+msgstr "你建立的有效邀請連結為空。"
 
 #: src/components/chat/ChatList.tsx
 msgid "No chats yet"
@@ -673,9 +732,17 @@ msgstr "只有所選群組的成員才能使用此邀請連結加入。"
 msgid "Open chat"
 msgstr "開啟聊天"
 
+#: src/components/HeaderActionMenu.tsx
+msgid "Open chat actions"
+msgstr "開啟聊天操作"
+
 #: src/components/chat/messages/InviteMessageCard.tsx
 msgid "Open this invite to view the group and join."
 msgstr "開啟此邀請以查看群組並加入。"
+
+#: src/pages/join-chat.tsx
+msgid "Paste code"
+msgstr "貼上邀請碼"
 
 #: src/pages/settings.tsx
 msgid "Permission"
@@ -716,6 +783,7 @@ msgstr "升級為管理員"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/ChatAdminSettings.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 #: src/utils/chatDisplay.ts
 msgid "Public"
 msgstr "公開"
@@ -798,9 +866,22 @@ msgstr "回覆"
 msgid "Replying to {0}"
 msgstr "正在回覆 {0}"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Restricted To"
+msgstr "限制為"
+
 #: src/components/chat/UploadPreview.tsx
 msgid "Retry"
 msgstr "重試"
+
+#: src/pages/chat-thread/manage-invites.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Revoke"
+msgstr "撤銷"
+
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Revoke invite"
+msgstr "撤銷邀請"
 
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Save Settings"
@@ -852,6 +933,10 @@ msgstr "設定"
 msgid "Settings saved"
 msgstr "設定已儲存"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Share"
+msgstr "分享"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Share Invite"
 msgstr "分享邀請"
@@ -876,6 +961,14 @@ msgstr "貼圖"
 msgid "Subscribed"
 msgstr "已訂閱"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Targeted"
+msgstr "定向"
+
+#: src/pages/join-chat.tsx
+msgid "The invite code entered is not valid."
+msgstr "輸入的邀請碼無效。"
+
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "This invite is invalid or has expired."
 msgstr "此邀請無效或已過期。"
@@ -884,9 +977,13 @@ msgstr "此邀請無效或已過期。"
 msgid "This invite is not available for your account."
 msgstr "此邀請不適用於你的帳號。"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "This invite link will stop working immediately."
+msgstr "此邀請連結將立即失效。"
+
 #: src/components/chat/messages/InviteMessageCard.tsx
-msgid "This invite may have expired or been revoked. Open it to check the latest status."
-msgstr "此邀請可能已過期或被撤銷。開啟以查看最新狀態。"
+msgid "This invite may have expired or been revoked."
+msgstr "此邀請可能已過期或被撤銷。"
 
 #: src/pages/settings/general.tsx
 msgid "This is how your messages will look in chat."

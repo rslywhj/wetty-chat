@@ -3,15 +3,21 @@
 This is a Progressive Web Application (PWA) that supports desktop, mobile platforms
 It uses Ionic Framework v8 and React with Redux as store management and axios as API client
 
-## Localization
+## UI Design
 
-- This project uses `lingui` for localization (i18n) support.
-- When writing UI code that include user visible text, we should use `t` or `Trans` when ever applicable.
+This application should have more or less a native iOS application feel.
+For forms / list / input design try to follow iOS native settings app.
+Use Ionic Components when applicable, only when native ionic component can't fit our need then design custom styling
 
 ## Style Customization
 
 - Use a scss module when possible
 - Avoid using inline styles unless it needs to be computed on the fly
+
+## Localization
+
+- This project uses `lingui` for localization (i18n) support.
+- When writing UI code that include user visible text, we should use `t` or `Trans` when ever applicable.
 
 ## Structuring
 

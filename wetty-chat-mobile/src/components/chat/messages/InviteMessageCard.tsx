@@ -35,11 +35,12 @@ function formatTime(iso: string): string {
 type CardBodyViewState =
   | { kind: 'loading' }
   | {
-      kind: 'ready';
-      avatar: ReactNode;
-      title: ReactNode;
-      description: ReactNode;
-    };
+    kind: 'ready';
+    avatar?: ReactNode;
+    title: ReactNode;
+    description: ReactNode;
+    clickable: boolean;
+  };
 
 function InviteCardBody({ viewState }: { viewState: CardBodyViewState }) {
   return (
@@ -48,7 +49,7 @@ function InviteCardBody({ viewState }: { viewState: CardBodyViewState }) {
         {viewState.kind === 'loading' ? (
           <IonSkeletonText animated className={styles.skeletonAvatar} />
         ) : (
-          viewState.avatar
+          viewState.avatar ?? null
         )}
       </div>
       <IonLabel>
@@ -64,7 +65,9 @@ function InviteCardBody({ viewState }: { viewState: CardBodyViewState }) {
           </>
         )}
       </IonLabel>
-      <IonIcon icon={chevronForward} slot="end" className={styles.chevron} />
+      {viewState.kind === 'ready' && viewState.clickable ? (
+        <IonIcon icon={chevronForward} slot="end" className={styles.chevron} />
+      ) : null}
     </IonItem>
   );
 }
@@ -82,6 +85,7 @@ export function InviteMessageCard({
   const { previewState, preview, displayName } = useInvitePreview(inviteCode);
   const senderName = sender.name ?? `User ${sender.uid}`;
   let bodyViewState: CardBodyViewState;
+  const inviteAvailable = previewState.kind === 'loaded' && !!preview;
 
   if (previewState.kind === 'loading') {
     bodyViewState = { kind: 'loading' };
@@ -91,13 +95,14 @@ export function InviteMessageCard({
       avatar: <UserAvatar name={displayName} avatarUrl={preview.chat.avatar} size={44} className={styles.groupAvatar} />,
       title: displayName,
       description: preview.chat.description?.trim() || t`Open this invite to view the group and join.`,
+      clickable: true,
     };
   } else {
     bodyViewState = {
       kind: 'ready',
-      avatar: <UserAvatar name={t`Invite unavailable`} avatarUrl={null} size={44} className={styles.groupAvatar} />,
       title: <Trans>Invite unavailable</Trans>,
-      description: <Trans>This invite may have expired or been revoked. Open it to check the latest status.</Trans>,
+      description: <Trans>This invite may have expired or been revoked.</Trans>,
+      clickable: false,
     };
   }
 
@@ -116,7 +121,12 @@ export function InviteMessageCard({
       <div className={styles.content}>
         {showName && !isSent && <div className={styles.senderName}>{senderName}</div>}
 
-        <button type="button" className={`${styles.card} ${isSent ? styles.cardSent : ''}`} onClick={onOpen}>
+        <button
+          type="button"
+          className={`${styles.card} ${isSent ? styles.cardSent : ''} ${!inviteAvailable ? styles.cardDisabled : ''}`}
+          onClick={inviteAvailable ? onOpen : undefined}
+          disabled={!inviteAvailable}
+        >
           <IonCard className={styles.ionCard}>
             <IonCardHeader className={styles.cardHeader}>
               <IonCardSubtitle className={styles.cardSubtitle}>

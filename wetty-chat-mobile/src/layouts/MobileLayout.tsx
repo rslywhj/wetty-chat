@@ -11,7 +11,7 @@ import JoinChatPage from '@/pages/join-chat';
 import { ChatThreadPage } from '@/pages/chat-thread/chat-thread';
 import { ChatSettingsPage } from '@/pages/chat-thread/chat-settings';
 import { ChatMembersPage } from '@/pages/chat-thread/chat-members';
-import { ChatInvitesPage } from '@/pages/chat-thread/chat-invites';
+import { ChatInvitesPage } from '@/pages/chat-thread/manage-invites';
 import SettingsPage from '@/pages/settings';
 import GeneralSettingsPage from '@/pages/settings/general';
 import LanguagePage from '@/pages/settings/language';

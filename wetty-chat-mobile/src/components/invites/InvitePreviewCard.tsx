@@ -108,7 +108,7 @@ interface InviteHeroProps {
 function InviteHero({ eyebrow, title, description, avatarUrl }: InviteHeroProps) {
   return (
     <div className={styles.hero}>
-      <UserAvatar name={title} avatarUrl={avatarUrl} size={96} className={styles.avatar} />
+      {avatarUrl ? <UserAvatar name={title} avatarUrl={avatarUrl} size={96} className={styles.avatar} /> : null}
       <p className={styles.eyebrow}>{eyebrow}</p>
       <h1 className={styles.title}>{title}</h1>
       <p className={styles.description}>{description}</p>
@@ -228,7 +228,7 @@ export function InvitePreviewCard({ inviteCode, onResolved, onCancel }: InvitePr
         </div>
       ) : viewState.kind === 'error' ? (
         <>
-          <InviteHero eyebrow={viewState.eyebrow} title={viewState.title} description={viewState.description} />
+          <InviteHero eyebrow={viewState.eyebrow} title={viewState.title} description={viewState.description} avatarUrl={null} />
           <InviteStatus message={viewState.statusMessage} tone={viewState.statusTone} />
         </>
       ) : (

@@ -145,6 +145,7 @@ msgstr "Blocked"
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-thread.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -183,6 +184,7 @@ msgid "Choose the member group first"
 msgstr "Choose the member group first"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Clipboard is not available on this device"
 msgstr "Clipboard is not available on this device"
 
@@ -199,11 +201,21 @@ msgstr "Close"
 msgid "Close viewer"
 msgstr "Close viewer"
 
+#: src/pages/join-chat.tsx
+msgid "Code"
+msgstr "Code"
+
+#: src/pages/join-chat.tsx
+#: src/pages/join-chat.tsx
+msgid "Continue"
+msgstr "Continue"
+
 #: src/pages/chat-thread/chat-thread.tsx
 msgid "Copy"
 msgstr "Copy"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Copy code"
 msgstr "Copy code"
 
@@ -219,13 +231,18 @@ msgstr "Could not join chat"
 msgid "Could not load invite"
 msgstr "Could not load invite"
 
+#: src/pages/join-chat.tsx
+msgid "Could not validate invite code"
+msgstr "Could not validate invite code"
+
+#: src/layouts/DesktopSplitLayout.tsx
+#: src/pages/chats.tsx
+msgid "Create Chat"
+msgstr "Create Chat"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Create Invite"
 msgstr "Create Invite"
-
-#: src/pages/chat-thread/chat-settings.tsx
-#~ msgid "Create Share Link"
-#~ msgstr "Create Share Link"
 
 #: src/pages/chat-thread/chat-thread.tsx
 #: src/pages/chat-thread/chat-thread.tsx
@@ -288,6 +305,10 @@ msgstr "Edit message"
 msgid "Edited"
 msgstr "Edited"
 
+#: src/pages/join-chat.tsx
+msgid "Enter an invite code"
+msgstr "Enter an invite code"
+
 #: src/components/chat/ImageViewer.tsx
 #: src/components/chat/ImageViewer.tsx
 msgid "Enter fullscreen"
@@ -314,6 +335,10 @@ msgstr "Error"
 msgid "Exit fullscreen"
 msgstr "Exit fullscreen"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Expire Date"
+msgstr "Expire Date"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Expires"
 msgstr "Expires"
@@ -323,6 +348,7 @@ msgid "Failed to add member"
 msgstr "Failed to add member"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to copy invite code"
 msgstr "Failed to copy invite code"
 
@@ -355,6 +381,10 @@ msgstr "Failed to load chats"
 msgid "Failed to load groups"
 msgstr "Failed to load groups"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Failed to load invite links"
+msgstr "Failed to load invite links"
+
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Failed to load members"
@@ -384,6 +414,10 @@ msgstr "Failed to refresh chats"
 msgid "Failed to remove member"
 msgstr "Failed to remove member"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Failed to revoke invite"
+msgstr "Failed to revoke invite"
+
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Failed to save settings"
 msgstr "Failed to save settings"
@@ -393,6 +427,7 @@ msgid "Failed to send"
 msgstr "Failed to send"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to send invite"
 msgstr "Failed to send invite"
 
@@ -462,7 +497,13 @@ msgstr "Invalid user ID"
 msgid "Invite"
 msgstr "Invite"
 
+#: src/pages/chat-thread/manage-invites.tsx
+#: src/pages/join-chat.tsx
+msgid "Invite Code"
+msgstr "Invite Code"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Invite code copied"
 msgstr "Invite code copied"
 
@@ -475,16 +516,21 @@ msgstr "Invite Link"
 msgid "Invite Link Created"
 msgstr "Invite Link Created"
 
-#: src/pages/chat-thread/chat-invites.tsx
-msgid "Invite link management is coming next. This screen is reserved for active links, resending, and revoke actions."
-msgstr "Invite link management is coming next. This screen is reserved for active links, resending, and revoke actions."
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite revoked"
+msgstr "Invite revoked"
 
+#. placeholder {0}: getChatDisplayName(group.id, group.name)
 #. placeholder {0}: getChatDisplayName(selectedDestinationGroup.id, selectedDestinationGroup.name)
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Invite sent to {0}"
 msgstr "Invite sent to {0}"
 
-#: src/components/chat/messages/InviteMessageCard.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite Type"
+msgstr "Invite Type"
+
 #: src/components/chat/messages/InviteMessageCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
@@ -500,6 +546,12 @@ msgstr "Join chat"
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Join this chat to start reading and sending messages."
 msgstr "Join this chat to start reading and sending messages."
+
+#: src/layouts/DesktopSplitLayout.tsx
+#: src/pages/chats.tsx
+#: src/pages/join-chat.tsx
+msgid "Join via Code"
+msgstr "Join via Code"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Joining…"
@@ -527,12 +579,13 @@ msgstr "Loading..."
 #: src/components/chat/ChatVirtualScroll.tsx
 #: src/components/chat/ChatVirtualScroll.tsx
 #: src/components/chat/ChatVirtualScroll.tsx
+#: src/pages/join-chat.tsx
+#: src/pages/join-chat.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
-#: src/pages/chat-thread/chat-invites.tsx
-#: src/pages/chat-thread/chat-invites.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Manage Invite Links"
 msgstr "Manage Invite Links"
 
@@ -557,6 +610,7 @@ msgid "Member removed"
 msgstr "Member removed"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Membership"
 msgstr "Membership"
 
@@ -592,6 +646,7 @@ msgstr "Muted until {0}"
 
 #: src/components/chat/settings/shareInviteHelpers.ts
 #: src/components/chat/settings/shareInviteHelpers.ts
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "Never"
 msgstr "Never"
 
@@ -606,6 +661,10 @@ msgstr "Newer messages"
 #: src/components/chat/ImageViewer.tsx
 msgid "Next image"
 msgstr "Next image"
+
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "No active invite links created by you."
+msgstr "No active invite links created by you."
 
 #: src/components/chat/ChatList.tsx
 msgid "No chats yet"
@@ -673,9 +732,17 @@ msgstr "Only members of a selected group can use this invite link to join."
 msgid "Open chat"
 msgstr "Open chat"
 
+#: src/components/HeaderActionMenu.tsx
+msgid "Open chat actions"
+msgstr "Open chat actions"
+
 #: src/components/chat/messages/InviteMessageCard.tsx
 msgid "Open this invite to view the group and join."
 msgstr "Open this invite to view the group and join."
+
+#: src/pages/join-chat.tsx
+msgid "Paste code"
+msgstr "Paste code"
 
 #: src/pages/settings.tsx
 msgid "Permission"
@@ -716,6 +783,7 @@ msgstr "Promote to Admin"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/ChatAdminSettings.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 #: src/utils/chatDisplay.ts
 msgid "Public"
 msgstr "Public"
@@ -798,9 +866,22 @@ msgstr "Reply"
 msgid "Replying to {0}"
 msgstr "Replying to {0}"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Restricted To"
+msgstr "Restricted To"
+
 #: src/components/chat/UploadPreview.tsx
 msgid "Retry"
 msgstr "Retry"
+
+#: src/pages/chat-thread/manage-invites.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Revoke"
+msgstr "Revoke"
+
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Revoke invite"
+msgstr "Revoke invite"
 
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Save Settings"
@@ -852,6 +933,10 @@ msgstr "Settings"
 msgid "Settings saved"
 msgstr "Settings saved"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Share"
+msgstr "Share"
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Share Invite"
 msgstr "Share Invite"
@@ -876,6 +961,14 @@ msgstr "Sticker"
 msgid "Subscribed"
 msgstr "Subscribed"
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Targeted"
+msgstr "Targeted"
+
+#: src/pages/join-chat.tsx
+msgid "The invite code entered is not valid."
+msgstr "The invite code entered is not valid."
+
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "This invite is invalid or has expired."
 msgstr "This invite is invalid or has expired."
@@ -884,9 +977,13 @@ msgstr "This invite is invalid or has expired."
 msgid "This invite is not available for your account."
 msgstr "This invite is not available for your account."
 
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "This invite link will stop working immediately."
+msgstr "This invite link will stop working immediately."
+
 #: src/components/chat/messages/InviteMessageCard.tsx
-msgid "This invite may have expired or been revoked. Open it to check the latest status."
-msgstr "This invite may have expired or been revoked. Open it to check the latest status."
+msgid "This invite may have expired or been revoked."
+msgstr "This invite may have expired or been revoked."
 
 #: src/pages/settings/general.tsx
 msgid "This is how your messages will look in chat."
