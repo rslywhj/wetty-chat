@@ -1,8 +1,9 @@
-import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { IonButton, IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import { addCircleOutline, send } from 'ionicons/icons';
 import { AudioRecordButton } from './compose/AudioRecordButton';
+import { StickerPicker } from './compose/StickerPicker';
 import styles from './compose/MessageComposeBar.module.scss';
 import { UploadPreview } from './UploadPreview';
 import { ComposeContextBanner } from './compose/ComposeContextBanner';
@@ -71,7 +72,9 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState(() => editing?.text ?? '');
+  const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
 
   useImperativeHandle(
     ref,
@@ -175,6 +178,35 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
   const showAudioRecordButton = canStartVoice || voiceRecorder?.phase === 'requesting' || voiceRecorder?.phase === 'recording';
   const showVoiceSendButton = voiceRecorder?.phase === 'recorded' || voiceRecorder?.phase === 'uploading';
 
+  useEffect(() => {
+    if (!stickerPickerOpen) return;
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setStickerPickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [stickerPickerOpen]);
+
+  const handleStickerPress = useCallback(() => {
+    setStickerPickerOpen((prev) => {
+      if (!prev) textareaRef.current?.blur();
+      return !prev;
+    });
+  }, []);
+
+  const handleStickerSelect = useCallback((stickerId: string) => {
+    console.log('Sticker selected:', stickerId);
+    setStickerPickerOpen(false);
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     queueFiles(files);
@@ -182,6 +214,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
   };
 
   return (
+    <div ref={containerRef}>
     <div id="message-compose-bar" className={styles.bar}>
       <input
         type="file"
@@ -229,6 +262,8 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
             editing={editing}
             isUnchangedEdit={isUnchangedEdit}
             onCancelEdit={onCancelEdit}
+            onStickerPress={handleStickerPress}
+            isStickerActive={stickerPickerOpen}
           />
         )}
       </div>
@@ -267,6 +302,11 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
           </IonButton>
         )}
       </div>
+    </div>
+    <StickerPicker
+      isOpen={stickerPickerOpen}
+      onStickerSelect={handleStickerSelect}
+    />
     </div>
   );
 });

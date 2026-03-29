@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import { happyOutline } from 'ionicons/icons';
-import { FeatureGate } from '../../FeatureGate';
 import type { EditingMessage } from './types';
 import styles from './MessageComposeBar.module.scss';
 
@@ -17,6 +16,8 @@ interface ComposeInputProps {
   editing?: EditingMessage;
   isUnchangedEdit: boolean;
   onCancelEdit?: () => void;
+  onStickerPress?: () => void;
+  isStickerActive?: boolean;
 }
 
 export function ComposeInput({
@@ -30,6 +31,8 @@ export function ComposeInput({
   editing,
   isUnchangedEdit,
   onCancelEdit,
+  onStickerPress,
+  isStickerActive,
 }: ComposeInputProps) {
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -75,11 +78,15 @@ export function ComposeInput({
         onFocus={() => onFocusChange?.(true)}
         onBlur={() => onFocusChange?.(false)}
       />
-      <FeatureGate>
-        <button type="button" className={styles.stickerBtn} aria-label={t`Sticker`}>
-          <IonIcon icon={happyOutline} />
-        </button>
-      </FeatureGate>
+      <button
+        type="button"
+        className={`${styles.stickerBtn}${isStickerActive ? ` ${styles.stickerBtnActive}` : ''}`}
+        aria-label={t`Sticker`}
+        aria-pressed={isStickerActive}
+        onClick={onStickerPress}
+      >
+        <IonIcon icon={happyOutline} />
+      </button>
     </div>
   );
 }

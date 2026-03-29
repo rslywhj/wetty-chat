@@ -1,0 +1,108 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 260px;
+  border-top: 1px solid var(--ion-background-color-step-200, #ddd);
+  background: var(--ion-background-color, #fff);
+}
+
+.stickerGrid {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 4px;
+  align-content: start;
+}
+
+.stickerItem {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.12s, transform 0.08s;
+
+  &:hover {
+    background: var(--ion-background-color-step-100, #f0f0f0);
+  }
+
+  &:active {
+    background: var(--ion-background-color-step-200, #e0e0e0);
+    transform: scale(0.88);
+  }
+}
+
+.stickerEmoji {
+  pointer-events: none;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.packBar {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 4px;
+  padding: 0 12px;
+  border-top: 1px solid var(--ion-background-color-step-200, #ddd);
+  flex-shrink: 0;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.packTab {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 24px;
+  padding: 0;
+  position: relative;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--ion-background-color-step-100, #f0f0f0);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 6px;
+    right: 6px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: transparent;
+    transition: background-color 0.15s;
+  }
+}
+
+.packTabActive {
+  background: var(--ion-background-color-step-100, #f0f0f0);
+
+  &::after {
+    background: var(--ion-color-primary, #3880ff);
+  }
+}
+
+.packIcon {
+  pointer-events: none;
+  line-height: 1;
+}
