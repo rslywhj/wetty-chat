@@ -184,10 +184,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final anchorIndex = _viewModel.displayItems.indexWhere(
-        (message) => message.id == anchor.key,
-      );
-      if (anchorIndex < 0) return;
+      final anchorIndex = _viewModel.findWindowIndex(anchor.key);
+      if (anchorIndex == null) return;
       _itemScrollController.jumpTo(index: anchorIndex, alignment: anchor.value);
     });
   }

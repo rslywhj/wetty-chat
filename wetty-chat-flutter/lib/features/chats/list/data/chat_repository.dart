@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_config.dart';
 import '../../shared/models/chat_models.dart';
@@ -15,6 +17,7 @@ class ChatRepository extends ChangeNotifier {
 
   List<ChatListItem> _chats = [];
   String? _nextCursor;
+  bool _isRealtimeRefreshing = false;
 
   List<ChatListItem> get chats => _chats;
   String? get nextCursor => _nextCursor;
@@ -68,7 +71,12 @@ class ChatRepository extends ChangeNotifier {
 
     final chatId = payload['chat_id']?.toString() ?? '';
     final index = _chats.indexWhere((chat) => chat.id == chatId);
-    if (index < 0) return;
+    if (index < 0) {
+      if (type == 'message') {
+        unawaited(_refreshForRealtimeMiss());
+      }
+      return;
+    }
 
     final previous = _chats[index];
     final message = MessageItem.fromJson(payload);
@@ -93,6 +101,20 @@ class ChatRepository extends ChangeNotifier {
       if (previous.lastMessage?.id != message.id) return;
       _chats[index] = previous.copyWith(lastMessage: message);
       notifyListeners();
+    }
+  }
+
+  Future<void> _refreshForRealtimeMiss() async {
+    if (_isRealtimeRefreshing) return;
+
+    _isRealtimeRefreshing = true;
+    try {
+      final limit = _chats.isEmpty ? 11 : _chats.length;
+      await loadChats(limit: limit);
+    } catch (_) {
+      // Ignore realtime refresh failures and rely on the next manual refresh.
+    } finally {
+      _isRealtimeRefreshing = false;
     }
   }
 }

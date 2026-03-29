@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+// TODO: consider the font for different languages
 const miSansBaseTextStyle = TextStyle(
   fontFamily: 'MiSans',
   fontWeight: FontWeight.w200,

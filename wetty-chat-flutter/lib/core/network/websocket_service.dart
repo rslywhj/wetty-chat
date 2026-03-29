@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -37,8 +38,9 @@ class WebSocketService {
       }
       final ticket = jsonDecode(ticketRes.body)['ticket'];
 
-      // create a WebSockeChannel
+      // create a WebSocketChannel
       final wsUrl = '${apiBaseUrl.replaceAll('http', 'ws')}/ws';
+      debugPrint('[WS] connecting to $wsUrl');
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       // Send auth message
@@ -57,8 +59,14 @@ class WebSocketService {
             // Drop malformed websocket payloads.
           }
         },
-        onError: (_) => _reconnect(),
-        onDone: _reconnect,
+        onError: (error) {
+          debugPrint('[WS] error: $error');
+          _reconnect();
+        },
+        onDone: () {
+          debugPrint('[WS] connection closed, reconnecting...');
+          _reconnect();
+        },
       );
 
       // Start ping loop (every 30 seconds)
@@ -69,17 +77,20 @@ class WebSocketService {
         }
       });
 
+      debugPrint('[WS] connected');
       _isConnecting = false;
     } catch (e) {
+      debugPrint('[WS] init failed: $e');
       _isConnecting = false;
       _reconnect();
     }
   }
 
   void _reconnect() {
-    _channel = null;
     _pingTimer?.cancel();
-    // Exponential backoff or simple delay
+    final old = _channel;
+    _channel = null;
+    old?.sink.close();
     Future.delayed(const Duration(seconds: 5), () => init());
   }
 

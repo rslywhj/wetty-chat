@@ -21,8 +21,10 @@ Map<String, String> get apiHeaders {
   }
 
   final uid = ApiSession.currentUserId;
+  // TODO: for development test only. Remove in production.
   if (uid != null) {
     headers['X-User-Id'] = uid.toString();
+    headers['X-Client-Id'] = uid.toString();
   }
 
   return headers;

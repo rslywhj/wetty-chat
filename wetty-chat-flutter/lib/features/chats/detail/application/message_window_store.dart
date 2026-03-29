@@ -7,35 +7,87 @@ class MessageRange {
   final List<MessageItem> messages;
 
   MessageRange(List<MessageItem> items) : messages = List.of(items) {
-    messages.sort((a, b) => b.id.compareTo(a.id));
+    assert(_isSortedDescending(messages));
   }
 
-  int get end => messages.first.id;
-  int get start => messages.last.id;
-
-  bool contains(int messageId) => start <= messageId && messageId <= end;
-
-  bool overlaps(MessageRange other) {
-    return start <= other.end && other.start <= end;
+  // TODO: this is a test only function
+  static bool _isSortedDescending(List<MessageItem> items) {
+    for (var i = 1; i < items.length; i++) {
+      if (items[i - 1].id < items[i].id) {
+        return false;
+      }
+    }
+    return true;
   }
 
   int indexOf(int messageId) {
     return messages.indexWhere((message) => message.id == messageId);
   }
 
-  void mergeWith(MessageRange other) {
-    final mergedById = <int, MessageItem>{};
-    for (final message in messages) {
-      mergedById[message.id] = message;
-    }
-    for (final message in other.messages) {
-      mergedById[message.id] = message;
-    }
+  int get newestId => messages.first.id;
+  int get oldestId => messages.last.id;
 
+  bool containsId(int messageId) => indexOf(messageId) >= 0;
+
+  bool overlapsById(MessageRange other) {
+    final smaller = messages.length <= other.messages.length
+        ? messages
+        : other.messages;
+    final largerIds = (identical(smaller, messages) ? other.messages : messages)
+        .map((message) => message.id)
+        .toSet();
+    return smaller.any((message) => largerIds.contains(message.id));
+  }
+
+  bool extendsLiveEdgeOf(MessageRange other) {
+    return messages.isNotEmpty &&
+        other.messages.isNotEmpty &&
+        oldestId > other.newestId;
+  }
+
+  void mergeWith(MessageRange other) {
+    final current = List<MessageItem>.of(messages, growable: false);
     messages
       ..clear()
-      ..addAll(mergedById.values)
-      ..sort((a, b) => b.id.compareTo(a.id));
+      ..addAll(_mergeSortedMessages(current, other.messages));
+  }
+
+  static List<MessageItem> _mergeSortedMessages(
+    List<MessageItem> left,
+    List<MessageItem> right,
+  ) {
+    final merged = <MessageItem>[];
+    var leftIndex = 0;
+    var rightIndex = 0;
+
+    while (leftIndex < left.length && rightIndex < right.length) {
+      final leftMessage = left[leftIndex];
+      final rightMessage = right[rightIndex];
+
+      if (leftMessage.id == rightMessage.id) {
+        merged.add(rightMessage);
+        leftIndex++;
+        rightIndex++;
+        continue;
+      }
+
+      if (leftMessage.id > rightMessage.id) {
+        merged.add(leftMessage);
+        leftIndex++;
+      } else {
+        merged.add(rightMessage);
+        rightIndex++;
+      }
+    }
+
+    if (leftIndex < left.length) {
+      merged.addAll(left.sublist(leftIndex));
+    }
+    if (rightIndex < right.length) {
+      merged.addAll(right.sublist(rightIndex));
+    }
+
+    return merged;
   }
 }
 
@@ -74,11 +126,17 @@ class MessageStore extends ChangeNotifier {
     _insertRange(MessageRange(items));
   }
 
-  void addOlderPage({required int olderThanId, required List<MessageItem> items}) {
+  void addOlderPage({
+    required int olderThanId,
+    required List<MessageItem> items,
+  }) {
     _addContiguousPage(anchorId: olderThanId, items: items);
   }
 
-  void addNewerPage({required int newerThanId, required List<MessageItem> items}) {
+  void addNewerPage({
+    required int newerThanId,
+    required List<MessageItem> items,
+  }) {
     _addContiguousPage(anchorId: newerThanId, items: items);
   }
 
@@ -89,7 +147,7 @@ class MessageStore extends ChangeNotifier {
     if (items.isEmpty) return;
 
     final anchorRangeIndex = _ranges.indexWhere(
-      (range) => range.contains(anchorId),
+      (range) => range.containsId(anchorId),
     );
     if (anchorRangeIndex < 0) {
       _insertRange(MessageRange(items));
@@ -109,7 +167,7 @@ class MessageStore extends ChangeNotifier {
 
     final overlapping = <int>[];
     for (var index = 0; index < _ranges.length; index++) {
-      if (_ranges[index].overlaps(incoming)) {
+      if (_ranges[index].overlapsById(incoming)) {
         overlapping.add(index);
       }
     }
@@ -123,16 +181,41 @@ class MessageStore extends ChangeNotifier {
       }
     }
 
+    if (_ranges.isNotEmpty && incoming.extendsLiveEdgeOf(_ranges.first)) {
+      incoming.mergeWith(_ranges.removeAt(0));
+    }
+
     var insertAt = _ranges.length;
     for (var index = 0; index < _ranges.length; index++) {
-      if (incoming.end >= _ranges[index].end) {
+      if (incoming.newestId >= _ranges[index].newestId) {
         insertAt = index;
         break;
       }
     }
     _ranges.insert(insertAt, incoming);
+    _coalesceOverlappingRanges();
     _invalidateCache();
     notifyListeners();
+  }
+
+  void _coalesceOverlappingRanges() {
+    var index = 0;
+    while (index < _ranges.length) {
+      var mergedAny = false;
+      var otherIndex = index + 1;
+      while (otherIndex < _ranges.length) {
+        if (_ranges[index].overlapsById(_ranges[otherIndex])) {
+          _ranges[index].mergeWith(_ranges.removeAt(otherIndex));
+          mergedAny = true;
+          continue;
+        }
+        otherIndex++;
+      }
+      if (!mergedAny) {
+        index++;
+      }
+    }
+    _ranges.sort((a, b) => b.newestId.compareTo(a.newestId));
   }
 
   void removeById(int id) {
@@ -185,15 +268,24 @@ class MessageStore extends ChangeNotifier {
 
   MessageRange? findRangeContaining(int messageId) {
     for (final range in _ranges) {
-      if (range.contains(messageId)) return range;
+      if (range.containsId(messageId)) return range;
     }
     return null;
   }
 
   List<MessageItem> newest({required int limit}) {
     if (_ranges.isEmpty) return const [];
-    final range = _ranges.first;
-    return range.messages.take(limit).toList(growable: false);
+
+    final items = <MessageItem>[];
+    for (final range in _ranges) {
+      for (final message in range.messages) {
+        items.add(message);
+        if (items.length == limit) {
+          return List.unmodifiable(items);
+        }
+      }
+    }
+    return List.unmodifiable(items);
   }
 
   int? findNthNewestId(int index) {
@@ -257,8 +349,10 @@ class MessageStore extends ChangeNotifier {
     if (index < 0) return const [];
 
     final startIndex = (index - after).clamp(0, index);
-    final endIndex =
-        (index + before + 1).clamp(index + 1, range.messages.length);
+    final endIndex = (index + before + 1).clamp(
+      index + 1,
+      range.messages.length,
+    );
     return range.messages.sublist(startIndex, endIndex);
   }
 
@@ -267,7 +361,7 @@ class MessageStore extends ChangeNotifier {
     required int oldestId,
   }) {
     final range = findRangeContaining(newestId);
-    if (range == null || !range.contains(oldestId)) return const [];
+    if (range == null || !range.containsId(oldestId)) return const [];
 
     final newestIndex = range.indexOf(newestId);
     final oldestIndex = range.indexOf(oldestId);
@@ -293,6 +387,6 @@ class MessageStore extends ChangeNotifier {
       _ranges.isEmpty || _ranges.every((range) => range.messages.isEmpty);
   bool get isNotEmpty => !isEmpty;
 
-  int? get newestId => _ranges.isNotEmpty ? _ranges.first.end : null;
-  int? get oldestId => _ranges.isNotEmpty ? _ranges.last.start : null;
+  int? get newestId => _ranges.isNotEmpty ? _ranges.first.newestId : null;
+  int? get oldestId => _ranges.isNotEmpty ? _ranges.last.oldestId : null;
 }

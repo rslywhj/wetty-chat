@@ -100,7 +100,7 @@ class ChatDetailViewModel extends ChangeNotifier {
   int? get oldestVisibleId => _oldestVisibleId;
 
   void _onStoreChanged() {
-    if (_isLoading || _isLoadingMore || _displayItems.isEmpty) return;
+    if (_isLoading || _displayItems.isEmpty) return;
 
     final rebuilt = _repository.rebuildWindow(
       limit: maxWindowSize,
