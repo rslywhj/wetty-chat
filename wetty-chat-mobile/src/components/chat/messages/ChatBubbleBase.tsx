@@ -100,10 +100,7 @@ export interface ChatBubbleBaseProps {
   onAvatarClick?: () => void;
   replyTo?: {
     senderName: string;
-    message?: string | null;
-    attachments?: Attachment[];
-    firstAttachmentKind?: string | null;
-    isDeleted?: boolean;
+    preview: Parameters<typeof getMessagePreviewText>[0];
   };
   timestamp?: string;
   edited?: boolean;
@@ -337,14 +334,7 @@ export function ChatBubbleBase({
           onClick={interactive ? onReplyTap : undefined}
         >
           <div className={styles.replyPreviewName}>{replyTo.senderName}</div>
-          <div className={styles.replyPreviewText}>
-            {getMessagePreviewText({
-              message: replyTo.message,
-              attachments: replyTo.attachments,
-              firstAttachmentKind: replyTo.firstAttachmentKind,
-              isDeleted: replyTo.isDeleted,
-            })}
-          </div>
+          <div className={styles.replyPreviewText}>{getMessagePreviewText(replyTo.preview)}</div>
         </div>
       )}
       {attachments && attachments.length > 0 && <div className={styles.attachmentsContainer}>{attachments.map(renderAttachment)}</div>}

@@ -79,12 +79,7 @@ function getMessagePreview(message: MessageResponse | null): ReactNode {
   if (!message) return t`No messages yet`;
 
   const senderName = message.sender?.name || 'User';
-  const previewText = getMessagePreviewText({
-    message: message.message,
-    messageType: message.message_type,
-    attachments: message.attachments,
-    isDeleted: message.is_deleted,
-  });
+  const previewText = getMessagePreviewText(message);
 
   return (
     <>

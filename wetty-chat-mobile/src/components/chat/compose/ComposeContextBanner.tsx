@@ -40,13 +40,7 @@ export function ComposeContextBanner({
     <div className={styles.replyPreview}>
       <div className={styles.replyText}>
         <span className={styles.replyUsername}>{t`Replying to ${replyTo.username}`}</span>
-        <span className={styles.replySnippet}>
-          {getMessagePreviewText({
-            message: replyTo.text,
-            attachments: replyTo.attachments,
-            isDeleted: replyTo.isDeleted,
-          })}
-        </span>
+        <span className={styles.replySnippet}>{getMessagePreviewText(replyTo)}</span>
       </div>
       <button type="button" className={styles.replyClose} aria-label={t`Cancel reply`} onClick={onCancelReply}>
         <IonIcon icon={closeCircle} />

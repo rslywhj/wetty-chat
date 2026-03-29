@@ -692,6 +692,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
             ? {
                 id: replyingTo.id,
                 message: replyingTo.message,
+                message_type: replyingTo.message_type,
                 sender: replyingTo.sender,
                 is_deleted: replyingTo.is_deleted,
                 attachments: replyingTo.attachments,
@@ -802,6 +803,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           ? {
               id: replyingTo.id,
               message: replyingTo.message,
+              message_type: replyingTo.message_type,
               sender: replyingTo.sender,
               is_deleted: replyingTo.is_deleted,
               attachments: replyingTo.attachments,
@@ -1139,9 +1141,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
                   senderName:
                     overlayMessage.message.reply_to_message.sender.name ??
                     `User ${overlayMessage.message.reply_to_message.sender.uid}`,
-                  message: overlayMessage.message.reply_to_message.message,
-                  firstAttachmentKind: overlayMessage.message.reply_to_message.first_attachment_kind ?? null,
-                  isDeleted: overlayMessage.message.reply_to_message.is_deleted,
+                  preview: overlayMessage.message.reply_to_message,
                 }
               : undefined
           }

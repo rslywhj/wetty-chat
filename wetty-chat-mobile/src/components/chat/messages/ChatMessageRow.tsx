@@ -97,9 +97,7 @@ export function ChatMessageRow({
         replyToMessage
           ? {
               senderName: replyToMessage.sender.name ?? `User ${replyToMessage.sender.uid}`,
-              message: replyToMessage.message,
-              firstAttachmentKind: replyToMessage.first_attachment_kind ?? null,
-              isDeleted: replyToMessage.is_deleted,
+              preview: replyToMessage,
             }
           : undefined
       }

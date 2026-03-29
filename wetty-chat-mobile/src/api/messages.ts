@@ -19,6 +19,7 @@ export interface Sender {
 export interface ReplyToMessage {
   id: string;
   message: string | null;
+  message_type: 'text' | 'audio' | 'file' | 'system' | 'invite';
   sender: Sender;
   is_deleted: boolean;
   attachments?: Attachment[];

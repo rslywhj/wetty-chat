@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { IonIcon } from '@ionic/react';
 import type { Attachment } from '@/api/messages';
 import { ChatBubbleBase } from './messages/ChatBubbleBase';
+import type { PreviewMessage } from './messagePreview';
 import styles from './MessageOverlay.module.scss';
 
 export interface MessageOverlayAction {
@@ -22,10 +23,7 @@ interface MessageOverlayProps {
   showName?: boolean;
   replyTo?: {
     senderName: string;
-    message?: string | null;
-    attachments?: Attachment[];
-    firstAttachmentKind?: string | null;
-    isDeleted?: boolean;
+    preview: PreviewMessage;
   };
   timestamp?: string;
   edited?: boolean;

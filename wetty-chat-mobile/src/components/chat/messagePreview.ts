@@ -1,21 +1,41 @@
 import { t } from '@lingui/core/macro';
 import type { Attachment } from '@/api/messages';
 
-interface PreviewMessage {
+export interface PreviewMessage {
   message?: string | null;
+  text?: string | null;
   messageType?: string | null;
+  message_type?: string | null;
   attachments?: Attachment[];
   firstAttachmentKind?: string | null;
+  first_attachment_kind?: string | null;
   isDeleted?: boolean;
+  is_deleted?: boolean;
 }
 
-export function getMessagePreviewText({
+function normalizePreviewMessage({
   message,
+  text,
   messageType,
+  message_type,
   attachments,
   firstAttachmentKind,
+  first_attachment_kind,
   isDeleted,
-}: PreviewMessage): string {
+  is_deleted,
+}: PreviewMessage) {
+  return {
+    message: message ?? text,
+    messageType: messageType ?? message_type,
+    attachments,
+    firstAttachmentKind: firstAttachmentKind ?? first_attachment_kind,
+    isDeleted: isDeleted ?? is_deleted,
+  };
+}
+
+export function getMessagePreviewText(preview: PreviewMessage): string {
+  const { message, messageType, attachments, firstAttachmentKind, isDeleted } = normalizePreviewMessage(preview);
+
   if (isDeleted) {
     return t`[Deleted]`;
   }
