@@ -90,8 +90,8 @@ export function JoinChatCore({ backAction }: JoinChatCoreProps) {
           </IonLabel>
         </IonListHeader>
         <IonList inset>
-          <IonItem>
-            <IonLabel>
+          <IonItem className={styles.codeInputRow}>
+            <IonLabel className={styles.codeInputLabel}>
               <Trans>Code</Trans>
             </IonLabel>
             <IonInput

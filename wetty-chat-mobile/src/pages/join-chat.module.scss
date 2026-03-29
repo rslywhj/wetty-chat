@@ -1,3 +1,19 @@
+.codeInputRow {
+  :global(ion-label) {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    white-space: nowrap;
+  }
+}
+
+.codeInputLabel {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  white-space: nowrap;
+}
+
 .validationError {
   padding-bottom: 8px;
 }
