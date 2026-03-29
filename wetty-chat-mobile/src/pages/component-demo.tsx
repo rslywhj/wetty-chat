@@ -1,56 +1,19 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/react';
-import { type ComposeUploadInput, MessageComposeBar } from '../components/chat/MessageComposeBar';
-
-const demoUploadAttachment = async ({ onProgress, signal }: ComposeUploadInput) => {
-  await new Promise<void>((resolve, reject) => {
-    let progress = 0;
-    const timer = window.setInterval(() => {
-      if (signal.aborted) {
-        window.clearInterval(timer);
-        reject(new DOMException('Upload aborted', 'AbortError'));
-        return;
-      }
-
-      progress += 20;
-      onProgress(Math.min(progress, 100));
-
-      if (progress >= 100) {
-        window.clearInterval(timer);
-        resolve();
-      }
-    }, 150);
-  });
-
-  return { attachmentId: `demo_${Date.now()}` };
-};
+import { IonContent, IonPage } from '@ionic/react';
+import { AudioRecordButton } from '@/components/chat/compose/AudioRecordButton';
+import styles from './component-demo.module.scss';
 
 const ComponentDemoPage: React.FC = () => {
   return (
     <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Component Demo</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent>
-        <h2>Component Demo</h2>
-        <div style={{ border: '1px solid #333', borderLeft: 'none', borderRight: 'none' }}>
-          <MessageComposeBar onSend={(text) => console.log('send1:', text)} uploadAttachment={demoUploadAttachment} />
-        </div>
-        <div style={{ height: 100 }} />
-        <div style={{ border: '1px solid #333', borderLeft: 'none', borderRight: 'none' }}>
-          <MessageComposeBar
-            onSend={(text) => console.log('send2:', text)}
-            uploadAttachment={demoUploadAttachment}
-            replyTo={{
-              messageId: '123',
-              username: 'Alice',
-              text: 'Hey, did you see the new update? It looks really great and I think we should...',
-            }}
-            onCancelReply={() => console.log('cancel reply')}
+      <IonContent fullscreen className={styles.content}>
+        <div className={styles.demo}>
+          <AudioRecordButton
+            onStart={() => console.log('AudioRecordButton start')}
+            onCancel={() => console.log('AudioRecordButton cancel')}
+            onComplete={() => console.log('AudioRecordButton complete')}
+            onSend={() => console.log('AudioRecordButton send')}
           />
         </div>
-        <div></div>
       </IonContent>
     </IonPage>
   );
