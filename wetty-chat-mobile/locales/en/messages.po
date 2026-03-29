@@ -39,6 +39,12 @@ msgstr "[Invite]"
 msgid "[Video]"
 msgstr "[Video]"
 
+#: src/components/chat/messagePreview.ts
+#: src/components/chat/messagePreview.ts
+#: src/components/chat/messagePreview.ts
+msgid "[Voice message]"
+msgstr "[Voice message]"
+
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -154,11 +160,11 @@ msgstr "Blocked"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Cancel edit"
 msgstr "Cancel edit"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Cancel reply"
 msgstr "Cancel reply"
 
@@ -258,6 +264,10 @@ msgstr "Delete"
 msgid "Delete Message"
 msgstr "Delete Message"
 
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Delete recording"
+msgstr "Delete recording"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Demote"
 msgstr "Demote"
@@ -302,7 +312,7 @@ msgstr "Earlier messages"
 msgid "Edit"
 msgstr "Edit"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Edit message"
 msgstr "Edit message"
 
@@ -432,6 +442,7 @@ msgid "Failed to save settings"
 msgstr "Failed to save settings"
 
 #: src/pages/chat-thread/chat-thread.tsx
+#: src/pages/chat-thread/chat-thread.tsx
 msgid "Failed to send"
 msgstr "Failed to send"
 
@@ -439,6 +450,10 @@ msgstr "Failed to send"
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to send invite"
 msgstr "Failed to send invite"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Failed to send voice message."
+msgstr "Failed to send voice message."
 
 #: src/pages/oobe.tsx
 #: src/pages/settings.tsx
@@ -496,12 +511,17 @@ msgstr "Group Name"
 msgid "Group Settings"
 msgstr "Group Settings"
 
+#: src/components/chat/settings/ChatMuteSettingItem.tsx
+msgid "indefinitely"
+msgstr "indefinitely"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Invalid user ID"
 msgstr "Invalid user ID"
 
 #: src/components/invites/InvitePreviewCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
+#: src/pages/chat-thread/chat-settings.tsx
 #: src/pages/invite-preview.tsx
 msgid "Invite"
 msgstr "Invite"
@@ -517,7 +537,6 @@ msgid "Invite code copied"
 msgstr "Invite code copied"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
-#: src/pages/chat-thread/chat-settings.tsx
 msgid "Invite Link"
 msgstr "Invite Link"
 
@@ -576,10 +595,10 @@ msgid "Large"
 msgstr "Large"
 
 #: src/pages/chat-thread/chat-settings.tsx
+#: src/pages/chat-thread/chat-settings.tsx
 msgid "Leave"
 msgstr "Leave"
 
-#: src/pages/chat-thread/chat-settings.tsx
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Leave Group"
 msgstr "Leave Group"
@@ -636,7 +655,7 @@ msgstr "Member removed"
 msgid "Membership"
 msgstr "Membership"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeInput.tsx
 msgid "Message"
 msgstr "Message"
 
@@ -649,6 +668,10 @@ msgstr "Message cannot be empty"
 msgid "Messages Font Size"
 msgstr "Messages Font Size"
 
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Microphone access was denied."
+msgstr "Microphone access was denied."
+
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Mute"
 msgstr "Mute"
@@ -658,13 +681,12 @@ msgid "Mute notifications"
 msgstr "Mute notifications"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-msgid "Muted indefinitely"
-msgstr "Muted indefinitely"
+#~ msgid "Muted indefinitely"
+#~ msgstr "Muted indefinitely"
 
-#. placeholder {0}: formatted ?? mutedUntil
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-msgid "Muted until {0}"
-msgstr "Muted until {0}"
+#~ msgid "Muted until {0}"
+#~ msgstr "Muted until {0}"
 
 #: src/components/chat/settings/shareInviteHelpers.ts
 #: src/components/chat/settings/shareInviteHelpers.ts
@@ -849,6 +871,18 @@ msgstr "Read"
 msgid "Reconnecting..."
 msgstr "Reconnecting..."
 
+#: src/components/chat/compose/AudioRecordButton.tsx
+msgid "Record audio"
+msgstr "Record audio"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Recording is too short."
+msgstr "Recording is too short."
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Release to save"
+msgstr "Release to save"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Remove"
 msgstr "Remove"
@@ -884,7 +918,7 @@ msgid "Reply"
 msgstr "Reply"
 
 #. placeholder {0}: replyTo.username
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Replying to {0}"
 msgstr "Replying to {0}"
 
@@ -950,6 +984,10 @@ msgstr "Send invite"
 msgid "Send message"
 msgstr "Send message"
 
+#: src/components/chat/MessageComposeBar.tsx
+msgid "Send voice message"
+msgstr "Send voice message"
+
 #: src/layouts/MobileLayout.tsx
 #: src/pages/settings.tsx
 msgid "Settings"
@@ -979,7 +1017,7 @@ msgstr "Start Thread"
 msgid "Status"
 msgstr "Status"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeInput.tsx
 msgid "Sticker"
 msgstr "Sticker"
 
@@ -1040,6 +1078,10 @@ msgstr "Turn On Push Notifications"
 msgid "Unread"
 msgstr "Unread"
 
+#: src/components/chat/settings/ChatMuteSettingItem.tsx
+msgid "until"
+msgstr "until"
+
 #: src/components/settings/CheckForUpdateItem.tsx
 msgid "Update check complete"
 msgstr "Update check complete"
@@ -1060,7 +1102,7 @@ msgstr "Upload an image for this group."
 msgid "Upload Avatar"
 msgstr "Upload Avatar"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/useComposeAttachments.ts
 #: src/components/chat/UploadPreview.tsx
 msgid "Upload failed"
 msgstr "Upload failed"
@@ -1068,6 +1110,11 @@ msgstr "Upload failed"
 #: src/components/chat/UploadPreview.tsx
 msgid "Uploading"
 msgstr "Uploading"
+
+#. placeholder {0}: voiceRecorder.uploadProgress
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Uploading {0}%"
+msgstr "Uploading {0}%"
 
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Uploading avatar..."
@@ -1092,6 +1139,18 @@ msgstr "View image {0}"
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Visibility"
 msgstr "Visibility"
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Voice message"
+msgstr "Voice message"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Voice recording is not supported on this device."
+msgstr "Voice recording is not supported on this device."
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Waiting for microphone…"
+msgstr "Waiting for microphone…"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "We could not join this chat right now."

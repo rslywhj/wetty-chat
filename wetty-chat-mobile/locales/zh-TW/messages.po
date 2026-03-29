@@ -39,6 +39,12 @@ msgstr "[邀請]"
 msgid "[Video]"
 msgstr "[影片]"
 
+#: src/components/chat/messagePreview.ts
+#: src/components/chat/messagePreview.ts
+#: src/components/chat/messagePreview.ts
+msgid "[Voice message]"
+msgstr "[語音訊息]"
+
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "1 day"
 msgstr "1 天"
@@ -154,11 +160,11 @@ msgstr "已封鎖"
 msgid "Cancel"
 msgstr "取消"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Cancel edit"
 msgstr "取消編輯"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Cancel reply"
 msgstr "取消回覆"
 
@@ -258,6 +264,10 @@ msgstr "收回"
 msgid "Delete Message"
 msgstr "收回訊息"
 
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Delete recording"
+msgstr "刪除錄音"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Demote"
 msgstr "降級"
@@ -302,7 +312,7 @@ msgstr "更早的訊息"
 msgid "Edit"
 msgstr "編輯"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Edit message"
 msgstr "編輯訊息"
 
@@ -432,6 +442,7 @@ msgid "Failed to save settings"
 msgstr "儲存設定失敗"
 
 #: src/pages/chat-thread/chat-thread.tsx
+#: src/pages/chat-thread/chat-thread.tsx
 msgid "Failed to send"
 msgstr "傳送失敗"
 
@@ -439,6 +450,10 @@ msgstr "傳送失敗"
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to send invite"
 msgstr "傳送邀請失敗"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Failed to send voice message."
+msgstr "傳送語音訊息失敗。"
 
 #: src/pages/oobe.tsx
 #: src/pages/settings.tsx
@@ -496,12 +511,17 @@ msgstr "群組名稱"
 msgid "Group Settings"
 msgstr "群組設定"
 
+#: src/components/chat/settings/ChatMuteSettingItem.tsx
+msgid "indefinitely"
+msgstr "永久"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Invalid user ID"
 msgstr "無效的使用者 ID"
 
 #: src/components/invites/InvitePreviewCard.tsx
 #: src/components/invites/InvitePreviewCard.tsx
+#: src/pages/chat-thread/chat-settings.tsx
 #: src/pages/invite-preview.tsx
 msgid "Invite"
 msgstr "邀請"
@@ -517,7 +537,6 @@ msgid "Invite code copied"
 msgstr "邀請碼已複製"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
-#: src/pages/chat-thread/chat-settings.tsx
 msgid "Invite Link"
 msgstr "邀請連結"
 
@@ -576,10 +595,10 @@ msgid "Large"
 msgstr "大"
 
 #: src/pages/chat-thread/chat-settings.tsx
+#: src/pages/chat-thread/chat-settings.tsx
 msgid "Leave"
 msgstr "退出"
 
-#: src/pages/chat-thread/chat-settings.tsx
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Leave Group"
 msgstr "退出群組"
@@ -636,7 +655,7 @@ msgstr "成員已移除"
 msgid "Membership"
 msgstr "成員資格"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeInput.tsx
 msgid "Message"
 msgstr "訊息"
 
@@ -649,6 +668,10 @@ msgstr "訊息不能為空"
 msgid "Messages Font Size"
 msgstr "訊息字體大小"
 
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Microphone access was denied."
+msgstr "麥克風存取遭拒。"
+
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Mute"
 msgstr "靜音"
@@ -658,13 +681,12 @@ msgid "Mute notifications"
 msgstr "靜音通知"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-msgid "Muted indefinitely"
-msgstr "已永久靜音"
+#~ msgid "Muted indefinitely"
+#~ msgstr "已永久靜音"
 
-#. placeholder {0}: formatted ?? mutedUntil
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
-msgid "Muted until {0}"
-msgstr "已靜音至 {0}"
+#~ msgid "Muted until {0}"
+#~ msgstr "已靜音至 {0}"
 
 #: src/components/chat/settings/shareInviteHelpers.ts
 #: src/components/chat/settings/shareInviteHelpers.ts
@@ -849,6 +871,18 @@ msgstr "標記已讀"
 msgid "Reconnecting..."
 msgstr "正在重新連線..."
 
+#: src/components/chat/compose/AudioRecordButton.tsx
+msgid "Record audio"
+msgstr "錄音"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Recording is too short."
+msgstr "錄音時間太短。"
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Release to save"
+msgstr "鬆開保存"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Remove"
 msgstr "移除"
@@ -884,7 +918,7 @@ msgid "Reply"
 msgstr "回覆"
 
 #. placeholder {0}: replyTo.username
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeContextBanner.tsx
 msgid "Replying to {0}"
 msgstr "正在回覆 {0}"
 
@@ -950,6 +984,10 @@ msgstr "傳送邀請"
 msgid "Send message"
 msgstr "傳送訊息"
 
+#: src/components/chat/MessageComposeBar.tsx
+msgid "Send voice message"
+msgstr "傳送語音訊息"
+
 #: src/layouts/MobileLayout.tsx
 #: src/pages/settings.tsx
 msgid "Settings"
@@ -979,7 +1017,7 @@ msgstr "開始話題"
 msgid "Status"
 msgstr "狀態"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/ComposeInput.tsx
 msgid "Sticker"
 msgstr "貼圖"
 
@@ -1040,6 +1078,10 @@ msgstr "開啟推播通知"
 msgid "Unread"
 msgstr "標記未讀"
 
+#: src/components/chat/settings/ChatMuteSettingItem.tsx
+msgid "until"
+msgstr "直到"
+
 #: src/components/settings/CheckForUpdateItem.tsx
 msgid "Update check complete"
 msgstr "更新檢查完成"
@@ -1060,7 +1102,7 @@ msgstr "為此群組上傳一張圖片。"
 msgid "Upload Avatar"
 msgstr "上傳頭像"
 
-#: src/components/chat/MessageComposeBar.tsx
+#: src/components/chat/compose/useComposeAttachments.ts
 #: src/components/chat/UploadPreview.tsx
 msgid "Upload failed"
 msgstr "上傳失敗"
@@ -1068,6 +1110,11 @@ msgstr "上傳失敗"
 #: src/components/chat/UploadPreview.tsx
 msgid "Uploading"
 msgstr "上傳中"
+
+#. placeholder {0}: voiceRecorder.uploadProgress
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Uploading {0}%"
+msgstr "正在上傳 {0}%"
 
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Uploading avatar..."
@@ -1092,6 +1139,18 @@ msgstr "查看圖片 {0}"
 #: src/pages/chat-thread/ChatAdminSettings.tsx
 msgid "Visibility"
 msgstr "可見性"
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Voice message"
+msgstr "語音訊息"
+
+#: src/components/chat/compose/useVoiceRecorder.ts
+msgid "Voice recording is not supported on this device."
+msgstr "此裝置不支援語音錄製。"
+
+#: src/components/chat/compose/VoiceRecorderPanel.tsx
+msgid "Waiting for microphone…"
+msgstr "正在等待麥克風…"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "We could not join this chat right now."
