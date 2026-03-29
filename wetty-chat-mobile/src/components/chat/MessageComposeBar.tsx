@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { IonButton, IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
-import { addCircleOutline, closeCircle, happyOutline, micOutline, send } from 'ionicons/icons';
+import { addCircleOutline, closeCircle, happyOutline, lockClosedOutline, micOutline, paperPlaneOutline, send, trashOutline } from 'ionicons/icons';
 import styles from './MessageComposeBar.module.scss';
 import { type ImageUploadDraft, UploadPreview } from './UploadPreview';
 import type { Attachment } from '@/api/messages';
@@ -45,12 +45,22 @@ export interface ComposeUploadedAttachment {
   height?: number;
 }
 
-export interface ComposeSendPayload {
+export interface ComposeSendTextPayload {
+  kind: 'text';
   text: string;
   attachmentIds: string[];
   existingAttachments: Attachment[];
   uploadedAttachments: ComposeUploadedAttachment[];
 }
+
+export interface ComposeSendAudioPayload {
+  kind: 'audio';
+  durationMs: number;
+  attachmentId: string;
+  uploadedAttachment: ComposeUploadedAttachment;
+}
+
+export type ComposeSendPayload = ComposeSendTextPayload | ComposeSendAudioPayload;
 
 interface DraftUploadRecord {
   draft: ImageUploadDraft;
@@ -67,6 +77,7 @@ interface MessageComposeBarProps {
   onCancelEdit?: () => void;
   onRequestEditLastMessage?: () => boolean;
   onFocusChange?: (focused: boolean) => void;
+  onError?: (message: string) => void;
 }
 
 export interface MessageComposeBarHandle {
@@ -76,6 +87,19 @@ export interface MessageComposeBarHandle {
 }
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
+const VOICE_CANCEL_THRESHOLD_PX = 72;
+const VOICE_LOCK_THRESHOLD_PX = 60;
+const MIN_VOICE_DURATION_MS = 500;
+
+type VoiceRecorderPhase = 'requesting' | 'recording' | 'locked' | 'uploading';
+
+interface VoiceRecorderState {
+  phase: VoiceRecorderPhase;
+  startedAt: number;
+  durationMs: number;
+  cancelArmed: boolean;
+  uploadProgress: number;
+}
 
 const createDraftId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -95,6 +119,7 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
     onCancelEdit,
     onRequestEditLastMessage,
     onFocusChange,
+    onError,
   }: MessageComposeBarProps,
   ref,
 ) {
@@ -106,6 +131,19 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
   const prevTextLenRef = useRef(0);
   const [drafts, setDrafts] = useState<DraftUploadRecord[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+  const [voiceRecorder, setVoiceRecorder] = useState<VoiceRecorderState | null>(null);
+  const voiceRecorderRef = useRef<VoiceRecorderState | null>(null);
+  const voiceMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const voiceStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const voiceGestureRef = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    active: boolean;
+    finishAfterStart: 'send' | 'cancel' | null;
+  }>({ pointerId: null, startX: 0, startY: 0, active: false, finishAfterStart: null });
+  const voiceUploadAbortControllerRef = useRef<AbortController | null>(null);
 
   useImperativeHandle(
     ref,
@@ -143,6 +181,10 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
   }, [drafts]);
 
   useEffect(() => {
+    voiceRecorderRef.current = voiceRecorder;
+  }, [voiceRecorder]);
+
+  useEffect(() => {
     const editingMessageId = editing?.messageId ?? null;
     const previousEditingMessageId = previousEditingMessageIdRef.current;
 
@@ -175,8 +217,135 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
   useEffect(
     () => () => {
       draftsRef.current.forEach(cleanupDraft);
+      voiceUploadAbortControllerRef.current?.abort();
+      if (voiceMediaRecorderRef.current?.state && voiceMediaRecorderRef.current.state !== 'inactive') {
+        voiceMediaRecorderRef.current.stop();
+      }
+      voiceStreamRef.current?.getTracks().forEach((track) => track.stop());
     },
     [cleanupDraft],
+  );
+
+  useEffect(() => {
+    if (!voiceRecorder || (voiceRecorder.phase !== 'recording' && voiceRecorder.phase !== 'locked')) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setVoiceRecorder((current) =>
+        current == null
+          ? null
+          : {
+            ...current,
+            durationMs: Date.now() - current.startedAt,
+          },
+      );
+    }, 200);
+
+    return () => window.clearInterval(timer);
+  }, [voiceRecorder]);
+
+  const reportVoiceError = useCallback(
+    (message: string) => {
+      onError?.(message);
+    },
+    [onError],
+  );
+
+  const stopVoiceStream = useCallback(() => {
+    voiceStreamRef.current?.getTracks().forEach((track) => track.stop());
+    voiceStreamRef.current = null;
+  }, []);
+
+  const resetVoiceGesture = useCallback(() => {
+    voiceGestureRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      active: false,
+      finishAfterStart: null,
+    };
+  }, []);
+
+  const resetVoiceRecorder = useCallback(() => {
+    voiceUploadAbortControllerRef.current?.abort();
+    voiceUploadAbortControllerRef.current = null;
+    voiceChunksRef.current = [];
+    voiceMediaRecorderRef.current = null;
+    stopVoiceStream();
+    setVoiceRecorder(null);
+    resetVoiceGesture();
+  }, [resetVoiceGesture, stopVoiceStream]);
+
+  const formatVoiceDuration = useCallback((durationMs: number) => {
+    const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, []);
+
+  const getSupportedVoiceMimeType = useCallback(() => {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+      return '';
+    }
+
+    const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
+    return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
+  }, []);
+
+  const getVoiceFileExtension = useCallback((mimeType: string) => {
+    if (mimeType.includes('mp4')) return 'm4a';
+    if (mimeType.includes('ogg')) return 'ogg';
+    return 'webm';
+  }, []);
+
+  const finishVoiceRecording = useCallback(
+    (mode: 'send' | 'cancel') => {
+      const current = voiceRecorderRef.current;
+      if (!current) {
+        resetVoiceGesture();
+        return;
+      }
+
+      const recorder = voiceMediaRecorderRef.current;
+      if (current.phase === 'requesting') {
+        voiceGestureRef.current.finishAfterStart = mode;
+        return;
+      }
+
+      if (mode === 'cancel') {
+        voiceChunksRef.current = [];
+      }
+
+      voiceGestureRef.current.active = false;
+      voiceGestureRef.current.pointerId = null;
+      voiceGestureRef.current.finishAfterStart = null;
+
+      const nextDurationMs = Date.now() - current.startedAt;
+      setVoiceRecorder({
+        ...current,
+        phase: mode === 'send' ? 'uploading' : 'recording',
+        durationMs: nextDurationMs,
+        cancelArmed: false,
+        uploadProgress: 0,
+      });
+
+      if (!recorder || recorder.state === 'inactive') {
+        if (mode === 'cancel') {
+          resetVoiceRecorder();
+        }
+        return;
+      }
+
+      if (mode === 'cancel') {
+        recorder.onstop = () => {
+          resetVoiceRecorder();
+        };
+      }
+
+      recorder.stop();
+    },
+    [resetVoiceGesture, resetVoiceRecorder],
   );
 
   const getImageDimensions = (file: File): Promise<{ width?: number; height?: number }> => {
@@ -219,16 +388,16 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
         prev.map((draftRecord) =>
           draftRecord.draft.localId === localId
             ? {
-                ...draftRecord,
-                abortController,
-                draft: {
-                  ...draftRecord.draft,
-                  status: 'uploading',
-                  progress: 0,
-                  errorMessage: undefined,
-                  attachmentId: undefined,
-                },
-              }
+              ...draftRecord,
+              abortController,
+              draft: {
+                ...draftRecord.draft,
+                status: 'uploading',
+                progress: 0,
+                errorMessage: undefined,
+                attachmentId: undefined,
+              },
+            }
             : draftRecord,
         ),
       );
@@ -239,13 +408,13 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
           prev.map((draftRecord) =>
             draftRecord.draft.localId === localId
               ? {
-                  ...draftRecord,
-                  draft: {
-                    ...draftRecord.draft,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                  },
-                }
+                ...draftRecord,
+                draft: {
+                  ...draftRecord.draft,
+                  width: dimensions.width,
+                  height: dimensions.height,
+                },
+              }
               : draftRecord,
           ),
         );
@@ -258,12 +427,12 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
               prev.map((draftRecord) =>
                 draftRecord.draft.localId === localId
                   ? {
-                      ...draftRecord,
-                      draft: {
-                        ...draftRecord.draft,
-                        progress,
-                      },
-                    }
+                    ...draftRecord,
+                    draft: {
+                      ...draftRecord.draft,
+                      progress,
+                    },
+                  }
                   : draftRecord,
               ),
             );
@@ -274,16 +443,16 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
           prev.map((draftRecord) =>
             draftRecord.draft.localId === localId
               ? {
-                  ...draftRecord,
-                  abortController: undefined,
-                  draft: {
-                    ...draftRecord.draft,
-                    status: 'uploaded',
-                    progress: 100,
-                    attachmentId: result.attachmentId,
-                    errorMessage: undefined,
-                  },
-                }
+                ...draftRecord,
+                abortController: undefined,
+                draft: {
+                  ...draftRecord.draft,
+                  status: 'uploaded',
+                  progress: 100,
+                  attachmentId: result.attachmentId,
+                  errorMessage: undefined,
+                },
+              }
               : draftRecord,
           ),
         );
@@ -297,16 +466,16 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
           prev.map((draftRecord) =>
             draftRecord.draft.localId === localId
               ? {
-                  ...draftRecord,
-                  abortController: undefined,
-                  draft: {
-                    ...draftRecord.draft,
-                    status: 'error',
-                    progress: 0,
-                    attachmentId: undefined,
-                    errorMessage: t`Upload failed`,
-                  },
-                }
+                ...draftRecord,
+                abortController: undefined,
+                draft: {
+                  ...draftRecord.draft,
+                  status: 'error',
+                  progress: 0,
+                  attachmentId: undefined,
+                  errorMessage: t`Upload failed`,
+                },
+              }
               : draftRecord,
           ),
         );
@@ -344,7 +513,139 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
     [startUpload],
   );
 
-  const handleRecordVoice = () => {};
+  const startVoiceRecording = useCallback(async () => {
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      reportVoiceError(t`Voice recording is not supported on this device.`);
+      resetVoiceGesture();
+      return;
+    }
+
+    const requestedAt = Date.now();
+    setVoiceRecorder({
+      phase: 'requesting',
+      startedAt: requestedAt,
+      durationMs: 0,
+      cancelArmed: false,
+      uploadProgress: 0,
+    });
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceStreamRef.current = stream;
+      voiceChunksRef.current = [];
+
+      const mimeType = getSupportedVoiceMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      voiceMediaRecorderRef.current = recorder;
+      const startedAt = Date.now();
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const current = voiceRecorderRef.current;
+        const durationMs = current ? Math.max(current.durationMs, Date.now() - startedAt) : Date.now() - startedAt;
+        const recordedChunks = voiceChunksRef.current;
+        voiceMediaRecorderRef.current = null;
+        stopVoiceStream();
+
+        if (recordedChunks.length === 0) {
+          setVoiceRecorder(null);
+          return;
+        }
+
+        if (durationMs < MIN_VOICE_DURATION_MS) {
+          voiceChunksRef.current = [];
+          setVoiceRecorder(null);
+          reportVoiceError(t`Recording is too short.`);
+          return;
+        }
+
+        const blobType = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(recordedChunks, { type: blobType });
+        const file = new File([blob], `voice-${Date.now()}.${getVoiceFileExtension(blobType)}`, {
+          type: blobType,
+          lastModified: Date.now(),
+        });
+        const uploadAbortController = new AbortController();
+        voiceUploadAbortControllerRef.current = uploadAbortController;
+
+        setVoiceRecorder({
+          phase: 'uploading',
+          startedAt,
+          durationMs,
+          cancelArmed: false,
+          uploadProgress: 0,
+        });
+
+        try {
+          const result = await uploadAttachment({
+            file,
+            signal: uploadAbortController.signal,
+            onProgress: (progress) => {
+              setVoiceRecorder((currentVoice) =>
+                currentVoice == null
+                  ? null
+                  : {
+                    ...currentVoice,
+                    uploadProgress: progress,
+                  },
+              );
+            },
+          });
+
+          onSend({
+            kind: 'audio',
+            durationMs,
+            attachmentId: result.attachmentId,
+            uploadedAttachment: {
+              attachmentId: result.attachmentId,
+              file,
+              mimeType: blobType,
+              size: file.size,
+            },
+          });
+          setVoiceRecorder(null);
+        } catch (error) {
+          if (!isAbortError(error) && !uploadAbortController.signal.aborted) {
+            console.error('Failed to upload voice message:', error);
+            reportVoiceError(t`Failed to send voice message.`);
+          }
+          setVoiceRecorder(null);
+        } finally {
+          voiceUploadAbortControllerRef.current = null;
+          voiceChunksRef.current = [];
+        }
+      };
+
+      recorder.start();
+      setVoiceRecorder({
+        phase: 'recording',
+        startedAt,
+        durationMs: 0,
+        cancelArmed: false,
+        uploadProgress: 0,
+      });
+
+      const deferredFinish = voiceGestureRef.current.finishAfterStart;
+      if (deferredFinish) {
+        finishVoiceRecording(deferredFinish);
+      }
+    } catch (error) {
+      console.error('Failed to access microphone:', error);
+      stopVoiceStream();
+      setVoiceRecorder(null);
+      resetVoiceGesture();
+      reportVoiceError(t`Microphone access was denied.`);
+    }
+  }, [finishVoiceRecording, getSupportedVoiceMimeType, getVoiceFileExtension, onSend, reportVoiceError, resetVoiceGesture, stopVoiceStream, uploadAttachment]);
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
@@ -359,6 +660,7 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
     if (!trimmed && attachmentIds.length === 0) return;
 
     onSend({
+      kind: 'text',
       text: trimmed,
       attachmentIds,
       existingAttachments,
@@ -403,7 +705,14 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
     currentAttachmentIds.every((attachmentId, index) => attachmentId === originalAttachmentIds[index]);
   const canSend =
     !hasUploadingDraft && !hasFailedDraft && (trimmedText.length > 0 || hasAttachment) && !isUnchangedEdit;
-  const sendVoice = trimmedText.length === 0 && !hasAttachment && !editing; // REVIEW: 检查一下条件是否严谨
+  const voiceActive = voiceRecorder != null;
+  const canStartVoice =
+    trimmedText.length === 0 &&
+    !hasAttachment &&
+    !editing &&
+    !hasUploadingDraft &&
+    !hasFailedDraft &&
+    !voiceActive;
   const canRequestRecentEdit = !editing && !replyTo && text.length === 0 && !hasAttachment && drafts.length === 0;
 
   useEffect(() => {
@@ -507,6 +816,95 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
     })),
   ];
 
+  const handleVoicePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (!canStartVoice) {
+        return;
+      }
+
+      event.preventDefault();
+      textareaRef.current?.blur();
+      voiceGestureRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        active: true,
+        finishAfterStart: null,
+      };
+      void startVoiceRecording();
+    },
+    [canStartVoice, startVoiceRecording],
+  );
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const gesture = voiceGestureRef.current;
+      const current = voiceRecorderRef.current;
+      if (!gesture.active || gesture.pointerId !== event.pointerId || current?.phase !== 'recording') {
+        return;
+      }
+
+      const deltaX = event.clientX - gesture.startX;
+      const deltaY = event.clientY - gesture.startY;
+
+      if (deltaY <= -VOICE_LOCK_THRESHOLD_PX) {
+        setVoiceRecorder((voice) =>
+          voice == null
+            ? null
+            : {
+              ...voice,
+              phase: 'locked',
+              cancelArmed: false,
+            },
+        );
+        voiceGestureRef.current.active = false;
+        voiceGestureRef.current.pointerId = null;
+        return;
+      }
+
+      const cancelArmed = deltaX <= -VOICE_CANCEL_THRESHOLD_PX;
+      if (cancelArmed !== current.cancelArmed) {
+        setVoiceRecorder({
+          ...current,
+          cancelArmed,
+        });
+      }
+    };
+
+    const handlePointerFinish = (event: PointerEvent) => {
+      const gesture = voiceGestureRef.current;
+      if (gesture.pointerId == null || gesture.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const current = voiceRecorderRef.current;
+      if (!current) {
+        resetVoiceGesture();
+        return;
+      }
+
+      if (current.phase === 'requesting') {
+        voiceGestureRef.current.finishAfterStart = 'cancel';
+        return;
+      }
+
+      if (current.phase !== 'recording') {
+        return;
+      }
+
+      finishVoiceRecording(current.cancelArmed ? 'cancel' : 'send');
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerFinish);
+    window.addEventListener('pointercancel', handlePointerFinish);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerFinish);
+      window.removeEventListener('pointercancel', handlePointerFinish);
+    };
+  }, [finishVoiceRecording, resetVoiceGesture]);
+
   return (
     <div className={styles.bar}>
       <input
@@ -522,6 +920,7 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
         className={styles.attachBtn}
         aria-label={t`Attach image`}
         onClick={() => fileInputRef.current?.click()}
+        disabled={voiceActive}
       >
         <IonIcon icon={addCircleOutline} />
       </button>
@@ -566,37 +965,82 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
           onRetry={retryDraft}
         />
 
-        <div className={styles.inputRow}>
-          <textarea
-            id="messageCompose"
-            ref={textareaRef}
-            className={styles.textarea}
-            placeholder={t`Message`}
-            value={text}
-            rows={1}
-            onChange={(e) => {
-              setText(e.target.value);
-              const newLen = e.target.value.length;
-              prevTextLenRef.current = newLen;
-            }}
-            onFocus={() => onFocusChange?.(true)}
-            onBlur={() => onFocusChange?.(false)}
-          />
-          <FeatureGate>
-            <button type="button" className={styles.stickerBtn} aria-label={t`Sticker`}>
-              <IonIcon icon={happyOutline} />
-            </button>
-          </FeatureGate>
-        </div>
+        {voiceRecorder ? (
+          <div className={styles.voiceRecorder} data-phase={voiceRecorder.phase}>
+            <div className={styles.voiceRecorderMain}>
+              <div className={styles.voiceIndicator} aria-hidden="true" />
+              <span className={styles.voiceTimer}>{formatVoiceDuration(voiceRecorder.durationMs)}</span>
+              {voiceRecorder.phase === 'locked' ? (
+                <span className={styles.voiceHint}>{t`Locked recording`}</span>
+              ) : voiceRecorder.phase === 'uploading' ? (
+                <span className={styles.voiceHint}>{t`Uploading ${voiceRecorder.uploadProgress}%`}</span>
+              ) : voiceRecorder.cancelArmed ? (
+                <span className={styles.voiceHint}>{t`Release to cancel`}</span>
+              ) : voiceRecorder.phase === 'requesting' ? (
+                <span className={styles.voiceHint}>{t`Waiting for microphone…`}</span>
+              ) : (
+                <span className={styles.voiceHint}>{t`Slide left to cancel, up to lock`}</span>
+              )}
+            </div>
+            {voiceRecorder.phase === 'locked' ? (
+              <div className={styles.voiceActions}>
+                <button
+                  type="button"
+                  className={`${styles.voiceActionBtn} ${styles.voiceCancelBtn}`}
+                  onClick={() => finishVoiceRecording('cancel')}
+                  aria-label={t`Cancel recording`}
+                >
+                  <IonIcon icon={trashOutline} />
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.voiceActionBtn} ${styles.voiceSendBtn}`}
+                  onClick={() => finishVoiceRecording('send')}
+                  aria-label={t`Send voice message`}
+                >
+                  <IonIcon icon={paperPlaneOutline} />
+                </button>
+              </div>
+            ) : voiceRecorder.phase === 'recording' ? (
+              <div className={styles.voiceLockBadge} aria-hidden="true">
+                <IonIcon icon={lockClosedOutline} />
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className={styles.inputRow}>
+            <textarea
+              id="messageCompose"
+              ref={textareaRef}
+              className={styles.textarea}
+              placeholder={t`Message`}
+              value={text}
+              rows={1}
+              onChange={(e) => {
+                setText(e.target.value);
+                const newLen = e.target.value.length;
+                prevTextLenRef.current = newLen;
+              }}
+              onFocus={() => onFocusChange?.(true)}
+              onBlur={() => onFocusChange?.(false)}
+            />
+            <FeatureGate>
+              <button type="button" className={styles.stickerBtn} aria-label={t`Sticker`}>
+                <IonIcon icon={happyOutline} />
+              </button>
+            </FeatureGate>
+          </div>
+        )}
       </div>
-      {sendVoice ? (
+      {canStartVoice || voiceActive ? (
         <IonButton
           fill="solid"
           color="primary"
-          size="small"
-          className={styles.sendBtn}
-          onClick={handleRecordVoice}
+          className={`${styles.sendBtn} ${voiceActive ? styles.recordingBtn : ''}`}
+          onPointerDown={handleVoicePointerDown}
+          onClick={(event) => event.preventDefault()}
           aria-label={t`Record voice`}
+          disabled={voiceRecorder?.phase === 'uploading'}
         >
           <IonIcon slot="icon-only" icon={micOutline} />
         </IonButton>
@@ -604,7 +1048,6 @@ export const MessageComposeBar = forwardRef<MessageComposeBarHandle, MessageComp
         <IonButton
           fill="solid"
           color="primary"
-          size="small"
           className={`${styles.sendBtn}${!canSend ? ` ${styles.disabled}` : ''}`}
           onClick={handleSend}
           aria-label={t`Send message`}

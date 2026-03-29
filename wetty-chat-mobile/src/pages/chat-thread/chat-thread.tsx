@@ -112,6 +112,10 @@ function areMessageListsEquivalent(left: MessageResponse[], right: MessageRespon
   );
 }
 
+function isAudioMessage(message: MessageResponse): boolean {
+  return message.message_type === 'audio';
+}
+
 function buildOptimisticUploadedAttachments(uploadedAttachments: ComposeUploadedAttachment[]): {
   attachments: Attachment[];
   revoke: () => void;
@@ -627,50 +631,158 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const handleSend = useCallback(
     (payload: ComposeSendPayload) => {
       if (!chatId) return;
-      const { text, attachmentIds, existingAttachments, uploadedAttachments } = payload;
-      const { attachments: optimisticUploadedAttachments, revoke } =
-        buildOptimisticUploadedAttachments(uploadedAttachments);
+      if (payload.kind === 'text') {
+        const { text, attachmentIds, existingAttachments, uploadedAttachments } = payload;
+        const { attachments: optimisticUploadedAttachments, revoke } =
+          buildOptimisticUploadedAttachments(uploadedAttachments);
 
-      if (!text.trim() && attachmentIds.length === 0) {
-        revoke();
-        return;
-      }
-
-      // Edit flow
-      if (editingSession) {
-        const originalAttachmentIds = (editingSession.attachments ?? []).map((attachment) => attachment.id);
         if (!text.trim() && attachmentIds.length === 0) {
           revoke();
-          showToast(t`Message cannot be empty`);
-          return;
-        }
-        if (text.trim() === editingSession.text.trim() && areAttachmentIdsEqual(attachmentIds, originalAttachmentIds)) {
-          revoke();
           return;
         }
 
-        const messageId = editingSession.messageId;
-        const currentMessage = messageLookup.get(messageId) ?? editingSession.originalMessage;
-        const optimisticMsg = {
-          ...currentMessage,
+        // Edit flow
+        if (editingSession) {
+          const originalAttachmentIds = (editingSession.attachments ?? []).map((attachment) => attachment.id);
+          if (!text.trim() && attachmentIds.length === 0) {
+            revoke();
+            showToast(t`Message cannot be empty`);
+            return;
+          }
+          if (text.trim() === editingSession.text.trim() && areAttachmentIdsEqual(attachmentIds, originalAttachmentIds)) {
+            revoke();
+            return;
+          }
+
+          const messageId = editingSession.messageId;
+          const currentMessage = messageLookup.get(messageId) ?? editingSession.originalMessage;
+          const optimisticMsg = {
+            ...currentMessage,
+            message: text,
+            attachments: [...existingAttachments, ...optimisticUploadedAttachments],
+            has_attachments: attachmentIds.length > 0,
+            is_edited: true,
+          };
+
+          dispatch(messagePatched({ chatId, messageId, message: optimisticMsg }));
+          setEditingSession(null);
+
+          updateMessage(chatId, messageId, { message: text, attachment_ids: attachmentIds })
+            .then((res) => {
+              dispatch(messagePatched({ chatId, messageId, message: res.data }));
+            })
+            .catch((err: Error) => {
+              dispatch(messagePatched({ chatId, messageId, message: editingSession.originalMessage }));
+              showToast(err.message || t`Failed to edit message`);
+            })
+            .finally(() => {
+              revoke();
+            });
+          return;
+        }
+
+        const clientGeneratedId = generateClientId();
+
+        const optimistic: MessageResponse = {
+          id: clientGeneratedId,
           message: text,
-          attachments: [...existingAttachments, ...optimisticUploadedAttachments],
+          message_type: 'text',
+          reply_root_id: threadId ?? null,
+          reply_to_message: replyingTo
+            ? {
+                id: replyingTo.id,
+                message: replyingTo.message,
+                sender: replyingTo.sender,
+                is_deleted: replyingTo.is_deleted,
+                attachments: replyingTo.attachments,
+              }
+            : undefined,
+          client_generated_id: clientGeneratedId,
+          sender: {
+            uid: currentUserId || 0,
+            gender: 0,
+            name: currentUserName,
+            avatar_url: currentUserAvatarUrl || undefined,
+          },
+          chat_id: chatId,
+          created_at: new Date().toISOString(),
+          is_edited: false,
+          is_deleted: false,
           has_attachments: attachmentIds.length > 0,
-          is_edited: true,
+          attachments: optimisticUploadedAttachments,
+          thread_info: undefined,
+        };
+        dispatch(
+          messageAdded({
+            chatId,
+            storeChatId,
+            message: optimistic,
+            origin: 'optimistic',
+            scope: threadId ? 'thread' : 'main',
+          }),
+        );
+        setReplyingTo(null);
+        if (!atBottom) {
+          pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
+          if (import.meta.env.DEV) {
+            console.log('[ChatThread] schedule-pending-send-scroll', {
+              chatId,
+              storeChatId,
+              threadId: threadId ?? null,
+              clientGeneratedId,
+              pendingKey: pendingSendScrollKeyRef.current,
+              atBottom,
+            });
+          }
+        } else {
+          pendingSendScrollKeyRef.current = null;
+        }
+
+        const messagePayload = {
+          message: text,
+          message_type: 'text' as const,
+          client_generated_id: clientGeneratedId,
+          reply_to_id: replyingTo?.id,
+          attachment_ids: attachmentIds,
         };
 
-        // Optimistic update
-        dispatch(messagePatched({ chatId, messageId, message: optimisticMsg }));
-        setEditingSession(null);
+        const sendPromise = threadId
+          ? sendThreadMessage(chatId, threadId, messagePayload)
+          : sendMessage(chatId, messagePayload);
 
-        updateMessage(chatId, messageId, { message: text, attachment_ids: attachmentIds })
+        sendPromise
           .then((res) => {
-            dispatch(messagePatched({ chatId, messageId, message: res.data }));
+            const postResponse = res.data;
+            const confirmed: MessageResponse = {
+              ...postResponse,
+              reply_to_message: postResponse.reply_to_message
+                ? {
+                    ...optimistic.reply_to_message,
+                    ...postResponse.reply_to_message,
+                    attachments: postResponse.reply_to_message.attachments ?? optimistic.reply_to_message?.attachments,
+                  }
+                : optimistic.reply_to_message,
+            };
+            dispatch(
+              messageConfirmed({
+                chatId,
+                storeChatId,
+                clientGeneratedId,
+                message: confirmed,
+                origin: 'api_confirm',
+                scope: threadId ? 'thread' : 'main',
+              }),
+            );
           })
           .catch((err: Error) => {
-            // Revert optimistic update
-            dispatch(messagePatched({ chatId, messageId, message: editingSession.originalMessage }));
-            showToast(err.message || t`Failed to edit message`);
+            showToast(err.message || t`Failed to send`);
+            dispatch(
+              messagePatched({
+                chatId,
+                messageId: clientGeneratedId,
+                message: { ...optimistic, is_deleted: true },
+              }),
+            );
           })
           .finally(() => {
             revoke();
@@ -678,12 +790,13 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         return;
       }
 
+      const { attachmentId, uploadedAttachment } = payload;
+      const { attachments: optimisticAudioAttachments, revoke } = buildOptimisticUploadedAttachments([uploadedAttachment]);
       const clientGeneratedId = generateClientId();
-
       const optimistic: MessageResponse = {
         id: clientGeneratedId,
-        message: text,
-        message_type: 'text',
+        message: '',
+        message_type: 'audio',
         reply_root_id: threadId ?? null,
         reply_to_message: replyingTo
           ? {
@@ -705,8 +818,8 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         created_at: new Date().toISOString(),
         is_edited: false,
         is_deleted: false,
-        has_attachments: attachmentIds.length > 0,
-        attachments: optimisticUploadedAttachments,
+        has_attachments: true,
+        attachments: optimisticAudioAttachments,
         thread_info: undefined,
       };
       dispatch(
@@ -721,26 +834,16 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       setReplyingTo(null);
       if (!atBottom) {
         pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
-        if (import.meta.env.DEV) {
-          console.log('[ChatThread] schedule-pending-send-scroll', {
-            chatId,
-            storeChatId,
-            threadId: threadId ?? null,
-            clientGeneratedId,
-            pendingKey: pendingSendScrollKeyRef.current,
-            atBottom,
-          });
-        }
       } else {
         pendingSendScrollKeyRef.current = null;
       }
 
       const messagePayload = {
-        message: text,
-        message_type: 'text',
+        message: '',
+        message_type: 'audio' as const,
         client_generated_id: clientGeneratedId,
         reply_to_id: replyingTo?.id,
-        attachment_ids: attachmentIds,
+        attachment_ids: [attachmentId],
       };
 
       const sendPromise = threadId
@@ -818,9 +921,12 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const overlayActions = useMemo((): MessageOverlayAction[] => {
     if (!overlayMessage) return [];
     const msg = overlayMessage.message;
+    const audioMessage = isAudioMessage(msg);
     const isOwn = msg.sender.uid === currentUserId;
-    const actions: MessageOverlayAction[] = [
-      {
+    const actions: MessageOverlayAction[] = [];
+
+    if (!audioMessage) {
+      actions.push({
         key: 'copy',
         label: t`Copy`,
         icon: copyOutline,
@@ -828,16 +934,17 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         handler: () => {
           navigator.clipboard.writeText(msg.message ?? '');
         },
+      });
+    }
+
+    actions.push({
+      key: 'reply',
+      label: t`Reply`,
+      icon: arrowUndo,
+      handler: () => {
+        setReplyingTo(msg);
       },
-      {
-        key: 'reply',
-        label: t`Reply`,
-        icon: arrowUndo,
-        handler: () => {
-          setReplyingTo(msg);
-        },
-      },
-    ];
+    });
     if (!threadId && !msg.thread_info) {
       actions.push({
         key: 'thread',
@@ -848,13 +955,15 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         },
       });
     }
-    if (isOwn) {
+    if (isOwn && !audioMessage) {
       actions.push({
         key: 'edit',
         label: t`Edit`,
         icon: createOutline,
         handler: () => startEditingMessage(msg),
       });
+    }
+    if (isOwn) {
       actions.push({
         key: 'delete',
         label: t`Delete`,
@@ -987,6 +1096,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           ref={composeBarRef}
           onSend={handleSend}
           uploadAttachment={uploadAttachment}
+          onError={(message) => showToast(message)}
           onFocusChange={handleComposeFocusChange}
           replyTo={
             replyingTo

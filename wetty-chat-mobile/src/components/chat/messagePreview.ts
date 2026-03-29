@@ -24,8 +24,20 @@ export function getMessagePreviewText({
     return t`[Invite]`;
   }
 
+  if (messageType === 'audio') {
+    return t`[Voice message]`;
+  }
+
   if (message?.trim()) {
     return message;
+  }
+
+  if (attachments?.some((attachment) => attachment.kind.startsWith('audio/'))) {
+    return t`[Voice message]`;
+  }
+
+  if (firstAttachmentKind?.startsWith('audio/')) {
+    return t`[Voice message]`;
   }
 
   if (attachments?.some((attachment) => attachment.kind.startsWith('image/'))) {
