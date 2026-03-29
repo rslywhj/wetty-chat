@@ -26,5 +26,6 @@ export default mergeConfig(createBaseConfig({ assetCdnOrigin: ASSET_URL }), defi
     __ASSET_BASE__: JSON.stringify(ASSET_URL),
     __API_BASE__: JSON.stringify(API_BASE_URL),
     __APP_VERSION__: JSON.stringify(commitHash),
+    __FEATURE_GATES_ENABLED__: JSON.stringify(false),
   },
 }));

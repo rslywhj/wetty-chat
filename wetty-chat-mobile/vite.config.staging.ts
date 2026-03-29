@@ -12,5 +12,6 @@ try {
 export default mergeConfig(baseConfig, defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(commitHash),
+    __FEATURE_GATES_ENABLED__: JSON.stringify(true),
   },
 }));

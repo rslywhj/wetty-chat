@@ -17,6 +17,7 @@ import { LanguagePageCore } from '@/pages/settings/language';
 import type { BackAction } from '@/types/back-action';
 import styles from './DesktopSplitLayout.module.scss';
 import { HeaderActionMenu, type HeaderActionMenuItem } from '@/components/HeaderActionMenu';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 
 interface DesktopRouteState {
   backgroundPath?: string;
@@ -150,9 +151,10 @@ function ChatModal({
 export function DesktopSplitLayout() {
   const history = useHistory();
   const location = useLocation<DesktopRouteState | undefined>();
+  const isFeatureGateEnabled = useFeatureGate();
   const skipNextGlobalSettingsDismiss = useRef(false);
   const headerActions: HeaderActionMenuItem[] = [
-    ...(import.meta.env.DEV
+    ...(isFeatureGateEnabled
       ? [
           {
             id: 'create-chat',

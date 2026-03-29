@@ -18,6 +18,7 @@ const httpsConfig = fs.existsSync(keyPath) && fs.existsSync(certPath) ? {
 export default mergeConfig(baseConfig, defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify('development'),
+    __FEATURE_GATES_ENABLED__: JSON.stringify(true),
   },
   server: {
     host: true,

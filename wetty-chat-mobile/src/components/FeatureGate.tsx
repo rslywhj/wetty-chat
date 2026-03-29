@@ -1,4 +1,5 @@
 import React from 'react';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 
 interface FeatureGateProps {
   children: React.ReactNode;
@@ -6,6 +7,6 @@ interface FeatureGateProps {
 }
 
 export const FeatureGate: React.FC<FeatureGateProps> = ({ children, fallback = null }) => {
-  const isEnabled = import.meta.env.DEV;
+  const isEnabled = useFeatureGate();
   return isEnabled ? children : fallback;
 };

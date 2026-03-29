@@ -18,6 +18,7 @@ export function createBaseConfig(options: BaseConfigOptions = {}) {
     define: {
       __API_BASE__: JSON.stringify(null),
       __AUTH_REDIRECT_URL__: JSON.stringify(null),
+      __FEATURE_GATES_ENABLED__: JSON.stringify(false),
     },
     css: {
       modules: {

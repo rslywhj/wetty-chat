@@ -5,26 +5,27 @@ import { createOutline } from 'ionicons/icons';
 import { ChatList } from '@/components/chat/ChatList';
 import { HeaderActionMenu } from '@/components/HeaderActionMenu';
 import { TitleWithConnectionStatus } from '@/components/TitleWithConnectionStatus';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 
 export default function Chats() {
-  const isDev = import.meta.env.DEV;
+  const isFeatureGateEnabled = useFeatureGate();
   const history = useHistory();
-  let menuActions = [
+  const menuActions = [
     {
       id: 'join-via-code',
       label: <Trans>Join via Code</Trans>,
       onSelect: () => history.push('/chats/join'),
     },
+    ...(isFeatureGateEnabled
+      ? [
+          {
+            id: 'create-chat',
+            label: <Trans>Create Chat</Trans>,
+            onSelect: () => history.push('/chats/new'),
+          },
+        ]
+      : []),
   ];
-  if (isDev) {
-    menuActions.push(
-      {
-        id: 'create-chat',
-        label: <Trans>Create Chat</Trans>,
-        onSelect: () => history.push('/chats/new'),
-      }
-    )
-  }
 
   return (
     <IonPage className="chats-page">

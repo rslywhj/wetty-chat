@@ -19,12 +19,14 @@ import NotFoundPage from '@/pages/not-found';
 import ComponentDemoPage from '@/pages/component-demo';
 
 import { safariSafeRouteAnimation } from '@/utils/navigationHistory';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
 import styles from './MobileLayout.module.scss';
 
 const TAB_ROOT_PATHS = ['/', '/chats', '/settings', '/demo'];
 
 const MobileLayout: React.FC = () => {
   const location = useLocation();
+  const isFeatureGateEnabled = useFeatureGate();
   const isTabRoot = TAB_ROOT_PATHS.includes(location.pathname);
 
   const tabBarButtons = useMemo(() => {
@@ -43,7 +45,7 @@ const MobileLayout: React.FC = () => {
       </IonTabButton>,
     ];
 
-    if (import.meta.env.DEV) {
+    if (isFeatureGateEnabled) {
       buttons.push(
         <IonTabButton tab="demo" href="/demo" key="demo">
           <IonIcon icon={flask} />
@@ -53,7 +55,7 @@ const MobileLayout: React.FC = () => {
     }
 
     return buttons;
-  }, []);
+  }, [isFeatureGateEnabled]);
 
   return (
     <IonTabs className={`${isTabRoot ? '' : styles.tabBarHidden}`}>
