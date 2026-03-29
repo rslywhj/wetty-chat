@@ -370,6 +370,7 @@ pub struct ReplyToMessage {
     #[serde(with = "crate::serde_i64_string")]
     id: i64,
     message: Option<String>,
+    message_type: MessageType,
     sender: Sender,
     is_deleted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -734,6 +735,7 @@ pub async fn attach_metadata(
                     } else {
                         reply_msg.message.clone()
                     },
+                    message_type: reply_msg.message_type.clone(),
                     sender: build_sender(reply_msg.sender_uid, &user_avatars, &user_profiles),
                     is_deleted: reply_msg.deleted_at.is_some(),
                     first_attachment_kind: message_attachments_map
@@ -1110,10 +1112,12 @@ async fn post_thread_message(
 #[cfg(test)]
 mod tests {
     use super::{
-        validate_client_message_type, INVITE_MESSAGE_TYPE_FORBIDDEN, SYSTEM_MESSAGE_TYPE_FORBIDDEN,
+        validate_client_message_type, ReplyToMessage, INVITE_MESSAGE_TYPE_FORBIDDEN,
+        SYSTEM_MESSAGE_TYPE_FORBIDDEN,
     };
-    use crate::models::MessageType;
+    use crate::models::{MessageType, Sender};
     use axum::http::StatusCode;
+    use serde_json::json;
 
     #[test]
     fn rejects_system_message_type_from_clients() {
@@ -1140,6 +1144,27 @@ mod tests {
             err,
             (StatusCode::BAD_REQUEST, INVITE_MESSAGE_TYPE_FORBIDDEN)
         );
+    }
+
+    #[test]
+    fn serializes_reply_to_message_type() {
+        let reply = ReplyToMessage {
+            id: 42,
+            message: Some("voice".to_string()),
+            message_type: MessageType::Audio,
+            sender: Sender {
+                uid: 7,
+                avatar_url: None,
+                name: Some("Alice".to_string()),
+                gender: 0,
+                user_group: None,
+            },
+            is_deleted: false,
+            first_attachment_kind: Some("audio/webm".to_string()),
+        };
+
+        let value = serde_json::to_value(reply).expect("serialize reply_to_message");
+        assert_eq!(value["message_type"], json!("audio"));
     }
 }
 
