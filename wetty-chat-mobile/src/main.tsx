@@ -24,7 +24,6 @@ import { initializeClientId } from '@/utils/clientId';
 import App from './App';
 import { setupIonicReact } from '@ionic/react';
 
-activateDetectedLocale();
 initializeClientId();
 setupIonicReact({
   mode: 'ios',
@@ -33,10 +32,16 @@ setupIonicReact({
 
 console.log(`Running in ${import.meta.env.MODE} mode, dev=${import.meta.env.DEV}`);
 
-createRoot(document.getElementById('root')!).render(
-  <Provider store={store}>
-    <I18nProvider i18n={i18n}>
-      <App />
-    </I18nProvider>
-  </Provider>,
-);
+async function bootstrap() {
+  await activateDetectedLocale();
+
+  createRoot(document.getElementById('root')!).render(
+    <Provider store={store}>
+      <I18nProvider i18n={i18n}>
+        <App />
+      </I18nProvider>
+    </Provider>,
+  );
+}
+
+void bootstrap();
