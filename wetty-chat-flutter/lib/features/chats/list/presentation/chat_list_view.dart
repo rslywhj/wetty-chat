@@ -6,6 +6,7 @@ import '../../../auth/application/auth_store.dart';
 import '../../detail/application/chat_draft_store.dart';
 import '../../detail/presentation/chat_detail_view.dart';
 import '../../shared/models/chat_models.dart';
+import '../../shared/models/message_models.dart';
 import '../../../settings/presentation/settings_view.dart';
 import 'chat_list_viewmodel.dart';
 import 'new_chat_view.dart';
@@ -107,10 +108,7 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: Text('退出登录？', style: appTextStyle(context)),
-        content: Text(
-          '这会清除当前设备保存的登录状态。',
-          style: appTextStyle(context),
-        ),
+        content: Text('这会清除当前设备保存的登录状态。', style: appTextStyle(context)),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
@@ -162,7 +160,7 @@ class _ChatPageState extends State<ChatPage> {
             context,
             CupertinoPageRoute(builder: (_) => const SettingsPage()),
           ),
-          child: const Icon(CupertinoIcons.gear),
+          child: const Icon(CupertinoIcons.gear, size: IconSizes.iconSize),
         ),
         middle: const Text('Chats'),
         trailing: Row(
@@ -174,17 +172,26 @@ class _ChatPageState extends State<ChatPage> {
                 onPressed: _viewModel.isRefreshing ? null : _refreshChats,
                 child: _viewModel.isRefreshing
                     ? const CupertinoActivityIndicator(radius: 9)
-                    : const Icon(CupertinoIcons.refresh),
+                    : const Icon(
+                        CupertinoIcons.refresh,
+                        size: IconSizes.iconSize,
+                      ),
               ),
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _confirmLogout,
-              child: const Icon(CupertinoIcons.square_arrow_right),
+              child: const Icon(
+                CupertinoIcons.square_arrow_right,
+                size: IconSizes.iconSize,
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _addChat,
-              child: const Icon(CupertinoIcons.square_pencil),
+              child: const Icon(
+                CupertinoIcons.square_pencil,
+                size: IconSizes.iconSize,
+              ),
             ),
           ],
         ),
@@ -280,12 +287,11 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
 
-    final senderName = chat.lastMessage?.sender.name;
-    final lastMsg = chat.lastMessage?.message;
+    final lastMessage = chat.lastMessage;
+    final senderName = lastMessage?.sender.name;
+    final lastMsg = _messagePreviewText(lastMessage);
     final unreadCount = chat.unreadCount;
-    final hasMessage =
-        (senderName != null && senderName.isNotEmpty) &&
-        (lastMsg != null && lastMsg.isNotEmpty);
+    final hasMessage = lastMessage != null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -319,11 +325,12 @@ class _ChatPageState extends State<ChatPage> {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
+                  // TODO: use image instead of text
                   child: Text(
                     chatName.isNotEmpty ? chatName[0].toUpperCase() : '?',
                     style: appOnDarkTextStyle(
                       context,
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -338,10 +345,7 @@ class _ChatPageState extends State<ChatPage> {
                           Expanded(
                             child: Text(
                               chatName,
-                              style: appTitleTextStyle(
-                                context,
-                                fontSize: 16,
-                              ),
+                              style: appChatEntryTitleTextStyle(context),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -353,7 +357,7 @@ class _ChatPageState extends State<ChatPage> {
                                 dateText,
                                 style: appSecondaryTextStyle(
                                   context,
-                                  fontSize: 12,
+                                  fontSize: AppFontSizes.meta,
                                 ),
                               ),
                             ),
@@ -412,7 +416,7 @@ class _ChatPageState extends State<ChatPage> {
                     text: '[Draft] ',
                     style: appTextStyle(
                       context,
-                      fontSize: 13,
+                      fontSize: AppFontSizes.bodySmall,
                       color: CupertinoColors.destructiveRed,
                       fontWeight: FontWeight.w500,
                     ),
@@ -421,7 +425,7 @@ class _ChatPageState extends State<ChatPage> {
                     text: draft,
                     style: appSecondaryTextStyle(
                       context,
-                      fontSize: 13,
+                      fontSize: AppFontSizes.bodySmall,
                     ),
                   ),
                 ],
@@ -455,7 +459,7 @@ class _ChatPageState extends State<ChatPage> {
                   overflow: TextOverflow.ellipsis,
                   style: appSecondaryTextStyle(
                     context,
-                    fontSize: 13,
+                    fontSize: AppFontSizes.bodySmall,
                   ),
                 )
               : Text(
@@ -464,13 +468,43 @@ class _ChatPageState extends State<ChatPage> {
                   overflow: TextOverflow.ellipsis,
                   style: appSecondaryTextStyle(
                     context,
-                    fontSize: 13,
+                    fontSize: AppFontSizes.bodySmall,
                   ),
                 ),
         ),
         if (unreadCount > 0) _unreadBadge(unreadCount),
       ],
     );
+  }
+
+  String _messagePreviewText(MessageItem? message) {
+    if (message == null) {
+      return '';
+    }
+
+    if (message.isDeleted) {
+      return '[Deleted]';
+    }
+
+    final text = message.message?.trim();
+    if (text != null && text.isNotEmpty) {
+      return text;
+    }
+
+    // TODO: implement options of preview text later
+    if (message.attachments.any((attachment) => attachment.isImage)) {
+      return '[Image]';
+    }
+
+    if (message.attachments.any((attachment) => attachment.isVideo)) {
+      return '[Video]';
+    }
+
+    if (message.attachments.isNotEmpty || message.hasAttachments) {
+      return '[Attachment]';
+    }
+
+    return '';
   }
 
   Widget _unreadBadge(int count) {
@@ -487,7 +521,7 @@ class _ChatPageState extends State<ChatPage> {
         textAlign: TextAlign.center,
         style: appOnDarkTextStyle(
           context,
-          fontSize: 11,
+          fontSize: AppFontSizes.unreadBadge,
           fontWeight: FontWeight.w600,
         ),
       ),

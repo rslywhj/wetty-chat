@@ -290,7 +290,7 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
       topButtonBar: [
         material.IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(material.Icons.close),
+          icon: const Icon(material.Icons.close, size: IconSizes.iconSize),
           color: material.Colors.white,
           tooltip: 'Close',
         ),
@@ -357,7 +357,7 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
                             overflow: TextOverflow.ellipsis,
                             style: appOnDarkTextStyle(
                               context,
-                              fontSize: 16,
+                              fontSize: AppFontSizes.sectionTitle,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -407,7 +407,7 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
                         overflow: TextOverflow.ellipsis,
                         style: appOnDarkTextStyle(
                           context,
-                          fontSize: 15,
+                          fontSize: AppFontSizes.body + 1,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -471,7 +471,7 @@ class _VideoPlaceholder extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: appOnDarkTextStyle(
                 context,
-                fontSize: 12,
+                fontSize: AppFontSizes.meta,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -505,7 +505,7 @@ class _PlayerError extends StatelessWidget {
               'Unable to play this video',
               style: appOnDarkTextStyle(
                 context,
-                fontSize: 16,
+                fontSize: AppFontSizes.sectionTitle,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -516,7 +516,7 @@ class _PlayerError extends StatelessWidget {
               style: appOnDarkTextStyle(
                 context,
                 color: CupertinoColors.systemGrey,
-                fontSize: 12,
+                fontSize: AppFontSizes.meta,
               ),
             ),
           ],
@@ -541,7 +541,7 @@ class _PlayerLoading extends StatelessWidget {
             'Loading video...',
             style: appOnDarkTextStyle(
               context,
-              fontSize: 14,
+              fontSize: AppFontSizes.body,
               fontWeight: FontWeight.w500,
             ),
           ),

@@ -426,7 +426,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             child: Text(
               attachment.name,
               overflow: TextOverflow.ellipsis,
-              style: appTextStyle(context, fontSize: 12, color: textColor),
+              style: appTextStyle(
+                context,
+                fontSize: AppFontSizes.meta,
+                color: textColor,
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -759,7 +763,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                               textAlign: TextAlign.center,
                               style: appTitleTextStyle(
                                 context,
-                                fontSize: 17,
+                                fontSize: AppFontSizes.appTitle,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -807,7 +811,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                     ),
                                     child: const Icon(
                                       CupertinoIcons.gear_solid,
-                                      size: 22,
+                                      size: IconSizes.iconSize,
                                     ),
                                   ),
                                 ],
@@ -850,9 +854,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
       );
     }
     if (_viewModel.displayItems.isEmpty) {
-      return const Center(
-        child: Text('No messages yet'),
-      );
+      return const Center(child: Text('No messages yet'));
     }
     final showTopLoader =
         _viewModel.hasMoreMessages && _viewModel.isLoadingMore;
@@ -937,7 +939,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               'Unread Messages',
               style: appOnDarkTextStyle(
                 context,
-                fontSize: 12,
+                fontSize: AppFontSizes.meta,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1094,7 +1096,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   style: appTextStyle(
                     context,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: AppFontSizes.bodySmall,
                     color: CupertinoColors.activeBlue,
                   ),
                   maxLines: 1,
@@ -1107,7 +1109,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   overflow: TextOverflow.ellipsis,
                   style: appSecondaryTextStyle(
                     context,
-                    fontSize: 13,
+                    fontSize: AppFontSizes.bodySmall,
                   ),
                 ),
               ],

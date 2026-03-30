@@ -32,7 +32,7 @@ class GeneralSettingsPage extends StatelessWidget {
                     children: [
                       Text(
                         '消息字体大小',
-                        style: appTitleTextStyle(context, fontSize: 16),
+                        style: appSectionTitleTextStyle(context),
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -55,14 +55,14 @@ class GeneralSettingsPage extends StatelessWidget {
                               '小',
                               style: appSecondaryTextStyle(
                                 context,
-                                fontSize: 12,
+                                fontSize: AppFontSizes.meta,
                               ),
                             ),
                             Text(
                               '大',
                               style: appSecondaryTextStyle(
                                 context,
-                                fontSize: 12,
+                                fontSize: AppFontSizes.meta,
                               ),
                             ),
                           ],
@@ -89,7 +89,7 @@ class GeneralSettingsPage extends StatelessWidget {
                               '风纪',
                               style: appOnDarkTextStyle(
                                 context,
-                                fontSize: 12,
+                                fontSize: AppFontSizes.meta,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -112,7 +112,7 @@ class GeneralSettingsPage extends StatelessWidget {
                                     '风纪委员',
                                     style: appSecondaryTextStyle(
                                       context,
-                                      fontSize: 12,
+                                      fontSize: AppFontSizes.meta,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -121,7 +121,7 @@ class GeneralSettingsPage extends StatelessWidget {
                                     '这是你的消息在聊天中的显示效果。',
                                     style: appTextStyle(
                                       context,
-                                      fontSize: 14 * scale,
+                                      fontSize: AppFontSizes.body * scale,
                                     ),
                                   ),
                                 ],

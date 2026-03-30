@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../app/theme/style_config.dart';
 import 'general_settings_view.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -9,18 +10,16 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF2F2F7),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('设置'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('Settings')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 2, bottom: 8),
               child: Text(
                 '通用',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: appSectionTitleTextStyle(context),
               ),
             ),
             Container(
@@ -55,15 +54,15 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '通用',
-                        style: TextStyle(fontSize: 15),
+                        style: appTextStyle(context, fontSize: AppFontSizes.bodySmall),
                       ),
                     ),
                     Icon(
                       CupertinoIcons.chevron_right,
-                      size: 16,
+                      size: IconSizes.iconSize,
                       color: CupertinoColors.systemGrey3.resolveFrom(context),
                     ),
                   ],

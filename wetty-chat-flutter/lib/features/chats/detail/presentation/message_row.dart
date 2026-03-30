@@ -164,7 +164,7 @@ class _MessageRowState extends State<MessageRow>
               'edited',
               style: _bubbleStyle(
                 color: metaColor,
-                fontSize: 11,
+                fontSize: AppFontSizes.bubbleMeta,
                 fontWeight: _bubbleFontWeight,
               ),
             ),
@@ -173,7 +173,7 @@ class _MessageRowState extends State<MessageRow>
           timeStr,
           style: _bubbleStyle(
             color: metaColor,
-            fontSize: 11,
+            fontSize: AppFontSizes.bubbleMeta,
             fontWeight: _bubbleFontWeight,
           ),
         ),
@@ -182,12 +182,16 @@ class _MessageRowState extends State<MessageRow>
     final timePainter = TextPainter(
       text: TextSpan(
         text: '${message.isEdited ? ' edited' : ''} $timeStr',
-        style: appBubbleMetaTextStyle(context, fontSize: 11),
+        style: appBubbleMetaTextStyle(
+          context,
+          fontSize: AppFontSizes.bubbleMeta,
+        ),
       ),
       maxLines: 1,
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: double.infinity);
     final timeSpacerWidth = timePainter.width + 8;
+    final minBubbleContentHeight = AppFontSizes.bubbleText * 1.28;
 
     final contentChildren = <Widget>[
       if (!_isMe && widget.showSenderName)
@@ -201,7 +205,7 @@ class _MessageRowState extends State<MessageRow>
                   senderName,
                   style: _bubbleStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: AppFontSizes.body,
                     color: textColor,
                   ),
                   maxLines: 1,
@@ -243,7 +247,7 @@ class _MessageRowState extends State<MessageRow>
           '[Deleted]',
           style: _bubbleStyle(
             color: metaColor,
-            fontSize: 15,
+            fontSize: AppFontSizes.body,
             fontStyle: FontStyle.italic,
             fontWeight: _bubbleFontWeight,
           ),
@@ -262,7 +266,7 @@ class _MessageRowState extends State<MessageRow>
                       msgText,
                       _bubbleStyle(
                         color: textColor,
-                        fontSize: 17,
+                        fontSize: AppFontSizes.bubbleText,
                         height: 1.28,
                         fontWeight: _bubbleFontWeight,
                       ),
@@ -273,6 +277,18 @@ class _MessageRowState extends State<MessageRow>
                     ),
                   ],
                 ),
+              ),
+              Positioned(right: 0, bottom: 0, child: timeWidget),
+            ],
+          ),
+        );
+      } else {
+        contentChildren.add(
+          Stack(
+            children: [
+              SizedBox(
+                width: timeSpacerWidth,
+                height: minBubbleContentHeight,
               ),
               Positioned(right: 0, bottom: 0, child: timeWidget),
             ],
@@ -318,7 +334,7 @@ class _MessageRowState extends State<MessageRow>
                     '${threadInfo.replyCount} repl${threadInfo.replyCount == 1 ? 'y' : 'ies'}',
                     style: appBubbleTextStyle(
                       context,
-                      fontSize: 12,
+                      fontSize: AppFontSizes.meta,
                       fontWeight: _bubbleFontWeight,
                       color: const Color(0xFF8B6D52),
                     ),
@@ -329,13 +345,6 @@ class _MessageRowState extends State<MessageRow>
           ),
         );
       }
-    }
-
-    if (contentChildren.isNotEmpty && (message.message ?? '').isEmpty) {
-      contentChildren.add(const SizedBox(height: 6));
-      contentChildren.add(
-        Align(alignment: Alignment.centerRight, child: timeWidget),
-      );
     }
 
     final bubble = IntrinsicWidth(
@@ -351,7 +360,7 @@ class _MessageRowState extends State<MessageRow>
           child: DefaultTextStyle(
             style: _bubbleStyle(
               color: textColor,
-              fontSize: 17,
+              fontSize: AppFontSizes.bubbleText,
               height: 1.28,
               fontWeight: _bubbleFontWeight,
             ),
@@ -475,7 +484,7 @@ class _MessageRowState extends State<MessageRow>
         initial,
         style: appOnDarkTextStyle(
           context,
-          fontSize: 13,
+          fontSize: AppFontSizes.bodySmall,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -538,7 +547,7 @@ class _MessageRowState extends State<MessageRow>
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: _bubbleStyle(
-                fontSize: 13,
+                fontSize: AppFontSizes.bodySmall,
                 fontWeight: _bubbleFontWeight,
                 color: CupertinoColors.label.resolveFrom(context),
               ),
@@ -579,7 +588,7 @@ class _MessageRowState extends State<MessageRow>
             replySender,
             style: _bubbleStyle(
               fontWeight: _bubbleFontWeight,
-              fontSize: 12,
+              fontSize: AppFontSizes.meta,
               color: quoteBorderColor,
             ),
           ),
@@ -588,7 +597,7 @@ class _MessageRowState extends State<MessageRow>
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: _bubbleStyle(
-              fontSize: 13,
+              fontSize: AppFontSizes.replyQuote,
               fontWeight: _bubbleFontWeight,
               color: CupertinoColors.secondaryLabel.resolveFrom(context),
             ),
