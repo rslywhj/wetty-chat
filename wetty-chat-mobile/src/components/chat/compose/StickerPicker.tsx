@@ -23,6 +23,7 @@ import {
 interface StickerPickerProps {
   isOpen: boolean;
   onStickerSelect: (sticker: StickerSummary) => void;
+  overlayActiveRef: React.RefObject<boolean>;
 }
 
 interface PickerPack {
@@ -34,7 +35,7 @@ interface PickerPack {
   isLoading: boolean;
 }
 
-export function StickerPicker({ isOpen, onStickerSelect }: StickerPickerProps) {
+export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: StickerPickerProps) {
   const [ownedPacks, setOwnedPacks] = useState<StickerPackSummary[]>([]);
   const [subscribedPacks, setSubscribedPacks] = useState<StickerPackSummary[]>([]);
   const [favoriteStickers, setFavoriteStickers] = useState<StickerSummary[]>([]);
@@ -48,6 +49,11 @@ export function StickerPicker({ isOpen, onStickerSelect }: StickerPickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [presentAlert] = useIonAlert();
   const [presentToast] = useIonToast();
+
+  useEffect(() => {
+    overlayActiveRef.current = popover !== null || addStickerFile !== null;
+    return () => { overlayActiveRef.current = false; };
+  }, [popover, addStickerFile, overlayActiveRef]);
 
   const loadPackDetail = useCallback(async (packId: string) => {
     setLoadingPackIds((prev) => ({ ...prev, [packId]: true }));

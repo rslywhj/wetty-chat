@@ -76,6 +76,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
   const containerRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState(() => editing?.text ?? '');
   const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
+  const stickerOverlayActiveRef = useRef(false);
 
   useImperativeHandle(
     ref,
@@ -185,6 +186,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('ion-alert, ion-action-sheet, ion-modal, ion-backdrop, ion-toast')) return;
+      if (stickerOverlayActiveRef.current) return;
       if (containerRef.current && !containerRef.current.contains(target)) {
         setStickerPickerOpen(false);
       }
@@ -309,6 +311,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
     <StickerPicker
       isOpen={stickerPickerOpen}
       onStickerSelect={handleStickerSelect}
+      overlayActiveRef={stickerOverlayActiveRef}
     />
     </div>
   );
