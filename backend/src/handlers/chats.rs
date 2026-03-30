@@ -1821,14 +1821,9 @@ fn validate_emoji(input: &str) -> Result<String, (StatusCode, &'static str)> {
         return Err((StatusCode::BAD_REQUEST, "Invalid emoji"));
     }
 
-    // Every char must be emoji, ZWJ (U+200D), variation selector, or skin tone modifier
-    if !input.chars().all(|c| {
-        unic_emoji_char::is_emoji(c)
-            || c == '\u{200D}'
-            || c == '\u{FE0E}'
-            || c == '\u{FE0F}'
-            || ('\u{1F3FB}'..='\u{1F3FF}').contains(&c)
-    }) {
+    let graphemes: Vec<&str> = input.graphemes(true).collect();
+
+    if !graphemes.iter().all(|g| emojis::get(g).is_some()) {
         return Err((StatusCode::BAD_REQUEST, "Invalid emoji"));
     }
 
