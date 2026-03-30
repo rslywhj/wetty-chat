@@ -113,7 +113,7 @@ self.addEventListener('pushsubscriptionchange', ((
   const p256dhUrlSafe = p256dh.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const authUrlSafe = auth.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const apiBase = import.meta.env.BASE_URL + '_api';
+  const apiBase = (__API_BASE__ ?? import.meta.env.BASE_URL) + '_api';
   (event as ExtendableEvent).waitUntil(
     loadClientIdForServiceWorker()
       .then((clientId) => {
