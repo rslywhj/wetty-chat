@@ -8,8 +8,10 @@ interface VoiceMessageBubbleProps {
 
 export function VoiceMessageBubble({ src }: VoiceMessageBubbleProps) {
   return (
-    <VoicemailPlayer className={styles.voicemailPlayer}>
-      {(ref) => <audio ref={ref} src={src} preload="metadata" />}
-    </VoicemailPlayer>
+    <div className={styles.voiceMessageBubble}>
+      <VoicemailPlayer className={styles.voicemailPlayer}>
+        {(ref) => <audio ref={ref} src={src} preload="metadata" />}
+      </VoicemailPlayer>
+    </div>
   );
 }
