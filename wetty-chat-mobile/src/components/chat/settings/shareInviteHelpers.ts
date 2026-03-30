@@ -1,5 +1,6 @@
 import { t } from '@lingui/core/macro';
 import type { InviteInfoResponse } from '@/api/invites';
+import { buildInviteUrl } from '@/utils/inviteUrl';
 
 export type InviteMode = 'public' | 'membership';
 export type ModalStep = 'configure' | 'destination';
@@ -51,5 +52,5 @@ export function canCopyInviteCode(): boolean {
 }
 
 export async function copyInviteCode(invite: InviteInfoResponse): Promise<void> {
-  await navigator.clipboard.writeText(invite.code);
+  await navigator.clipboard.writeText(buildInviteUrl(invite.code));
 }

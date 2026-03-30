@@ -36,7 +36,7 @@ msgstr "[邀请]"
 
 #: src/components/chat/messagePreview.ts
 msgid "[Sticker]"
-msgstr "[贴纸]"
+msgstr "[表情]"
 
 #: src/components/chat/messagePreview.ts
 #: src/components/chat/messagePreview.ts
@@ -95,11 +95,11 @@ msgstr "添加成员"
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Add sticker"
-msgstr "添加贴纸"
+msgstr "添加表情"
 
 #: src/components/chat/compose/AddStickerModal.tsx
 msgid "Add Sticker"
-msgstr "添加贴纸"
+msgstr "添加表情"
 
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Add to Favorites"
@@ -205,6 +205,10 @@ msgstr "消息"
 msgid "Check for Update"
 msgstr "检查更新"
 
+#: src/pages/settings.tsx
+msgid "Checking..."
+msgstr ""
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Choose a destination group"
 msgstr "选择目标群组"
@@ -294,11 +298,11 @@ msgstr "创建邀请"
 
 #: src/pages/settings/stickers.tsx
 msgid "Create New Pack"
-msgstr "创建新贴纸包"
+msgstr "创建新表情包"
 
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Create new sticker pack"
-msgstr "创建新的贴纸包"
+msgstr "创建新的表情包"
 
 #: src/pages/chat-thread/chat-thread.tsx
 #: src/pages/chat-thread/chat-thread.tsx
@@ -419,7 +423,7 @@ msgstr "添加成员失败"
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Failed to add sticker"
-msgstr "添加贴纸失败"
+msgstr "添加表情失败"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
@@ -433,7 +437,7 @@ msgstr "创建邀请失败"
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/stickers.tsx
 msgid "Failed to create sticker pack"
-msgstr "创建贴纸包失败"
+msgstr "创建表情包失败"
 
 #: src/pages/chat-thread/chat-thread.tsx
 msgid "Failed to delete message"
@@ -487,15 +491,15 @@ msgstr "加载新消息失败"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Failed to load sticker pack"
-msgstr "加载贴纸包失败"
+msgstr "加载表情包失败"
 
 #: src/pages/settings/stickers.tsx
 msgid "Failed to load sticker packs"
-msgstr "加载贴纸包失败"
+msgstr "加载表情包失败"
 
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Failed to load stickers"
-msgstr "加载贴纸失败"
+msgstr "加载表情失败"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Failed to mute"
@@ -511,7 +515,7 @@ msgstr "移除成员失败"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Failed to remove sticker"
-msgstr "移除贴纸失败"
+msgstr "移除表情失败"
 
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Failed to revoke invite"
@@ -626,12 +630,17 @@ msgstr "邀请码"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
-msgid "Invite code copied"
-msgstr "邀请码已复制"
+#~ msgid "Invite code copied"
+#~ msgstr "邀请码已复制"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Invite Link"
 msgstr "邀请链接"
+
+#: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite link copied"
+msgstr ""
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Invite Link Created"
@@ -785,7 +794,7 @@ msgstr "静音通知"
 
 #: src/pages/settings/stickers.tsx
 msgid "My Packs"
-msgstr "我的贴纸包"
+msgstr "我的表情包"
 
 #: src/components/chat/compose/AddStickerModal.tsx
 msgid "Name"
@@ -804,7 +813,7 @@ msgstr "新消息"
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/stickers.tsx
 msgid "New Sticker Pack"
-msgstr "新贴纸包"
+msgstr "新表情包"
 
 #: src/components/chat/ChatVirtualScroll.tsx
 msgid "Newer messages"
@@ -857,11 +866,11 @@ msgstr "未注册 Service Worker"
 
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "No stickers"
-msgstr "没有贴纸"
+msgstr "没有表情"
 
 #: src/pages/settings/stickers.tsx
 msgid "No subscribed packs"
-msgstr "没有已订阅的贴纸包"
+msgstr "没有已订阅的表情包"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Not now"
@@ -910,12 +919,12 @@ msgstr "可选"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Pack"
-msgstr "贴纸包"
+msgstr "表情包"
 
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/stickers.tsx
 msgid "Pack name"
-msgstr "贴纸包名称"
+msgstr "表情包名称"
 
 #: src/pages/join-chat.tsx
 msgid "Paste code"
@@ -1049,15 +1058,15 @@ msgstr "移除成员"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Remove Sticker"
-msgstr "移除贴纸"
+msgstr "移除表情"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Remove this pack from your collection?"
-msgstr "要将这个贴纸包从你的收藏中移除吗？"
+msgstr "要将这个表情包从你的收藏中移除吗？"
 
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Remove this sticker from the pack?"
-msgstr "要从贴纸包中移除此贴纸吗？"
+msgstr "要从表情包中移除此表情吗？"
 
 #: src/components/chat/messages/ChatBubbleBase.tsx
 #: src/components/chat/messages/StickerBubble.tsx
@@ -1182,30 +1191,30 @@ msgstr "状态"
 #: src/components/chat/compose/ComposeInput.tsx
 #: src/components/chat/messages/StickerBubble.tsx
 msgid "Sticker"
-msgstr "贴纸"
+msgstr "表情"
 
 #: src/components/chat/compose/StickerPicker.tsx
 #: src/pages/settings/sticker-pack-detail.tsx
 msgid "Sticker added"
-msgstr "贴纸已添加"
+msgstr "表情已添加"
 
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Sticker packs"
-msgstr "贴纸包"
+msgstr "表情包"
 
 #: src/components/chat/compose/AddStickerModal.tsx
 #: src/components/chat/StickerPreviewModal.tsx
 msgid "Sticker preview"
-msgstr "贴纸预览"
+msgstr "表情预览"
 
 #: src/components/chat/StickerPreviewModal.tsx
 msgid "stickers"
-msgstr "张贴纸"
+msgstr "个表情"
 
 #: src/pages/settings.tsx
 #: src/pages/settings/stickers.tsx
 msgid "Stickers"
-msgstr "贴纸"
+msgstr "表情"
 
 #: src/components/chat/StickerPreviewModal.tsx
 msgid "Subscribe"
@@ -1217,7 +1226,7 @@ msgstr "已订阅"
 
 #: src/pages/settings/stickers.tsx
 msgid "Subscribed Packs"
-msgstr "已订阅的贴纸包"
+msgstr "已订阅的表情包"
 
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Targeted"

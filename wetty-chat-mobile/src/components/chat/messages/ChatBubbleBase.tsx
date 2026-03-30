@@ -18,7 +18,9 @@ import { getMessagePreviewText } from '@/components/chat/messagePreview';
 import { selectChatFontSizeStyle } from '@/store/settingsSlice';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useMouseDetected } from '@/hooks/platformHooks';
+import { parseInviteCodeFromUrl } from '@/utils/inviteUrl';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
+import { InviteLinkInline } from './InviteLinkInline';
 
 const URL_REGEX = /(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]+)/g;
 const TRAILING_PUNCT = /[.,);!?]+$/;
@@ -36,17 +38,22 @@ function renderMessageWithLinks(message: string): ReactNode[] {
     if (i % 2 === 1) {
       const trimmed = part.replace(TRAILING_PUNCT, '');
       const suffix = part.slice(trimmed.length);
+      const inviteCode = parseInviteCodeFromUrl(trimmed);
       return (
         <span key={i}>
-          <a
-            href={trimmed}
-            className={styles.messageLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {trimmed}
-          </a>
+          {inviteCode ? (
+            <InviteLinkInline code={inviteCode} url={trimmed} />
+          ) : (
+            <a
+              href={trimmed}
+              className={styles.messageLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {trimmed}
+            </a>
+          )}
           {suffix}
         </span>
       );

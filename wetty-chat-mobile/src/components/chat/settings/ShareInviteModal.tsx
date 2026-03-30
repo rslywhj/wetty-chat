@@ -19,6 +19,7 @@ import { Trans } from '@lingui/react/macro';
 import { useDispatch } from 'react-redux';
 import { useHistory } from 'react-router-dom';
 import { createInvite, sendInviteMessage, type InviteInfoResponse } from '@/api/invites';
+import { buildInviteUrl } from '@/utils/inviteUrl';
 import type { GroupSelectorItem } from '@/api/group';
 import { messageAdded } from '@/store/messageEvents';
 import type { AppDispatch } from '@/store';
@@ -175,7 +176,7 @@ function DestinationStep({
 
         {draftInvite ? (
           <div className={styles.inviteCodeBox}>
-            <span className={styles.inviteCode}>{draftInvite.code}</span>
+            <span className={styles.inviteCode}>{buildInviteUrl(draftInvite.code)}</span>
             <IonButton
               fill="clear"
               size="small"
@@ -270,7 +271,7 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
 
     try {
       await copyInviteCode(invite);
-      presentToast({ message: t`Invite code copied`, duration: 2000 });
+      presentToast({ message: t`Invite link copied`, duration: 2000 });
     } catch {
       presentToast({ message: t`Failed to copy invite code`, duration: 2500 });
     }

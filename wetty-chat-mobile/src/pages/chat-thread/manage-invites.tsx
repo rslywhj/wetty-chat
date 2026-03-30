@@ -297,7 +297,7 @@ export default function ChatInvitesCore({ chatId: propChatId, backAction }: Chat
 
       try {
         await copyInviteCode(invite);
-        presentToast({ message: t`Invite code copied`, duration: 2000 });
+        presentToast({ message: t`Invite link copied`, duration: 2000 });
       } catch {
         presentToast({ message: t`Failed to copy invite code`, duration: 2500 });
       }

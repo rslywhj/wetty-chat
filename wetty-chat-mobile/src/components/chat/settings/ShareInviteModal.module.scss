@@ -121,11 +121,12 @@
 }
 
 .inviteCode {
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  font-weight: 600;
   user-select: all;
   color: var(--ion-color-dark);
+  word-break: break-all;
+  min-width: 0;
 }
 
 .copyIconButton {

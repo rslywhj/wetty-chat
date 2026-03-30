@@ -205,6 +205,10 @@ msgstr "Chats"
 msgid "Check for Update"
 msgstr "Check for Update"
 
+#: src/pages/settings.tsx
+msgid "Checking..."
+msgstr "Checking..."
+
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Choose a destination group"
 msgstr "Choose a destination group"
@@ -626,12 +630,17 @@ msgstr "Invite Code"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
-msgid "Invite code copied"
-msgstr "Invite code copied"
+#~ msgid "Invite code copied"
+#~ msgstr "Invite code copied"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Invite Link"
 msgstr "Invite Link"
+
+#: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Invite link copied"
+msgstr "Invite link copied"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Invite Link Created"
