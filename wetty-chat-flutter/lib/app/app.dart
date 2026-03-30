@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import 'theme/style_config.dart';
 import '../features/auth/presentation/token_import_page.dart';
 import '../features/chats/list/presentation/chat_list_view.dart';
 import '../features/auth/application/auth_store.dart';
@@ -12,6 +13,7 @@ class WettyChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
+      theme: appCupertinoTheme,
       // TODO: implement auth later
       home: const ChatPage(),
     );

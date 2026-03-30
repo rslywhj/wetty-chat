@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../../../app/theme/style_config.dart';
 import '../../../../core/network/api_config.dart';
 import '../../../../shared/presentation/app_divider.dart';
 import '../../../groups/members/presentation/group_members_view.dart';
@@ -425,7 +426,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             child: Text(
               attachment.name,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: textColor),
+              style: appTextStyle(context, fontSize: 12, color: textColor),
             ),
           ),
           const SizedBox(width: 6),
@@ -756,9 +757,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                             Text(
                               chatName,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: appTitleTextStyle(
+                                context,
                                 fontSize: 17,
-                                fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -850,7 +851,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     }
     if (_viewModel.displayItems.isEmpty) {
       return const Center(
-        child: Text('No messages yet', style: TextStyle(fontSize: 20)),
+        child: Text('No messages yet'),
       );
     }
     final showTopLoader =
@@ -932,12 +933,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               color: CupertinoColors.systemGrey4.resolveFrom(context),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
+            child: Text(
               'Unread Messages',
-              style: TextStyle(
+              style: appOnDarkTextStyle(
+                context,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: CupertinoColors.white,
               ),
             ),
           ),
@@ -1090,7 +1091,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: appTextStyle(
+                    context,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: CupertinoColors.activeBlue,
@@ -1103,9 +1105,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: appSecondaryTextStyle(
+                    context,
                     fontSize: 13,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
                   ),
                 ),
               ],

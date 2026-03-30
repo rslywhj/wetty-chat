@@ -7,6 +7,7 @@ import 'package:flutter/material.dart' as material;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../../../app/theme/style_config.dart';
 import '../../shared/models/message_models.dart';
 import '../data/media_preview_cache.dart';
 
@@ -354,9 +355,8 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'MiSans',
-                              color: CupertinoColors.white,
+                            style: appOnDarkTextStyle(
+                              context,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -405,9 +405,8 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'MiSans',
-                          color: CupertinoColors.white,
+                        style: appOnDarkTextStyle(
+                          context,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -470,9 +469,8 @@ class _VideoPlaceholder extends StatelessWidget {
               attachment.fileName.isEmpty ? 'Video' : attachment.fileName,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'MiSans',
-                color: CupertinoColors.white,
+              style: appOnDarkTextStyle(
+                context,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -503,11 +501,10 @@ class _PlayerError extends StatelessWidget {
               size: 34,
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Unable to play this video',
-              style: TextStyle(
-                fontFamily: 'MiSans',
-                color: CupertinoColors.white,
+              style: appOnDarkTextStyle(
+                context,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -516,8 +513,8 @@ class _PlayerError extends StatelessWidget {
             Text(
               error,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'MiSans',
+              style: appOnDarkTextStyle(
+                context,
                 color: CupertinoColors.systemGrey,
                 fontSize: 12,
               ),
@@ -534,17 +531,16 @@ class _PlayerLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CupertinoActivityIndicator(radius: 14),
-          SizedBox(height: 12),
+          const CupertinoActivityIndicator(radius: 14),
+          const SizedBox(height: 12),
           Text(
             'Loading video...',
-            style: TextStyle(
-              fontFamily: 'MiSans',
-              color: CupertinoColors.white,
+            style: appOnDarkTextStyle(
+              context,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),

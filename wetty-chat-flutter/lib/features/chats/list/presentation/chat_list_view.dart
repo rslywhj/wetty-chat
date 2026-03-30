@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../app/theme/style_config.dart';
 import '../../../auth/application/auth_store.dart';
 import '../../detail/application/chat_draft_store.dart';
 import '../../detail/presentation/chat_detail_view.dart';
@@ -105,20 +106,20 @@ class _ChatPageState extends State<ChatPage> {
     final shouldLogout = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('退出登录？', style: TextStyle(fontFamily: 'MiSans')),
-        content: const Text(
+        title: Text('退出登录？', style: appTextStyle(context)),
+        content: Text(
           '这会清除当前设备保存的登录状态。',
-          style: TextStyle(fontFamily: 'MiSans'),
+          style: appTextStyle(context),
         ),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消', style: TextStyle(fontFamily: 'MiSans')),
+            child: Text('取消', style: appTextStyle(context)),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('退出登录', style: TextStyle(fontFamily: 'MiSans')),
+            child: Text('退出登录', style: appTextStyle(context)),
           ),
         ],
       ),
@@ -320,10 +321,10 @@ class _ChatPageState extends State<ChatPage> {
                   alignment: Alignment.center,
                   child: Text(
                     chatName.isNotEmpty ? chatName[0].toUpperCase() : '?',
-                    style: const TextStyle(
+                    style: appOnDarkTextStyle(
+                      context,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: CupertinoColors.white,
                     ),
                   ),
                 ),
@@ -337,9 +338,9 @@ class _ChatPageState extends State<ChatPage> {
                           Expanded(
                             child: Text(
                               chatName,
-                              style: const TextStyle(
+                              style: appTitleTextStyle(
+                                context,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w600,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -350,10 +351,9 @@ class _ChatPageState extends State<ChatPage> {
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
                                 dateText,
-                                style: TextStyle(
+                                style: appSecondaryTextStyle(
+                                  context,
                                   fontSize: 12,
-                                  color: CupertinoColors.secondaryLabel
-                                      .resolveFrom(context),
                                 ),
                               ),
                             ),
@@ -408,9 +408,10 @@ class _ChatPageState extends State<ChatPage> {
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(
+                  TextSpan(
                     text: '[Draft] ',
-                    style: TextStyle(
+                    style: appTextStyle(
+                      context,
                       fontSize: 13,
                       color: CupertinoColors.destructiveRed,
                       fontWeight: FontWeight.w500,
@@ -418,11 +419,9 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   TextSpan(
                     text: draft,
-                    style: TextStyle(
+                    style: appSecondaryTextStyle(
+                      context,
                       fontSize: 13,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
                     ),
                   ),
                 ],
@@ -444,25 +443,28 @@ class _ChatPageState extends State<ChatPage> {
                     children: [
                       TextSpan(
                         text: '$senderName: ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: appTextStyle(
+                          context,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       TextSpan(text: lastMsg),
                     ],
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: appSecondaryTextStyle(
+                    context,
                     fontSize: 13,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
                   ),
                 )
               : Text(
                   'No messages yet',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: appSecondaryTextStyle(
+                    context,
                     fontSize: 13,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
                   ),
                 ),
         ),
@@ -483,9 +485,9 @@ class _ChatPageState extends State<ChatPage> {
       child: Text(
         count > 99 ? '99+' : '$count',
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: appOnDarkTextStyle(
+          context,
           fontSize: 11,
-          color: CupertinoColors.white,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -522,7 +524,7 @@ class _ToastWidgetState extends State<_ToastWidget> {
         child: Text(
           widget.message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: CupertinoColors.white),
+          style: appOnDarkTextStyle(context),
         ),
       ),
     );

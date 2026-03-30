@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../app/theme/style_config.dart';
 import '../../../core/settings/app_settings_store.dart';
 
 class GeneralSettingsPage extends StatelessWidget {
@@ -9,9 +10,7 @@ class GeneralSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF2F2F7),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('通用'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('通用')),
       child: SafeArea(
         child: AnimatedBuilder(
           animation: AppSettingsStore.instance,
@@ -31,12 +30,9 @@ class GeneralSettingsPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '消息字体大小',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: appTitleTextStyle(context, fontSize: 16),
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -57,18 +53,16 @@ class GeneralSettingsPage extends StatelessWidget {
                           children: [
                             Text(
                               '小',
-                              style: TextStyle(
+                              style: appSecondaryTextStyle(
+                                context,
                                 fontSize: 12,
-                                color: CupertinoColors.secondaryLabel
-                                    .resolveFrom(context),
                               ),
                             ),
                             Text(
                               '大',
-                              style: TextStyle(
+                              style: appSecondaryTextStyle(
+                                context,
                                 fontSize: 12,
-                                color: CupertinoColors.secondaryLabel
-                                    .resolveFrom(context),
                               ),
                             ),
                           ],
@@ -91,10 +85,10 @@ class GeneralSettingsPage extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
-                            child: const Text(
+                            child: Text(
                               '风纪',
-                              style: TextStyle(
-                                color: CupertinoColors.white,
+                              style: appOnDarkTextStyle(
+                                context,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -116,20 +110,18 @@ class GeneralSettingsPage extends StatelessWidget {
                                 children: [
                                   Text(
                                     '风纪委员',
-                                    style: TextStyle(
+                                    style: appSecondaryTextStyle(
+                                      context,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: CupertinoColors.secondaryLabel
-                                          .resolveFrom(context),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     '这是你的消息在聊天中的显示效果。',
-                                    style: TextStyle(
+                                    style: appTextStyle(
+                                      context,
                                       fontSize: 14 * scale,
-                                      color: CupertinoColors.label
-                                          .resolveFrom(context),
                                     ),
                                   ),
                                 ],

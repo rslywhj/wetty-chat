@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/theme/style_config.dart';
 import '../../../../core/network/api_config.dart';
 import '../../shared/models/message_models.dart';
 import '../data/media_preview_cache.dart';
@@ -63,8 +64,8 @@ class _MessageRowState extends State<MessageRow>
     double? height,
     FontStyle? fontStyle,
   }) {
-    return TextStyle(
-      fontFamily: 'MiSans',
+    return appBubbleTextStyle(
+      context,
       color: color,
       fontSize: fontSize,
       fontWeight: fontWeight,
@@ -181,7 +182,7 @@ class _MessageRowState extends State<MessageRow>
     final timePainter = TextPainter(
       text: TextSpan(
         text: '${message.isEdited ? ' edited' : ''} $timeStr',
-        style: const TextStyle(fontSize: 11),
+        style: appBubbleMetaTextStyle(context, fontSize: 11),
       ),
       maxLines: 1,
       textDirection: TextDirection.ltr,
@@ -315,7 +316,8 @@ class _MessageRowState extends State<MessageRow>
                   const SizedBox(width: 6),
                   Text(
                     '${threadInfo.replyCount} repl${threadInfo.replyCount == 1 ? 'y' : 'ies'}',
-                    style: TextStyle(
+                    style: appBubbleTextStyle(
+                      context,
                       fontSize: 12,
                       fontWeight: _bubbleFontWeight,
                       color: const Color(0xFF8B6D52),
@@ -471,10 +473,10 @@ class _MessageRowState extends State<MessageRow>
       alignment: Alignment.center,
       child: Text(
         initial,
-        style: const TextStyle(
+        style: appOnDarkTextStyle(
+          context,
           fontSize: 13,
           fontWeight: FontWeight.w500,
-          color: CupertinoColors.white,
         ),
       ),
     );
