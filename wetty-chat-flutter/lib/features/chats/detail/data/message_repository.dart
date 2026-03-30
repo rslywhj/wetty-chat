@@ -1,18 +1,18 @@
-import '../application/message_window_store.dart';
-import '../../shared/models/message_models.dart';
-import 'message_service.dart';
+import '../application/message_store.dart';
+import '../../models/message_models.dart';
+import 'message_api_service.dart';
 
 /// Source of truth for messages in a single chat.
 /// Owns the MessageStore and pagination state.
 class MessageRepository {
-  final MessageService _service;
+  final MessageApiService _service;
   final String chatId;
   final MessageStore store = MessageStore();
 
   String? nextCursor;
 
-  MessageRepository({required this.chatId, MessageService? service})
-    : _service = service ?? MessageService();
+  MessageRepository({required this.chatId, MessageApiService? service})
+    : _service = service ?? MessageApiService();
 
   Future<List<MessageItem>> initLoadMessages({int limit = 100}) async {
     final response = await _service.fetchMessages(chatId, max: limit);

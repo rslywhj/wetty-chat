@@ -7,9 +7,8 @@ import 'app/app.dart';
 import 'core/network/api_config.dart';
 import 'core/network/websocket_service.dart';
 import 'core/settings/app_settings_store.dart';
-import 'features/auth/application/auth_store.dart';
-import 'features/chats/detail/application/chat_draft_store.dart';
-import 'features/chats/detail/data/media_preview_cache.dart';
+import 'features/auth/auth.dart';
+import 'features/chats/chats.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

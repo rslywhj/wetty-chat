@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
-import '../../shared/models/chat_models.dart';
+import '../../models/chat_models.dart';
 
 /// Page to create a new chat group.
 class NewChatPage extends StatefulWidget {

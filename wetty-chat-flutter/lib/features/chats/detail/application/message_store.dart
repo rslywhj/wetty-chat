@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../shared/models/message_models.dart';
+import '../../models/message_models.dart';
 
 /// A contiguous block of messages sorted descending by snowflake ID.
 class MessageRange {

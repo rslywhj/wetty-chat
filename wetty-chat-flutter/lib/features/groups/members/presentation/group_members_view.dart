@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
-import '../application/group_members_viewmodel.dart';
+import '../application/group_members_view_model.dart';
 
 /// Page to display current group members and an "Add Member" button.
 class GroupMembersPage extends StatefulWidget {

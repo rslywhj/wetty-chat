@@ -5,10 +5,10 @@ import '../../../../app/theme/style_config.dart';
 import '../../../auth/application/auth_store.dart';
 import '../../detail/application/chat_draft_store.dart';
 import '../../detail/presentation/chat_detail_view.dart';
-import '../../shared/models/chat_models.dart';
-import '../../shared/models/message_models.dart';
+import '../../models/chat_models.dart';
+import '../../models/message_models.dart';
+import '../application/chat_list_view_model.dart';
 import '../../../settings/presentation/settings_view.dart';
-import 'chat_list_viewmodel.dart';
 import 'new_chat_view.dart';
 
 class ChatPage extends StatefulWidget {

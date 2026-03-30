@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../shared/models/chat_models.dart';
+import '../../models/chat_models.dart';
 import '../data/chat_repository.dart';
 import 'chat_list_realtime_controller.dart';
 

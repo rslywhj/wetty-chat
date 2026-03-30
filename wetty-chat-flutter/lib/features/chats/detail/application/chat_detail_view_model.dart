@@ -2,29 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../shared/models/message_models.dart';
-import '../application/chat_draft_store.dart';
-import '../application/message_realtime_controller.dart';
+import '../../models/chat_input_state.dart';
+import '../../models/message_models.dart';
+import 'chat_draft_store.dart';
+import 'message_realtime_controller.dart';
 import '../data/message_repository.dart';
-
-// ---------------------------------------------------------------------------
-// InputState 閳?the three mutually exclusive states for the input bar
-// ---------------------------------------------------------------------------
-sealed class InputState {}
-
-enum ChatWindowMode { latest, aroundMessage, unreadBoundary }
-
-class InputEmpty extends InputState {}
-
-class InputReplying extends InputState {
-  final MessageItem message;
-  InputReplying(this.message);
-}
-
-class InputEditing extends InputState {
-  final MessageItem message;
-  InputEditing(this.message);
-}
 
 class ChatDetailViewModel extends ChangeNotifier {
   static const int initialWindowSize = 100;

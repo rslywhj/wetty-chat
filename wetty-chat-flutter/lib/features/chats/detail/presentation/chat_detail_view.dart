@@ -12,9 +12,10 @@ import '../../../../core/network/api_config.dart';
 import '../../../../shared/presentation/app_divider.dart';
 import '../../../groups/members/presentation/group_members_view.dart';
 import '../../../groups/settings/presentation/group_settings_view.dart';
-import '../../shared/models/message_models.dart';
+import '../../models/chat_input_state.dart';
+import '../../models/message_models.dart';
+import '../application/chat_detail_view_model.dart';
 import '../data/attachment_service.dart';
-import 'chat_detail_viewmodel.dart';
 import 'message_row.dart';
 
 /// Chat detail screen: message list (oldest at top, newest at bottom) and send input.

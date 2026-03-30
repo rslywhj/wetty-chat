@@ -1,15 +1,16 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/group_member_service.dart';
+import '../data/group_member_models.dart';
+import '../data/group_member_repository.dart';
 
 class GroupMembersViewModel extends ChangeNotifier {
   GroupMembersViewModel({
     required this.chatId,
-    GroupMemberService? service,
-  }) : _service = service ?? GroupMemberService();
+    GroupMemberRepository? repository,
+  }) : _repository = repository ?? GroupMemberRepository();
 
   final String chatId;
-  final GroupMemberService _service;
+  final GroupMemberRepository _repository;
 
   List<GroupMember> _members = const [];
   List<GroupMember> get members => _members;
@@ -26,7 +27,7 @@ class GroupMembersViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _members = await _service.fetchMembers(chatId);
+      _members = await _repository.fetchMembers(chatId);
       _error = null;
     } catch (error) {
       _error = error.toString();

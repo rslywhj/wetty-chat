@@ -9,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/style_config.dart';
 import '../../../../core/network/api_config.dart';
-import '../../shared/models/message_models.dart';
+import '../../models/message_models.dart';
 import '../data/media_preview_cache.dart';
 import 'attachment_viewer_page.dart';
 import 'video_popup_player.dart';

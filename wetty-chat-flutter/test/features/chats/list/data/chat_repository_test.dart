@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_application_1/features/chats/list/data/chat_repository.dart';
-import 'package:flutter_application_1/features/chats/list/data/chat_service.dart';
-import 'package:flutter_application_1/features/chats/shared/models/chat_models.dart';
+import 'package:wetty_chat_flutter/features/chats/list/data/chat_api_service.dart';
+import 'package:wetty_chat_flutter/features/chats/list/data/chat_repository.dart';
+import 'package:wetty_chat_flutter/features/chats/models/chat_models.dart';
 
 void main() {
   group('ChatRepository realtime', () {
     test('message event updates loaded chat and moves it to the top', () async {
-      final repository = ChatRepository(service: _FakeChatService([
+      final repository = ChatRepository(service: _FakeChatApiService([
         ListChatsResponse(
           chats: [
             ChatListItem(id: '1', name: 'one'),
@@ -25,7 +25,7 @@ void main() {
     });
 
     test('message event refreshes when chat is not in the loaded page', () async {
-      final service = _FakeChatService([
+      final service = _FakeChatApiService([
         ListChatsResponse(
           chats: [
             ChatListItem(id: '1', name: 'one'),
@@ -51,8 +51,8 @@ void main() {
   });
 }
 
-class _FakeChatService extends ChatService {
-  _FakeChatService(this._responses);
+class _FakeChatApiService extends ChatApiService {
+  _FakeChatApiService(this._responses);
 
   final List<ListChatsResponse> _responses;
   int fetchChatsCalls = 0;

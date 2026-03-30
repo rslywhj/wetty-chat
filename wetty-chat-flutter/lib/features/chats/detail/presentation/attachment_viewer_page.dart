@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../shared/models/message_models.dart';
+import '../../models/message_models.dart';
 import '../data/media_preview_cache.dart';
 
 class AttachmentViewerPage extends StatefulWidget {

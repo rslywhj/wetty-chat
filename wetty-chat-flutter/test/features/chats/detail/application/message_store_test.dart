@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_application_1/features/chats/detail/application/message_window_store.dart';
-import 'package:flutter_application_1/features/chats/shared/models/message_models.dart';
+import 'package:wetty_chat_flutter/features/chats/detail/application/message_store.dart';
+import 'package:wetty_chat_flutter/features/chats/models/message_models.dart';
 
 void main() {
   group('MessageStore', () {

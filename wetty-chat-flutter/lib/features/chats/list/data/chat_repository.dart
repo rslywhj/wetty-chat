@@ -4,16 +4,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_config.dart';
-import '../../shared/models/chat_models.dart';
-import '../../shared/models/message_models.dart';
-import 'chat_service.dart';
+import '../../models/chat_models.dart';
+import '../../models/message_models.dart';
+import 'chat_api_service.dart';
 
 /// Source of truth for chat list data.
 /// Manages pagination and caching.
 class ChatRepository extends ChangeNotifier {
-  final ChatService _service;
+  final ChatApiService _service;
 
-  ChatRepository({ChatService? service}) : _service = service ?? ChatService();
+  ChatRepository({ChatApiService? service})
+    : _service = service ?? ChatApiService();
 
   List<ChatListItem> _chats = [];
   String? _nextCursor;

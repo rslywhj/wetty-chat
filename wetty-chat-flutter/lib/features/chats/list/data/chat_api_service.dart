@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/network/api_config.dart';
-import '../../shared/models/chat_models.dart';
+import '../../models/chat_models.dart';
 
 /// Raw HTTP calls for chat endpoints. No state.
-class ChatService {
+class ChatApiService {
   Future<ListChatsResponse> fetchChats({int? limit, String? after}) async {
     final query = <String, String>{};
     if (limit != null) query['limit'] = limit.toString();

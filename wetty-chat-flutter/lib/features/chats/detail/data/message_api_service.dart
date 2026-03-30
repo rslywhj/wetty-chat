@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/network/api_config.dart';
-import '../../shared/models/message_models.dart';
+import '../../models/message_models.dart';
 
-class MessageService {
+class MessageApiService {
   Future<ListMessagesResponse> fetchMessages(
     String chatId, {
     int? max,

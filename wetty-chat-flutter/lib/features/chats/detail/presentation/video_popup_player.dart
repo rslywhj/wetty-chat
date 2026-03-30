@@ -8,7 +8,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../app/theme/style_config.dart';
-import '../../shared/models/message_models.dart';
+import '../../models/message_models.dart';
 import '../data/media_preview_cache.dart';
 
 Future<void> showVideoPlayerPopup(
