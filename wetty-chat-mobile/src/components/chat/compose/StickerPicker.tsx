@@ -344,6 +344,7 @@ function StickerButton({
 }) {
   const longPressTimeoutRef = useRef<number | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const clearLongPress = () => {
     if (longPressTimeoutRef.current != null) {
@@ -358,12 +359,24 @@ function StickerButton({
     }
   };
 
-  const startLongPress = () => {
+  const startLongPress = (e: React.TouchEvent) => {
     if (!onLongPress) return;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
     longPressTimeoutRef.current = window.setTimeout(() => {
       longPressTimeoutRef.current = null;
       fireLongPress();
     }, 450);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartPos.current.x;
+    const dy = touch.clientY - touchStartPos.current.y;
+    if (dx * dx + dy * dy > 100) {
+      clearLongPress();
+    }
   };
 
   const handleClick = () => {
@@ -379,6 +392,7 @@ function StickerButton({
       className={styles.stickerItem}
       onClick={handleClick}
       onTouchStart={startLongPress}
+      onTouchMove={handleTouchMove}
       onTouchEnd={clearLongPress}
       onTouchCancel={clearLongPress}
       onContextMenu={(e) => {
