@@ -14,6 +14,12 @@ struct UnreadCountRow {
     unread_count: i64,
 }
 
+#[derive(QueryableByName)]
+struct ChatUnreadCountRow {
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    unread_count: i64,
+}
+
 /// Calculate capped global unread counts for badge-style displays.
 pub fn get_unread_counts(
     conn: &mut PgConnection,
@@ -55,4 +61,29 @@ pub fn get_unread_counts(
             Err(e)
         }
     }
+}
+
+pub fn get_chat_unread_count(
+    conn: &mut PgConnection,
+    chat_id: i64,
+    last_read_message_id: Option<i64>,
+) -> Result<i64, diesel::result::Error> {
+    let query = sql_query(
+        "SELECT COUNT(unread_messages.marker)::bigint AS unread_count
+         FROM (
+             SELECT 1 AS marker
+             FROM messages
+             WHERE chat_id = $1
+               AND reply_root_id IS NULL
+               AND deleted_at IS NULL
+               AND id > COALESCE($2, 0)
+             LIMIT 100
+         ) AS unread_messages",
+    )
+    .bind::<diesel::sql_types::BigInt, _>(chat_id)
+    .bind::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>, _>(last_read_message_id);
+
+    query
+        .get_result::<ChatUnreadCountRow>(conn)
+        .map(|row| row.unread_count.min(MAX_UNREAD_COUNT))
 }

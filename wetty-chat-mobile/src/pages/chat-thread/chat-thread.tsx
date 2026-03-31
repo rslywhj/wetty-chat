@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IonButton,
   IonButtons,
@@ -15,7 +15,7 @@ import {
   useIonAlert,
   useIonToast,
 } from '@ionic/react';
-import { useHistory, useParams } from 'react-router-dom';
+import { useHistory, useLocation, useParams } from 'react-router-dom';
 import {
   arrowUndo,
   chatbubbles,
@@ -42,12 +42,13 @@ import {
   updateMessage,
 } from '@/api/messages';
 import {
-  markChatAsRead,
   selectChatLastReadMessageId,
   selectChatName,
   selectIsChatMuted,
+  setChatLastReadMessageId,
   setChatMeta,
   setChatMutedUntil,
+  setChatUnreadCount,
 } from '@/store/chatsSlice';
 import {
   appendMessages,
@@ -87,6 +88,8 @@ import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
 import { syncAppBadgeCount } from '@/utils/badges';
 import { useIsDesktop } from '@/hooks/platformHooks';
 import { ChatMessageRow } from '@/components/chat/messages/ChatMessageRow';
+import type { ChatThreadRouteState, ChatThreadResumeRequest } from '@/types/chatThreadNavigation';
+import { READ_REQUEST_COOLDOWN_MS } from '@/constants/chatTiming';
 
 const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -158,6 +161,8 @@ interface EditSession extends EditingMessage {
 function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const storeChatId = threadId ? `${chatId}_thread_${threadId}` : chatId;
   const history = useHistory();
+  const location = useLocation<ChatThreadRouteState | undefined>();
+  const initialResumeRequest = !threadId ? (location.state?.resumeRequest ?? null) : null;
 
   const dispatch = useDispatch();
   const currentUserId = useSelector((state: RootState) => state.user.uid);
@@ -213,10 +218,12 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const loadingNewerRef = useRef(false);
   const pendingSendScrollKeyRef = useRef<string | null>(null);
   const [initialAnchor, setInitialAnchor] = useState<VirtualScrollAnchor>({ type: 'bottom', token: 0 });
+  const [pendingResumeRequest, setPendingResumeRequest] = useState<ChatThreadResumeRequest | null>(initialResumeRequest);
+  const [lastFullyVisibleMessageId, setLastFullyVisibleMessageId] = useState<string | null>(null);
 
   const chatRows = useChatRows(messages, formatDateSeparator);
 
-  const [atBottom, setAtBottom] = useState(true);
+  const [atBottom, setAtBottom] = useState(() => threadId || initialResumeRequest == null);
   const [replyingTo, setReplyingTo] = useState<MessageResponse | null>(null);
   const [profileSender, setProfileSender] = useState<Sender | null>(null);
   const [reactionDetail, setReactionDetail] = useState<{ messageId: string; emoji?: string } | null>(null);
@@ -364,39 +371,123 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   );
 
   const lastReportedReadId = useRef<string | null>(null);
+  const consumedResumeTokenRef = useRef<string | null>(null);
+  const initialLoadCompletedRef = useRef(false);
+  const readRequestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReadTargetIdRef = useRef<string | null>(null);
+  const lastReadRequestAtRef = useRef(0);
 
   useEffect(() => {
     lastReportedReadId.current = null;
+    consumedResumeTokenRef.current = null;
+    initialLoadCompletedRef.current = false;
+    pendingReadTargetIdRef.current = null;
+    lastReadRequestAtRef.current = 0;
+    if (readRequestTimerRef.current) {
+      clearTimeout(readRequestTimerRef.current);
+      readRequestTimerRef.current = null;
+    }
   }, [storeChatId]);
 
-  useEffect(() => {
-    if (!chatId || messages.length === 0 || !atBottom) return;
+  const flushPendingReadTarget = useCallback(() => {
+    if (threadId || !chatId) return;
 
-    const latestMessage = messages[messages.length - 1];
+    const targetMessageId = pendingReadTargetIdRef.current;
+    if (!targetMessageId) return;
 
-    // Ignore optimistic client-generated messages
-    if (latestMessage.id.startsWith('cg_')) return;
-
-    const latestComparableId = parseComparableMessageId(latestMessage.id);
-    if (latestComparableId == null) return;
+    const targetComparableId = parseComparableMessageId(targetMessageId);
+    if (targetComparableId == null) {
+      pendingReadTargetIdRef.current = null;
+      return;
+    }
 
     const currentReadComparableId = lastReadMessageId ? parseComparableMessageId(lastReadMessageId) : null;
-    if (currentReadComparableId != null && latestComparableId <= currentReadComparableId) return;
-
-    if (latestMessage.id !== lastReportedReadId.current) {
-      lastReportedReadId.current = latestMessage.id;
-
-      markMessagesAsRead(chatId, latestMessage.id)
-        .then(() => {
-          dispatch(markChatAsRead({ chatId: chatId, lastReadMessageId: latestMessage.id }));
-          void syncAppBadgeCount();
-        })
-        .catch((err) => {
-          console.error('Failed to mark as read', err);
-          lastReportedReadId.current = null;
-        });
+    if (currentReadComparableId != null && targetComparableId <= currentReadComparableId) {
+      pendingReadTargetIdRef.current = null;
+      return;
     }
-  }, [messages, atBottom, chatId, dispatch, lastReadMessageId]);
+
+    if (targetMessageId === lastReportedReadId.current) return;
+
+    pendingReadTargetIdRef.current = null;
+    readRequestTimerRef.current = null;
+    lastReportedReadId.current = targetMessageId;
+    lastReadRequestAtRef.current = Date.now();
+
+    markMessagesAsRead(chatId, targetMessageId)
+      .then((res) => {
+        dispatch(setChatLastReadMessageId({ chatId, lastReadMessageId: res.data.lastReadMessageId }));
+        dispatch(setChatUnreadCount({ chatId, unreadCount: res.data.unreadCount }));
+        void syncAppBadgeCount();
+      })
+      .catch((err) => {
+        console.error('Failed to mark as read', err);
+        lastReportedReadId.current = null;
+      });
+  }, [chatId, dispatch, lastReadMessageId, threadId]);
+
+  useEffect(() => {
+    if (threadId || !chatId) return;
+
+    if (readRequestTimerRef.current) {
+      clearTimeout(readRequestTimerRef.current);
+      readRequestTimerRef.current = null;
+    }
+
+    pendingReadTargetIdRef.current = lastFullyVisibleMessageId;
+    if (!lastFullyVisibleMessageId) return;
+
+    const targetComparableId = parseComparableMessageId(lastFullyVisibleMessageId);
+    if (targetComparableId == null) {
+      pendingReadTargetIdRef.current = null;
+      return;
+    }
+
+    const currentReadComparableId = lastReadMessageId ? parseComparableMessageId(lastReadMessageId) : null;
+    if (currentReadComparableId != null && targetComparableId <= currentReadComparableId) {
+      pendingReadTargetIdRef.current = null;
+      return;
+    }
+
+    const elapsed = Date.now() - lastReadRequestAtRef.current;
+    if (elapsed >= READ_REQUEST_COOLDOWN_MS) {
+      flushPendingReadTarget();
+      return;
+    }
+
+    readRequestTimerRef.current = setTimeout(flushPendingReadTarget, READ_REQUEST_COOLDOWN_MS - elapsed);
+
+    return () => {
+      if (readRequestTimerRef.current) {
+        clearTimeout(readRequestTimerRef.current);
+        readRequestTimerRef.current = null;
+      }
+    };
+  }, [chatId, flushPendingReadTarget, lastFullyVisibleMessageId, lastReadMessageId, threadId]);
+
+  useEffect(() => {
+    if (threadId) return;
+
+    const resumeRequest = location.state?.resumeRequest;
+    if (!resumeRequest) return;
+    if (resumeRequest.token === consumedResumeTokenRef.current) return;
+
+    consumedResumeTokenRef.current = resumeRequest.token;
+    startTransition(() => {
+      setPendingResumeRequest(resumeRequest);
+      setAtBottom(false);
+    });
+
+    const { resumeRequest: _resumeRequest, ...restState } = location.state ?? {};
+    void _resumeRequest;
+    const nextState = Object.keys(restState).length > 0 ? restState : undefined;
+    history.replace({
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+      state: nextState,
+    });
+  }, [threadId, history, location]);
 
   const fetchLatestWindow = useCallback(
     (options?: { forceReopen?: boolean }) => {
@@ -493,10 +584,39 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     [chatId, dispatch, showToast, storeChatId, threadId],
   );
 
-  // Initial load
+  // Initial load — open at an explicitly requested resume point when navigated from chat list
   useEffect(() => {
-    fetchLatestWindow();
-  }, [chatId, fetchLatestWindow]);
+    if (!chatId) return;
+
+    if (!threadId && pendingResumeRequest != null) {
+      initialLoadCompletedRef.current = true;
+      getMessages(chatId, { around: pendingResumeRequest.messageId, max: 50 })
+        .then((res) => {
+          const list = res.data.messages ?? [];
+          dispatch(
+            pushWindow({
+              chatId: storeChatId,
+              messages: list,
+              nextCursor: res.data.nextCursor ?? null,
+              prevCursor: res.data.prevCursor ?? null,
+            }),
+          );
+          setInitialAnchor((currentAnchor) => ({
+            type: 'message',
+            messageId: pendingResumeRequest.messageId,
+            token: currentAnchor.token + 1,
+          }));
+          setPendingResumeRequest(null);
+        })
+        .catch(() => {
+          setPendingResumeRequest(null);
+          fetchLatestWindow();
+        });
+    } else if (!initialLoadCompletedRef.current) {
+      initialLoadCompletedRef.current = true;
+      fetchLatestWindow();
+    }
+  }, [chatId, fetchLatestWindow, dispatch, pendingResumeRequest, storeChatId, threadId]);
 
   const loadMore = useCallback(() => {
     const st = store.getState();
@@ -1197,6 +1317,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           scrollApiRef={scrollApiRef}
           bottomPadding={16}
           onAtBottomChange={setAtBottom}
+          onLastFullyVisibleMessageChange={setLastFullyVisibleMessageId}
         />
         <IonFab
           vertical="bottom"

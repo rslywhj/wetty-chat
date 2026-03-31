@@ -85,6 +85,13 @@ function getEffectiveListMeta(entry?: ChatStateEntry): ChatListMeta {
   };
 }
 
+function reconcileAuthoritativeListFields(entry: ChatStateEntry): void {
+  if (!entry.liveProjection) return;
+
+  delete entry.liveProjection.unreadCount;
+  delete entry.liveProjection.lastReadMessageId;
+}
+
 const chatsSlice = createSlice({
   name: 'chats',
   initialState,
@@ -115,6 +122,7 @@ const chatsSlice = createSlice({
           inList: true,
           mutedUntil: chat.mutedUntil,
         };
+        reconcileAuthoritativeListFields(entry);
       }
     },
     setChatMutedUntil(state, action: PayloadAction<{ chatId: string; mutedUntil: string | null }>) {
@@ -283,6 +291,11 @@ export function selectChatMutedUntil(state: RootState, chatId: string): string |
 export function selectChatLastReadMessageId(state: RootState, chatId: string): string | null {
   const entry = state.chats.byId[chatId];
   return getEffectiveListMeta(entry).lastReadMessageId ?? null;
+}
+
+export function selectChatUnreadCount(state: RootState, chatId: string): number {
+  const entry = state.chats.byId[chatId];
+  return getEffectiveListMeta(entry).unreadCount ?? 0;
 }
 
 const selectChatsById = (state: RootState) => state.chats.byId;

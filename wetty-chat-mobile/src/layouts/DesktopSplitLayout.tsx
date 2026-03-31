@@ -17,13 +17,12 @@ import { LanguagePageCore } from '@/pages/settings/language';
 import { StickerSettingsCore } from '@/pages/settings/stickers';
 import { StickerPackDetailCore } from '@/pages/settings/sticker-pack-detail';
 import type { BackAction } from '@/types/back-action';
+import type { ChatThreadRouteState } from '@/types/chatThreadNavigation';
 import styles from './DesktopSplitLayout.module.scss';
 import { HeaderActionMenu, type HeaderActionMenuItem } from '@/components/HeaderActionMenu';
 import { useFeatureGate } from '@/hooks/useFeatureGate';
 
-interface DesktopRouteState {
-  backgroundPath?: string;
-}
+type DesktopRouteState = ChatThreadRouteState;
 
 interface DesktopRouteMatches {
   activeChatId: string | undefined;
@@ -197,8 +196,11 @@ export function DesktopSplitLayout() {
   const globalSettingsOpen = currentRoute.globalSettings;
 
   const handleChatSelect = useCallback(
-    (chatId: string) => {
-      history.replace(`/chats/chat/${chatId}`);
+    (chatId: string, routeState?: ChatThreadRouteState) => {
+      history.replace({
+        pathname: `/chats/chat/${chatId}`,
+        state: routeState,
+      });
     },
     [history],
   );

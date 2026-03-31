@@ -4,6 +4,7 @@ import { setChatsList } from '@/store/chatsSlice';
 import { appendMessages } from '@/store/messagesSlice';
 import store from '@/store/index';
 import { syncAppBadgeCount } from '@/utils/badges';
+import { APP_SYNC_DEBOUNCE_MS } from '@/constants/chatTiming';
 
 let isSyncing = false;
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -100,5 +101,5 @@ export async function syncApp() {
     } finally {
       isSyncing = false;
     }
-  }, 500);
+  }, APP_SYNC_DEBOUNCE_MS);
 }

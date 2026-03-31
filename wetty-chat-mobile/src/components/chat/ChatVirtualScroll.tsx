@@ -179,6 +179,7 @@ export function ChatVirtualScroll({
   header,
   bottomPadding = 0,
   onAtBottomChange,
+  onLastFullyVisibleMessageChange,
 }: ChatVirtualScrollProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -190,6 +191,7 @@ export function ChatVirtualScroll({
 
   const layoutIntentRef = useRef<LayoutIntent | null>(null);
   const isAtBottomRef = useRef(true);
+  const lastFullyVisibleMessageIdRef = useRef<string | null>(null);
   const initialAnchorRef = useRef(initialAnchor);
   initialAnchorRef.current = initialAnchor;
 
@@ -431,6 +433,44 @@ export function ChatVirtualScroll({
     }
   }, [loadNewer?.hasMore, onAtBottomChange]);
 
+  const updateLastFullyVisibleMessage = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || phaseRef.current !== 'READY') {
+      if (lastFullyVisibleMessageIdRef.current !== null) {
+        lastFullyVisibleMessageIdRef.current = null;
+        onLastFullyVisibleMessageChange?.(null);
+      }
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const mounted = mountedRef.current;
+    let nextMessageId: string | null = null;
+
+    if (mounted) {
+      for (let index = mounted.end; index >= mounted.start; index -= 1) {
+        const row = rows[index];
+        if (!row || row.type !== 'message') continue;
+
+        const rowNode = rowRefsMap.current.get(row.key);
+        if (!rowNode) continue;
+
+        const rowRect = rowNode.getBoundingClientRect();
+        if (rowRect.height <= 0) continue;
+
+        const fullyVisible = rowRect.top >= containerRect.top - 0.5 && rowRect.bottom <= containerRect.bottom + 0.5;
+        if (!fullyVisible) continue;
+
+        nextMessageId = row.messageId;
+        break;
+      }
+    }
+
+    if (nextMessageId === lastFullyVisibleMessageIdRef.current) return;
+    lastFullyVisibleMessageIdRef.current = nextMessageId;
+    onLastFullyVisibleMessageChange?.(nextMessageId);
+  }, [onLastFullyVisibleMessageChange, rows]);
+
   const scrollToBottomInternal = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = containerRef.current;
     if (!container) return;
@@ -613,6 +653,7 @@ export function ChatVirtualScroll({
       });
       scrollToBottomInternal();
       updateAtBottom();
+      updateLastFullyVisibleMessage();
       framesRemaining -= 1;
       bottomSettleFramesRemainingRef.current = framesRemaining;
       if (framesRemaining > 0) {
@@ -625,7 +666,7 @@ export function ChatVirtualScroll({
     };
 
     bottomSettleRafRef.current = requestAnimationFrame(settle);
-  }, [scrollToBottomInternal, updateAtBottom]);
+  }, [scrollToBottomInternal, updateAtBottom, updateLastFullyVisibleMessage]);
 
   const createBatch = useCallback(
     (start: number, end: number, direction: BatchDirection, reason: PendingBatch['reason']): PendingBatch | null => {
@@ -1128,7 +1169,17 @@ export function ChatVirtualScroll({
         loadNewer.onLoad();
       }
     }
-  }, [isAtBottomEdge, isAtTopEdge, loadNewer, loadOlder, maybeUpdateMountedForScroll, pendingBatch, scrollDistances]);
+    updateLastFullyVisibleMessage();
+  }, [
+    isAtBottomEdge,
+    isAtTopEdge,
+    loadNewer,
+    loadOlder,
+    maybeUpdateMountedForScroll,
+    pendingBatch,
+    scrollDistances,
+    updateLastFullyVisibleMessage,
+  ]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -1181,6 +1232,7 @@ export function ChatVirtualScroll({
     }
 
     updateAtBottom();
+    updateLastFullyVisibleMessage();
 
     if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
     scrollIdleTimerRef.current = setTimeout(handleScrollIdle, SCROLL_IDLE_MS);
@@ -1194,7 +1246,7 @@ export function ChatVirtualScroll({
     if (distances.fromBottom >= EDGE_REARM_PX) {
       bottomLoadArmedRef.current = true;
     }
-  }, [handleScrollIdle, maybeUpdateMountedForScroll, pendingBatch, scrollDistances, updateAtBottom]);
+  }, [handleScrollIdle, maybeUpdateMountedForScroll, pendingBatch, scrollDistances, updateAtBottom, updateLastFullyVisibleMessage]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -1392,6 +1444,7 @@ export function ChatVirtualScroll({
     }
 
     updateAtBottom();
+    updateLastFullyVisibleMessage();
     layoutIntentRef.current = null;
     prevKeysRef.current = rowKeys;
   }, [
@@ -1410,6 +1463,7 @@ export function ChatVirtualScroll({
     triggerRender,
     triggerJumpTargetHighlight,
     updateAtBottom,
+    updateLastFullyVisibleMessage,
   ]);
 
   useLayoutEffect(() => {
@@ -1557,6 +1611,8 @@ export function ChatVirtualScroll({
 
     isAtBottomRef.current = initialAnchor.type === 'bottom';
     onAtBottomChange?.(initialAnchor.type === 'bottom');
+    lastFullyVisibleMessageIdRef.current = null;
+    onLastFullyVisibleMessageChange?.(null);
     setPhaseState(containerHeight > 0 ? 'BOOTSTRAP' : 'WAITING_VIEWPORT');
     triggerRender();
     // eslint-disable-next-line react-hooks/exhaustive-deps

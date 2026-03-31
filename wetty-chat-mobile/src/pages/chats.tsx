@@ -6,6 +6,7 @@ import { ChatList } from '@/components/chat/ChatList';
 import { HeaderActionMenu } from '@/components/HeaderActionMenu';
 import { TitleWithConnectionStatus } from '@/components/TitleWithConnectionStatus';
 import { useFeatureGate } from '@/hooks/useFeatureGate';
+import type { ChatThreadRouteState } from '@/types/chatThreadNavigation';
 
 export default function Chats() {
   const isFeatureGateEnabled = useFeatureGate();
@@ -39,7 +40,14 @@ export default function Chats() {
           </IonButtons>
         </IonToolbar>
       </IonHeader>
-      <ChatList onChatSelect={(chatId) => history.push(`/chats/chat/${chatId}`)} />
+      <ChatList
+        onChatSelect={(chatId, routeState?: ChatThreadRouteState) =>
+          history.push({
+            pathname: `/chats/chat/${chatId}`,
+            state: routeState,
+          })
+        }
+      />
     </IonPage>
   );
 }

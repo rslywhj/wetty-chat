@@ -86,6 +86,7 @@ export interface ChatVirtualScrollProps {
   header?: ReactNode;
   bottomPadding?: number;
   onAtBottomChange?: (atBottom: boolean) => void;
+  onLastFullyVisibleMessageChange?: (messageId: string | null) => void;
 }
 
 // ── Constants ──

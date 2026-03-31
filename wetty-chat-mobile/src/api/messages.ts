@@ -59,6 +59,11 @@ export interface ReactionDetailResponse {
   reactions: { emoji: string; reactors: ReactionReactor[] }[];
 }
 
+export interface MarkChatReadStateResponse {
+  lastReadMessageId: string | null;
+  unreadCount: number;
+}
+
 export interface MessageResponse {
   id: string;
   message: string | null;
@@ -159,6 +164,15 @@ export function getReactionDetails(
   return apiClient.get(`/chats/${chatId}/messages/${messageId}/reactions`);
 }
 
-export function markMessagesAsRead(chatId: string | number, messageId: string | number): Promise<AxiosResponse<void>> {
+export function markMessagesAsRead(
+  chatId: string | number,
+  messageId: string | number,
+): Promise<AxiosResponse<MarkChatReadStateResponse>> {
   return apiClient.post(`/chats/${chatId}/read`, { messageId: messageId.toString() });
+}
+
+export function markChatAsUnread(
+  chatId: string | number,
+): Promise<AxiosResponse<MarkChatReadStateResponse>> {
+  return apiClient.post(`/chats/${chatId}/unread`);
 }

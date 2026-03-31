@@ -1819,13 +1819,21 @@ pub struct MarkAsReadBody {
     message_id: i64,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MarkChatReadStateResponse {
+    #[serde(serialize_with = "crate::serde_i64_string::opt::serialize")]
+    last_read_message_id: Option<i64>,
+    unread_count: i64,
+}
+
 /// POST /chats/:chat_id/messages/read — Mark messages as read up to a specific message ID.
 async fn mark_as_read(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
     Json(body): Json<MarkAsReadBody>,
-) -> Result<StatusCode, (StatusCode, &'static str)> {
+) -> Result<Json<MarkChatReadStateResponse>, (StatusCode, &'static str)> {
     let conn = &mut state.db.get().map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1846,15 +1854,20 @@ async fn mark_as_read(
         (StatusCode::INTERNAL_SERVER_ERROR, "Failed to mark as read")
     })?;
 
-    Ok(StatusCode::OK)
-}
+    let unread_count =
+        crate::services::chat::get_chat_unread_count(conn, chat_id, Some(body.message_id))
+            .map_err(|e| {
+                tracing::error!("mark as read unread count: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to load unread count",
+                )
+            })?;
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct MarkAsUnreadResponse {
-    #[serde(serialize_with = "crate::serde_i64_string::opt::serialize")]
-    last_read_message_id: Option<i64>,
-    unread_count: i64,
+    Ok(Json(MarkChatReadStateResponse {
+        last_read_message_id: Some(body.message_id),
+        unread_count,
+    }))
 }
 
 /// POST /chats/:chat_id/unread — Mark a chat as unread by rewinding the read pointer.
@@ -1862,7 +1875,7 @@ async fn mark_as_unread(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
-) -> Result<Json<MarkAsUnreadResponse>, (StatusCode, &'static str)> {
+) -> Result<Json<MarkChatReadStateResponse>, (StatusCode, &'static str)> {
     let conn = &mut state.db.get().map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1920,7 +1933,7 @@ async fn mark_as_unread(
         last_two.len() as i64
     };
 
-    Ok(Json(MarkAsUnreadResponse {
+    Ok(Json(MarkChatReadStateResponse {
         last_read_message_id: new_read_id,
         unread_count,
     }))

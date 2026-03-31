@@ -17,7 +17,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { checkmarkDone, mailUnreadOutline, notificationsOffOutline } from 'ionicons/icons';
 import { type ChatListEntry, getChats } from '@/api/chats';
 import {
-  markChatAsRead,
   selectAllChats,
   setChatLastReadMessageId,
   setChatsList,
@@ -25,12 +24,14 @@ import {
 } from '@/store/chatsSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
 import { Trans } from '@lingui/react/macro';
-import { markMessagesAsRead, type MessageResponse } from '@/api/messages';
+import { markChatAsUnread, markMessagesAsRead, type MessageResponse } from '@/api/messages';
 import { t } from '@lingui/core/macro';
 import { syncAppBadgeCount } from '@/utils/badges';
 import { getChatDisplayName } from '@/utils/chatDisplay';
 import { UserAvatar } from '@/components/UserAvatar';
 import { formatMessagePreview, getNotificationPreviewLabels } from '@/utils/messagePreview';
+import { buildChatThreadRouteState, type ChatThreadRouteState } from '@/types/chatThreadNavigation';
+import { CHAT_LIST_REFRESH_MIN_DURATION_MS } from '@/constants/chatTiming';
 import styles from './ChatList.module.scss';
 
 function formatLastActivity(isoString: string | null, locale: string): string {
@@ -91,7 +92,7 @@ function getMessagePreview(message: MessageResponse | null, locale: string): Rea
 
 interface ChatListProps {
   activeChatId?: string;
-  onChatSelect: (chatId: string) => void;
+  onChatSelect: (chatId: string, routeState?: ChatThreadRouteState) => void;
 }
 
 export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
@@ -101,9 +102,12 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadChats = useCallback(() => {
-    setLoading(true);
-    getChats()
+  const updateAppBadge = useCallback(async () => {
+    await syncAppBadgeCount();
+  }, []);
+
+  useEffect(() => {
+    void getChats()
       .then((res) => {
         const chatList = res.data.chats || [];
         dispatch(setChatsList(chatList));
@@ -113,35 +117,28 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
         setError(err.message || t`Failed to load chats`);
       })
       .finally(() => setLoading(false));
-  }, [dispatch]);
-
-  const updateAppBadge = useCallback(async () => {
-    await syncAppBadgeCount();
-  }, []);
-
-  useEffect(() => {
-    loadChats();
-    updateAppBadge();
-  }, [loadChats, updateAppBadge]);
+    void updateAppBadge();
+  }, [dispatch, updateAppBadge]);
 
   const handleToggleRead = async (chat: ChatListEntry, slidingItem: HTMLIonItemSlidingElement | null) => {
     slidingItem?.close();
     if (!chat.lastMessage) return;
 
     if (chat.unreadCount > 0) {
-      dispatch(markChatAsRead({ chatId: chat.id, lastReadMessageId: chat.lastMessage.id }));
       try {
-        await markMessagesAsRead(chat.id, chat.lastMessage.id);
+        const res = await markMessagesAsRead(chat.id, chat.lastMessage.id);
+        dispatch(setChatLastReadMessageId({ chatId: chat.id, lastReadMessageId: res.data.lastReadMessageId }));
+        dispatch(setChatUnreadCount({ chatId: chat.id, unreadCount: res.data.unreadCount }));
         await updateAppBadge();
       } catch (err) {
         console.error('Failed to mark as read', err);
       }
     } else {
       try {
-        const prevId = (BigInt(chat.lastMessage.id) - 1n).toString();
         dispatch(setChatUnreadCount({ chatId: chat.id, unreadCount: 1 }));
-        dispatch(setChatLastReadMessageId({ chatId: chat.id, lastReadMessageId: prevId }));
-        await markMessagesAsRead(chat.id, prevId);
+        const res = await markChatAsUnread(chat.id);
+        dispatch(setChatLastReadMessageId({ chatId: chat.id, lastReadMessageId: res.data.lastReadMessageId }));
+        dispatch(setChatUnreadCount({ chatId: chat.id, unreadCount: res.data.unreadCount }));
         await updateAppBadge();
       } catch (err) {
         console.error('Failed to mark as unread', err);
@@ -162,7 +159,7 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       })
       .finally(() => {
         const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 500 - elapsed);
+        const delay = Math.max(0, CHAT_LIST_REFRESH_MIN_DURATION_MS - elapsed);
         setTimeout(() => {
           event.detail.complete();
         }, delay);
@@ -231,7 +228,15 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
                 button
                 detail={false}
                 className={`${styles.chatListItem} ${activeChatId === chat.id ? styles.active : ''}`}
-                onClick={() => onChatSelect(chat.id)}
+                onClick={() =>
+                  onChatSelect(
+                    chat.id,
+                    buildChatThreadRouteState({
+                      unreadCount: chat.unreadCount,
+                      lastReadMessageId: chat.lastReadMessageId,
+                    }),
+                  )
+                }
               >
                 <span slot="start">
                   <UserAvatar
