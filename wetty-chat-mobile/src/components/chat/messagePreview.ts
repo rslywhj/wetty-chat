@@ -1,10 +1,12 @@
 import { t } from '@lingui/core/macro';
 import type { Attachment } from '@/api/messages';
+import type { StickerSummary } from '@/api/stickers';
 
 export interface PreviewMessage {
   message?: string | null;
   text?: string | null;
   messageType?: string | null;
+  sticker?: Pick<StickerSummary, 'emoji'> | null;
   attachments?: Attachment[];
   firstAttachmentKind?: string | null;
   isDeleted?: boolean;
@@ -14,6 +16,7 @@ function normalizePreviewMessage({
   message,
   text,
   messageType,
+  sticker,
   attachments,
   firstAttachmentKind,
   isDeleted,
@@ -21,6 +24,7 @@ function normalizePreviewMessage({
   return {
     message: message ?? text,
     messageType: messageType,
+    sticker,
     attachments,
     firstAttachmentKind: firstAttachmentKind,
     isDeleted,
@@ -28,7 +32,7 @@ function normalizePreviewMessage({
 }
 
 export function getMessagePreviewText(preview: PreviewMessage): string {
-  const { message, messageType, attachments, firstAttachmentKind, isDeleted } = normalizePreviewMessage(preview);
+  const { message, messageType, sticker, attachments, firstAttachmentKind, isDeleted } = normalizePreviewMessage(preview);
 
   if (isDeleted) {
     return t`[Deleted]`;
@@ -39,7 +43,7 @@ export function getMessagePreviewText(preview: PreviewMessage): string {
   }
 
   if (messageType === 'sticker') {
-    return t`[Sticker]`;
+    return sticker?.emoji ? `${t`[Sticker]`} ${sticker.emoji}` : t`[Sticker]`;
   }
 
   if (messageType === 'audio') {

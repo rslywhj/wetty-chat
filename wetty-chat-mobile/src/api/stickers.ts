@@ -103,6 +103,10 @@ export function updateStickerPack(
   return apiClient.patch(`/stickers/packs/${packId}`, body);
 }
 
+export function deleteStickerPack(packId: string): Promise<AxiosResponse<void>> {
+  return apiClient.delete(`/stickers/packs/${packId}`);
+}
+
 export function subscribeStickerPack(packId: string): Promise<AxiosResponse<void>> {
   return apiClient.put(`/stickers/packs/${packId}/subscription`);
 }

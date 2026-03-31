@@ -565,7 +565,12 @@ pub(crate) async fn send_prepared_message(
             response
                 .message
                 .clone()
-                .or_else(|| response.sticker.as_ref().map(|_| "[Sticker]".to_string()))
+                .or_else(|| {
+                    response
+                        .sticker
+                        .as_ref()
+                        .map(|sticker| sticker_preview_text(Some(&sticker.emoji)))
+                })
         }),
         message_id: response.id,
     });
@@ -574,6 +579,13 @@ pub(crate) async fn send_prepared_message(
         response,
         member_uids,
     })
+}
+
+fn sticker_preview_text(emoji: Option<&str>) -> String {
+    match emoji.filter(|value| !value.trim().is_empty()) {
+        Some(emoji) => format!("[Sticker] {emoji}"),
+        None => "[Sticker]".to_string(),
+    }
 }
 
 fn load_usernames_by_uids(
@@ -1392,7 +1404,7 @@ async fn post_thread_message(
 #[cfg(test)]
 mod tests {
     use super::{
-        first_attachment_kind, validate_client_message_type, ReplyToMessage,
+        first_attachment_kind, sticker_preview_text, validate_client_message_type, ReplyToMessage,
         INVITE_MESSAGE_TYPE_FORBIDDEN, SYSTEM_MESSAGE_TYPE_FORBIDDEN,
     };
     use crate::models::{Attachment, MessageType, Sender};
@@ -1427,6 +1439,12 @@ mod tests {
             err,
             (StatusCode::BAD_REQUEST, INVITE_MESSAGE_TYPE_FORBIDDEN)
         );
+    }
+
+    #[test]
+    fn sticker_preview_text_includes_emoji_when_available() {
+        assert_eq!(sticker_preview_text(Some("🙂")), "[Sticker] 🙂");
+        assert_eq!(sticker_preview_text(None), "[Sticker]");
     }
 
     #[test]

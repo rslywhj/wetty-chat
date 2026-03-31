@@ -5,12 +5,14 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonPage,
   IonTitle,
   IonToolbar,
   useIonAlert,
   useIonToast,
 } from '@ionic/react';
+import { trashOutline } from 'ionicons/icons';
 import { useParams } from 'react-router-dom';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
@@ -19,6 +21,7 @@ import { useSelector } from 'react-redux';
 import { BackButton } from '@/components/BackButton';
 import { AddStickerModal } from '@/components/chat/compose/AddStickerModal';
 import {
+  deleteStickerPack,
   getStickerPack,
   removeStickerFromPack,
   type StickerPackDetailResponse,
@@ -166,6 +169,29 @@ export function StickerPackDetailCore({ packId, backAction }: StickerPackDetailC
     });
   };
 
+  const handleDeletePack = () => {
+    presentAlert({
+      header: t`Delete Pack`,
+      message: t`Delete this sticker pack? Stickers will stay available elsewhere, but this pack and its contents list will be removed.`,
+      buttons: [
+        { text: t`Cancel`, role: 'cancel' },
+        {
+          text: t`Delete`,
+          role: 'destructive',
+          handler: async () => {
+            try {
+              await deleteStickerPack(packId);
+              history.replace('/settings/stickers');
+            } catch (error) {
+              console.error('Failed to delete sticker pack', error);
+              presentToast({ message: t`Failed to delete sticker pack`, duration: 2000, position: 'bottom' });
+            }
+          },
+        },
+      ],
+    });
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -174,6 +200,13 @@ export function StickerPackDetailCore({ packId, backAction }: StickerPackDetailC
             {backAction ? <BackButton action={backAction} /> : <IonBackButton defaultHref="/settings/stickers" />}
           </IonButtons>
           <IonTitle>{pack.name}</IonTitle>
+          {owned && (
+            <IonButtons slot="end">
+              <IonButton color="danger" onClick={handleDeletePack} aria-label={t`Delete pack`}>
+                <IonIcon slot="icon-only" icon={trashOutline} />
+              </IonButton>
+            </IonButtons>
+          )}
           {!owned && (
             <IonButtons slot="end">
               <IonButton color="danger" onClick={handleUnsubscribe}>
@@ -191,6 +224,11 @@ export function StickerPackDetailCore({ packId, backAction }: StickerPackDetailC
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
+        {owned && (
+          <div className={styles.hint}>
+            <Trans>Tap a sticker to remove it from this pack.</Trans>
+          </div>
+        )}
         <div className={styles.grid}>
           {owned && (
             <button

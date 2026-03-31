@@ -493,6 +493,32 @@ async fn patch_pack(
     Ok(AxumJson(summary))
 }
 
+async fn delete_pack(
+    CurrentUid(uid): CurrentUid,
+    State(state): State<AppState>,
+    Path(pack_id): Path<i64>,
+) -> Result<StatusCode, (StatusCode, &'static str)> {
+    let conn = &mut state.db.get().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database connection failed",
+        )
+    })?;
+    let _pack = require_pack_owner(conn, pack_id, uid)?;
+
+    diesel::delete(sticker_packs::table.filter(sticker_packs::id.eq(pack_id)))
+        .execute(conn)
+        .map_err(|e| {
+            tracing::error!("delete sticker pack: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to delete sticker pack",
+            )
+        })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 async fn get_pack(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -1062,7 +1088,10 @@ pub fn router() -> Router<crate::AppState> {
         .route("/packs/mine/subscribed", get(get_my_subscribed_packs))
         .route("/packs/mine/owned", get(get_my_owned_packs))
         .route("/mine/favorites", get(get_my_favorites))
-        .route("/packs/{pack_id}", get(get_pack).patch(patch_pack))
+        .route(
+            "/packs/{pack_id}",
+            get(get_pack).patch(patch_pack).delete(delete_pack),
+        )
         .route(
             "/packs/{pack_id}/subscription",
             put(put_subscription).delete(delete_subscription),

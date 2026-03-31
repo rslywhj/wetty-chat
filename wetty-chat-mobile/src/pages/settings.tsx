@@ -138,13 +138,13 @@ export function SettingsCore({ backAction, onOpenGeneral, onOpenStickers }: Sett
         </IonListHeader>
         <IonList inset>
           <IonItem button detail={true} onClick={handleOpenGeneral}>
-            <IonIcon aria-hidden="true" icon={cog} slot="start" color="primary" />
+            <IonIcon aria-hidden="true" icon={cog} slot="start" color="medium" />
             <IonLabel>
               <Trans>General</Trans>
             </IonLabel>
           </IonItem>
           <IonItem button detail={true} onClick={handleOpenStickers}>
-            <IonIcon aria-hidden="true" icon={happyOutline} slot="start" color="tertiary" />
+            <IonIcon aria-hidden="true" icon={happyOutline} slot="start" color="medium" />
             <IonLabel>
               <Trans>Stickers</Trans>
             </IonLabel>

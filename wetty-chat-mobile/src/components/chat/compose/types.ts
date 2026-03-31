@@ -7,6 +7,7 @@ export interface ReplyTo {
   username: string;
   messageType?: string;
   text?: string | null;
+  sticker?: StickerSummary;
   attachments?: Attachment[];
   firstAttachmentKind?: string;
   isDeleted?: boolean;
