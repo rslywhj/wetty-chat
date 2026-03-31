@@ -1,47 +1,64 @@
-import { v4 as uuidv4 } from 'uuid';
+import { kvGet, kvSet } from './db';
 
-const CLIENT_ID_STORAGE_KEY = 'client_id';
+let cachedClientId: string | null = null;
 
 function generateClientId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
-  return uuidv4();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
-function isValidClientId(value: string): boolean {
-  return value.length > 0 && value.length <= 64 && /^[A-Za-z0-9_-]+$/.test(value);
+/** Decode JWT payload without verification to extract the `cid` claim. */
+function extractCidFromJwt(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.cid === 'string' && payload.cid.length > 0 ? payload.cid : null;
+  } catch {
+    return null;
+  }
 }
 
+/**
+ * Sync accessor — returns cached clientId.
+ * Only needed for unauthenticated requests (when no JWT is available).
+ */
 export function getOrCreateClientId(): string {
-  let clientId: string | null = null;
-
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
-      if (stored && isValidClientId(stored)) {
-        clientId = stored;
-      }
-    } catch {
-      // ignore storage access failures
-    }
-  }
-
-  if (!clientId) {
-    clientId = generateClientId();
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, clientId);
-      } catch {
-        // ignore storage access failures
-      }
-    }
-  }
-
-  return clientId;
+  if (cachedClientId) return cachedClientId;
+  cachedClientId = generateClientId();
+  return cachedClientId;
 }
 
-export function initializeClientId(): string {
-  return getOrCreateClientId();
+/**
+ * Sync update — called after JWT is available to align clientId with JWT's `cid` claim.
+ */
+export function syncClientIdFromJwt(jwtToken: string): void {
+  const cid = extractCidFromJwt(jwtToken);
+  if (cid) {
+    cachedClientId = cid;
+    void kvSet('client_id', cid);
+  }
+}
+
+/**
+ * Async init — reads from IDB, falls back to generating a new one.
+ * If JWT is available, `syncClientIdFromJwt` should be called after to override with `cid`.
+ */
+export async function initializeClientId(): Promise<string> {
+  const idbValue = await kvGet<string>('client_id');
+  if (idbValue && idbValue.length > 0) {
+    cachedClientId = idbValue;
+    return cachedClientId;
+  }
+
+  cachedClientId = generateClientId();
+  await kvSet('client_id', cachedClientId);
+  return cachedClientId;
 }

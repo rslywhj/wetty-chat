@@ -1,6 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
 import type { RootState } from './index';
+import { kvSet } from '@/utils/db';
 
 export const supportedLocales = ['en', 'zh-CN', 'zh-TW'];
 export const defaultLocale = 'en';
@@ -18,9 +19,7 @@ const chatFontSizeStyles: Record<ChatFontSizeOption, string> = {
 
 export function detectLocale(): string {
   for (const lang of navigator.languages) {
-    // Exact match (e.g. "zh-CN")
     if (supportedLocales.includes(lang)) return lang;
-    // Base language match (e.g. "zh" -> "zh-CN")
     const base = lang.split('-')[0];
     const match = supportedLocales.find((l) => l.split('-')[0] === base);
     if (match) return match;
@@ -33,28 +32,17 @@ export interface SettingsState {
   messageFontSize: ChatFontSizeOption;
 }
 
-function isChatFontSizeOption(value: unknown): value is ChatFontSizeOption {
+export function isChatFontSizeOption(value: unknown): value is ChatFontSizeOption {
   return typeof value === 'string' && chatFontSizeOptions.includes(value as ChatFontSizeOption);
 }
 
-function loadInitialState(): SettingsState {
-  try {
-    const raw = localStorage.getItem('settings');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        locale: parsed.locale ?? null,
-        messageFontSize: isChatFontSizeOption(parsed.messageFontSize) ? parsed.messageFontSize : defaultChatFontSize,
-      };
-    }
-  } catch {
-    // ignore corrupt data
-  }
-  return { locale: null, messageFontSize: defaultChatFontSize };
+function persistSettings(state: SettingsState) {
+  void kvSet('settings', { locale: state.locale, messageFontSize: state.messageFontSize });
 }
 
-function persistSettings(state: SettingsState) {
-  localStorage.setItem('settings', JSON.stringify(state));
+function persistEffectiveLocale(locale: string | null) {
+  const effective = locale && supportedLocales.includes(locale) ? locale : detectLocale();
+  void kvSet('effective_locale', effective);
 }
 
 export function getChatFontSizeStyle(messageFontSize: ChatFontSizeOption): string {
@@ -63,11 +51,12 @@ export function getChatFontSizeStyle(messageFontSize: ChatFontSizeOption): strin
 
 const settingsSlice = createSlice({
   name: 'settings',
-  initialState: loadInitialState(),
+  initialState: { locale: null, messageFontSize: defaultChatFontSize } as SettingsState,
   reducers: {
     setLocale(state, action: PayloadAction<string | null>) {
       state.locale = action.payload;
       persistSettings({ locale: state.locale, messageFontSize: state.messageFontSize });
+      persistEffectiveLocale(state.locale);
     },
     setMessageFontSize(state, action: PayloadAction<ChatFontSizeOption>) {
       state.messageFontSize = action.payload;

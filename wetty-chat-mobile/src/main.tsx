@@ -19,12 +19,14 @@ import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { I18nProvider } from '@lingui/react';
 import { activateDetectedLocale, i18n } from '@/i18n';
-import store from '@/store/index';
+import { createStore, setStoreInstance } from '@/store/index';
 import { initializeClientId } from '@/utils/clientId';
+import { syncJwtTokenToIdb } from '@/utils/jwtToken';
+import { kvGet } from '@/utils/db';
+import { defaultChatFontSize, isChatFontSizeOption, type SettingsState } from '@/store/settingsSlice';
 import App from './App';
 import { setupIonicReact } from '@ionic/react';
 
-initializeClientId();
 setupIonicReact({
   mode: 'ios',
   swipeBackEnabled: false,
@@ -33,7 +35,22 @@ setupIonicReact({
 console.log(`Running in ${import.meta.env.MODE} mode, dev=${import.meta.env.DEV}`);
 
 async function bootstrap() {
-  await activateDetectedLocale();
+  // Load persisted state from IndexedDB
+  const [savedSettings] = await Promise.all([
+    kvGet<Partial<SettingsState>>('settings'),
+    initializeClientId(),
+    syncJwtTokenToIdb(),
+  ]);
+
+  const locale = savedSettings?.locale ?? null;
+  const messageFontSize = isChatFontSizeOption(savedSettings?.messageFontSize)
+    ? savedSettings.messageFontSize
+    : defaultChatFontSize;
+
+  await activateDetectedLocale(locale);
+
+  const store = createStore({ locale, messageFontSize });
+  setStoreInstance(store);
 
   createRoot(document.getElementById('root')!).render(
     <Provider store={store}>

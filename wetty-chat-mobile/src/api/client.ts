@@ -12,10 +12,12 @@ import { getStoredJwtToken } from '@/utils/jwtToken';
 const apiClient = axios.create({ baseURL: __API_BASE__ });
 
 apiClient.interceptors.request.use((config) => {
-  config.headers['X-Client-Id'] = getOrCreateClientId();
   const jwtToken = getStoredJwtToken();
   if (jwtToken) {
     config.headers.Authorization = `Bearer ${jwtToken}`;
+  } else {
+    // Only send X-Client-Id when there's no JWT (JWT already carries cid)
+    config.headers['X-Client-Id'] = getOrCreateClientId();
   }
   if (import.meta.env.DEV) {
     config.headers['X-User-Id'] = String(getCurrentUserId());

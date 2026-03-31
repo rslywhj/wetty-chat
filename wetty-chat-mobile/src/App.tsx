@@ -19,7 +19,7 @@ import { DesktopSplitLayout } from './layouts/DesktopSplitLayout';
 import OobePage from '@/pages/oobe';
 import LandingPage from './pages/landing';
 import { initWebSocket } from '@/api/ws';
-import { syncStoredJwtToken } from '@/utils/jwtToken';
+import { syncJwtTokenToIdb } from '@/utils/jwtToken';
 import { useDeviceToken } from './hooks/useDeviceToken';
 import { appHistory } from '@/utils/navigationHistory';
 
@@ -54,7 +54,7 @@ function AppShell() {
   const missingProdToken = import.meta.env.PROD && (!token || token.length === 0);
 
   useEffect(() => {
-    syncStoredJwtToken();
+    void syncJwtTokenToIdb();
     initWebSocket();
     if (import.meta.env.DEV) {
       dispatch(setUser({ uid: getCurrentUserId(), username: 'Development User', avatarUrl: null }));

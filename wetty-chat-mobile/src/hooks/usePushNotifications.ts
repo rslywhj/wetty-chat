@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '@/api/client';
-import { initializeClientId } from '@/utils/clientId';
 
 // Helper to convert base64 to Uint8Array for Web Push manager
 function urlBase64ToUint8Array(base64String: string) {
@@ -64,7 +63,6 @@ function encodeSubscriptionKeys(subscription: PushSubscription) {
 }
 
 async function registerSubscriptionWithBackend(subscription: PushSubscription) {
-  initializeClientId();
   const keys = encodeSubscriptionKeys(subscription);
   await apiClient.post('/push/subscribe', {
     endpoint: subscription.endpoint,
@@ -102,7 +100,6 @@ async function ensurePushSubscription(registration: ServiceWorkerRegistration) {
 }
 
 async function hasBackendSubscription(endpoint?: string): Promise<boolean> {
-  initializeClientId();
   const response = await apiClient.get<PushSubscriptionStatusResponse>('/push/subscription-status', {
     params: endpoint ? { endpoint } : undefined,
   });
@@ -137,7 +134,7 @@ async function reconcilePushSubscription({
 }: {
   repairIfMissing: boolean;
 }): Promise<ReconcilePushSubscriptionResult> {
-  initializeClientId();
+
   const permission = getCurrentPermission();
   const supportResult = checkPushSupport();
 

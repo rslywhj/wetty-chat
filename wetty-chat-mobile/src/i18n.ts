@@ -1,5 +1,6 @@
 import { i18n } from '@lingui/core';
 import { detectLocale, supportedLocales } from './store/settingsSlice';
+import { kvSet } from './utils/db';
 
 export async function dynamicActivate(locale: string) {
   const { messages } = await import(`../locales/${locale}/messages.po`);
@@ -8,21 +9,11 @@ export async function dynamicActivate(locale: string) {
   document.documentElement.lang = locale;
 }
 
-export async function activateDetectedLocale() {
-  let locale: string | undefined;
-  try {
-    const raw = localStorage.getItem('settings');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const saved = parsed?.locale;
-      if (saved && supportedLocales.includes(saved)) {
-        locale = saved;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  await dynamicActivate(locale ?? detectLocale());
+export async function activateDetectedLocale(savedLocale?: string | null) {
+  const locale =
+    savedLocale && supportedLocales.includes(savedLocale) ? savedLocale : detectLocale();
+  await dynamicActivate(locale);
+  void kvSet('effective_locale', locale);
 }
 
 export { i18n };

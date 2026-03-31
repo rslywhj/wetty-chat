@@ -1,7 +1,7 @@
 import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import connectionReducer from './connectionSlice';
 import messagesReducer from './messagesSlice';
-import settingsReducer from './settingsSlice';
+import settingsReducer, { type SettingsState } from './settingsSlice';
 import chatsReducer, {
   projectChatMessageAdded,
   projectChatMessageConfirmed,
@@ -64,17 +64,42 @@ listenerMiddleware.startListening({
   },
 });
 
-export const store = configureStore({
-  reducer: {
-    connection: connectionReducer,
-    messages: messagesReducer,
-    settings: settingsReducer,
-    chats: chatsReducer,
-    user: userReducer,
+export function createStore(initialSettings?: Partial<SettingsState>) {
+  return configureStore({
+    reducer: {
+      connection: connectionReducer,
+      messages: messagesReducer,
+      settings: settingsReducer,
+      chats: chatsReducer,
+      user: userReducer,
+    },
+    preloadedState: initialSettings
+      ? { settings: { locale: null, messageFontSize: 'medium' as const, ...initialSettings } }
+      : undefined,
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(listenerMiddleware.middleware),
+  });
+}
+
+export type AppStore = ReturnType<typeof createStore>;
+export type RootState = ReturnType<AppStore['getState']>;
+export type AppDispatch = AppStore['dispatch'];
+
+/**
+ * Module-level store reference for non-React code (ws.ts, sync.ts, etc.).
+ * Set once during bootstrap via `setStoreInstance()`.
+ */
+let storeInstance: AppStore | null = null;
+
+export function setStoreInstance(s: AppStore) {
+  storeInstance = s;
+}
+
+/** @deprecated Prefer useSelector/useDispatch in React components. Use for imperative code only. */
+const store = new Proxy({} as AppStore, {
+  get(_target, prop: keyof AppStore) {
+    if (!storeInstance) throw new Error('Store not initialized yet');
+    return storeInstance[prop];
   },
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(listenerMiddleware.middleware),
 });
 
 export default store;
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;

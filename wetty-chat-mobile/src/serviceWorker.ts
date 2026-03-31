@@ -1,29 +1,27 @@
 /// <reference lib="webworker" />
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { getHighWaterMark, setHighWaterMark } from './utils/db';
 
 declare let self: ServiceWorkerGlobalScope;
 
-/** Per-chat high-water mark of the largest message ID we already notified about. */
-const notifiedHighWaterMark = new Map<string, bigint>();
-
-function updateHighWaterMark(chatId: string, messageId: string): void {
+async function updateHighWaterMarkIdb(chatId: string, messageId: string): Promise<void> {
   try {
     const id = BigInt(messageId);
-    const prev = notifiedHighWaterMark.get(chatId);
-    if (prev == null || id > prev) {
-      notifiedHighWaterMark.set(chatId, id);
+    const current = await getHighWaterMark(chatId);
+    if (current == null || id > BigInt(current)) {
+      await setHighWaterMark(chatId, messageId);
     }
   } catch {
     /* non-numeric id, ignore */
   }
 }
 
-function isAlreadyNotified(chatId: string, messageId: string): boolean {
+async function isAlreadyNotified(chatId: string, messageId: string): Promise<boolean> {
   try {
     const id = BigInt(messageId);
-    const mark = notifiedHighWaterMark.get(chatId);
-    return mark != null && id <= mark;
+    const mark = await getHighWaterMark(chatId);
+    return mark != null && id <= BigInt(mark);
   } catch {
     return false;
   }
@@ -36,7 +34,7 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'NOTIFIED') {
     const { chatId, messageId } = event.data;
     if (chatId && messageId) {
-      updateHighWaterMark(String(chatId), String(messageId));
+      event.waitUntil(updateHighWaterMarkIdb(String(chatId), String(messageId)));
     }
   }
 });
@@ -66,39 +64,40 @@ if (hasPrecachedIndex) {
 }
 
 self.addEventListener('push', (event) => {
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      const title = payload.title || 'New Message';
-      const body = payload.body;
+  if (!event.data) return;
 
-      const chatId = payload.data?.chat_id;
-      const messageId = payload.data?.message_id;
+  event.waitUntil(
+    (async () => {
+      try {
+        const payload = event.data!.json();
+        const title = payload.title || 'New Message';
+        const body = payload.body;
 
-      // Deduplicate: skip if WS (or an earlier push) already notified a newer message in this chat
-      if (chatId && messageId && isAlreadyNotified(String(chatId), String(messageId))) {
-        return;
+        const chatId = payload.data?.chat_id;
+        const messageId = payload.data?.message_id;
+
+        if (chatId && messageId && (await isAlreadyNotified(String(chatId), String(messageId)))) {
+          return;
+        }
+
+        if (chatId && messageId) {
+          await updateHighWaterMarkIdb(String(chatId), String(messageId));
+        }
+
+        const tag = messageId ? `msg_${messageId}` : undefined;
+
+        await self.registration.showNotification(title, {
+          body: body,
+          icon: '/icon/pwa-192x192.png',
+          badge: '/icon/pwa-64x64.png',
+          tag,
+          data: payload,
+        });
+      } catch (err) {
+        console.error('Failed to parse push event payload', err);
       }
-
-      if (chatId && messageId) {
-        updateHighWaterMark(String(chatId), String(messageId));
-      }
-
-      const tag = messageId ? `msg_${messageId}` : undefined;
-
-      const promiseChain = self.registration.showNotification(title, {
-        body: body,
-        icon: '/icon/pwa-192x192.png',
-        badge: '/icon/pwa-64x64.png',
-        tag,
-        data: payload,
-      });
-
-      event.waitUntil(promiseChain);
-    } catch (err) {
-      console.error('Failed to parse push event payload', err);
-    }
-  }
+    })(),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
