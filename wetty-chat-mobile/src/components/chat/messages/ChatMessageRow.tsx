@@ -125,7 +125,13 @@ export function ChatMessageRow({
       currentUserUid={typeof currentUserId === 'number' ? currentUserId : null}
       onMentionClick={(uid) => {
         const mention = msg.mentions?.find((m) => m.uid === uid);
-        onAvatarClick({ uid, name: mention?.username ?? null, gender: 0 });
+        onAvatarClick({
+          uid,
+          name: mention?.username ?? null,
+          avatarUrl: mention?.avatarUrl,
+          gender: mention?.gender ?? 0,
+          userGroup: mention?.userGroup,
+        });
       }}
     />
   );

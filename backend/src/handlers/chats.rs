@@ -28,7 +28,8 @@ use crate::{
         MessageType,
         Sender,
         Sticker,
-        ThreadInfo, //
+        ThreadInfo,
+        UserGroupInfo, //
     },
     schema::{
         attachments,
@@ -57,6 +58,10 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct MentionInfo {
     pub uid: i32,
     pub username: Option<String>,
+    pub avatar_url: Option<String>,
+    pub gender: i16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_group: Option<UserGroupInfo>,
 }
 
 /// Extract `@[uid:<N>]` tokens from a message string.
@@ -441,6 +446,8 @@ pub struct ReplyToMessage {
     is_deleted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     first_attachment_kind: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    mentions: Vec<MentionInfo>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -830,6 +837,21 @@ fn build_sender(
     }
 }
 
+fn build_mention_info(
+    uid: i32,
+    user_avatars: &std::collections::HashMap<i32, Option<String>>,
+    user_profiles: &std::collections::HashMap<i32, UserProfile>,
+) -> MentionInfo {
+    let profile = user_profiles.get(&uid);
+    MentionInfo {
+        uid,
+        username: profile.and_then(|p| p.username.clone()),
+        avatar_url: user_avatars.get(&uid).cloned().flatten(),
+        gender: profile.map(|p| p.gender).unwrap_or(0),
+        user_group: profile.and_then(|p| p.user_group.clone()),
+    }
+}
+
 fn first_attachment_kind(
     message_attachments_map: &std::collections::HashMap<i64, Vec<Attachment>>,
     message_id: i64,
@@ -863,8 +885,8 @@ pub async fn attach_metadata(
         avatar_uids.insert(reply_msg.sender_uid);
     }
     let target_uids: Vec<i32> = avatar_uids.into_iter().collect();
-    let user_avatars = lookup_user_avatars(state, &target_uids);
-    let user_profiles = lookup_user_profiles(conn, &target_uids).unwrap_or_default();
+    let mut user_avatars = lookup_user_avatars(state, &target_uids);
+    let mut user_profiles = lookup_user_profiles(conn, &target_uids).unwrap_or_default();
 
     let mut message_attachments_map: std::collections::HashMap<i64, Vec<Attachment>> =
         std::collections::HashMap::new();
@@ -1025,7 +1047,8 @@ pub async fn attach_metadata(
     }
 
     // --- Mentions ---
-    // Collect all mentioned UIDs across all messages so we can batch-resolve profiles.
+    // Collect all mentioned UIDs across all messages (and their reply messages)
+    // so we can batch-resolve profiles.
     let mut all_mentioned_uids = std::collections::HashSet::new();
     let mut per_message_mentions: Vec<Vec<i32>> = Vec::with_capacity(messages_to_process.len());
     for m in &messages_to_process {
@@ -1041,17 +1064,26 @@ pub async fn attach_metadata(
         }
         per_message_mentions.push(Vec::new());
     }
-    // Resolve profiles for mentioned UIDs not already loaded
+    // Also collect mention UIDs from reply-to messages.
+    for reply_msg in reply_messages_map.values() {
+        if reply_msg.deleted_at.is_none() {
+            if let Some(ref text) = reply_msg.message {
+                for uid in extract_mention_uids(text) {
+                    all_mentioned_uids.insert(uid);
+                }
+            }
+        }
+    }
+    // Resolve profiles and avatars for mentioned UIDs not already loaded
     let extra_mention_uids: Vec<i32> = all_mentioned_uids
         .iter()
         .copied()
         .filter(|uid| !user_profiles.contains_key(uid))
         .collect();
-    let mention_profiles = if extra_mention_uids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        lookup_user_profiles(conn, &extra_mention_uids).unwrap_or_default()
-    };
+    if !extra_mention_uids.is_empty() {
+        user_profiles.extend(lookup_user_profiles(conn, &extra_mention_uids).unwrap_or_default());
+        user_avatars.extend(lookup_user_avatars(state, &extra_mention_uids));
+    }
 
     let mut responses = Vec::with_capacity(messages_to_process.len());
     for (idx, m) in messages_to_process.into_iter().enumerate() {
@@ -1094,6 +1126,23 @@ pub async fn attach_metadata(
                         &message_attachments_map,
                         reply_msg.id,
                     ),
+                    mentions: reply_msg
+                        .message
+                        .as_deref()
+                        .filter(|_| reply_msg.deleted_at.is_none())
+                        .map(|text| {
+                            extract_mention_uids(text)
+                                .into_iter()
+                                .map(|uid| {
+                                    build_mention_info(
+                                        uid,
+                                        &user_avatars,
+                                        &user_profiles,
+                                    )
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
                 })
             })
         });
@@ -1152,13 +1201,7 @@ pub async fn attach_metadata(
             mentions: {
                 per_message_mentions[idx]
                     .iter()
-                    .map(|&uid| {
-                        let username = user_profiles
-                            .get(&uid)
-                            .or_else(|| mention_profiles.get(&uid))
-                            .and_then(|p| p.username.clone());
-                        MentionInfo { uid, username }
-                    })
+                    .map(|&uid| build_mention_info(uid, &user_avatars, &user_profiles))
                     .collect()
             },
         });
@@ -1670,6 +1713,7 @@ mod tests {
             },
             is_deleted: false,
             first_attachment_kind: Some("audio/webm".to_string()),
+            mentions: Vec::new(),
         };
 
         let value = serde_json::to_value(reply).expect("serialize reply_to_message");

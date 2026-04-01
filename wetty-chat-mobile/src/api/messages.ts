@@ -26,6 +26,7 @@ export interface ReplyToMessage {
   isDeleted: boolean;
   attachments?: Attachment[];
   firstAttachmentKind?: string;
+  mentions?: MentionInfo[];
 }
 
 export interface Attachment {
@@ -58,6 +59,9 @@ export interface ReactionSummary {
 export interface MentionInfo {
   uid: number;
   username: string | null;
+  avatarUrl?: string;
+  gender: number;
+  userGroup?: UserGroupInfo | null;
 }
 
 export interface ReactionDetailResponse {
