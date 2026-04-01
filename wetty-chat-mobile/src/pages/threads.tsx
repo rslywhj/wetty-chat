@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   IonContent,
   IonHeader,
+  IonList,
   IonPage,
   IonRefresher,
   IonRefresherContent,
@@ -122,11 +123,11 @@ export function ThreadsListCore({ onThreadSelect }: ThreadsListCoreProps) {
       <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
         <IonRefresherContent />
       </IonRefresher>
-      <div>
+      <IonList>
         {threads.map((thread) => (
           <ThreadListRow key={thread.threadRootMessage.id} thread={thread} locale={locale} onSelect={onThreadSelect} />
         ))}
-      </div>
+      </IonList>
       {isLoadingMore && (
         <div className={styles.loadingMore}>
           <IonSpinner name="dots" />
