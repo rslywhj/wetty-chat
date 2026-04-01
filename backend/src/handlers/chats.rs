@@ -1598,6 +1598,24 @@ async fn post_thread_message(
         }
     }
 
+    // Auto-subscribe mentioned users to this thread
+    if let Some(ref text) = response.message {
+        for mentioned_uid in extract_mention_uids(text) {
+            if mentioned_uid != uid {
+                if let Err(e) = crate::services::threads::ensure_thread_subscription(
+                    conn,
+                    chat_id,
+                    thread_id,
+                    mentioned_uid,
+                ) {
+                    tracing::warn!(
+                        "auto-subscribe mentioned user {mentioned_uid} to thread: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
     // Mark the root message as having a thread
     let root_msg_updated: Option<Message> =
         diesel::update(messages::table.filter(dsl::id.eq(thread_id)))
