@@ -324,6 +324,28 @@ pub struct MessageReaction {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Queryable, Selectable, Serialize)]
+#[diesel(table_name = schema::pinned_messages)]
+pub struct PinnedMessage {
+    pub id: i64,
+    pub chat_id: i64,
+    pub message_id: i64,
+    pub pinned_by: i32,
+    pub pinned_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = schema::pinned_messages)]
+pub struct NewPinnedMessage {
+    pub id: i64,
+    pub chat_id: i64,
+    pub message_id: i64,
+    pub pinned_by: i32,
+    pub pinned_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::MessageType;

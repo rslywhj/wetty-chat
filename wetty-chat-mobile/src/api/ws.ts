@@ -4,6 +4,8 @@ import type { MessageResponse, ReactionSummary } from '@/api/messages';
 import { setActiveConnections, setWsConnected } from '@/store/connectionSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
 import { updateThreadFromWs, setThreadsList, type ThreadUpdatePayload } from '@/store/threadsSlice';
+import { addPin, removePin } from '@/store/pinsSlice';
+import type { PinResponse } from '@/api/pins';
 import { getThreads } from '@/api/threads';
 import store from '@/store/index';
 import { messageAdded, messageConfirmed, messagePatched, reactionsUpdated } from '@/store/messageEvents';
@@ -117,6 +119,7 @@ function showLocalNotification(message: MessageResponse): void {
   const currentUid = store.getState().user.uid;
   if (currentUid != null && message.sender.uid === currentUid) return;
   if (message.isDeleted) return;
+  if (message.messageType === 'system') return;
 
   // Skip local notification for thread replies if user is not subscribed
   if (message.replyRootId) {
@@ -355,6 +358,22 @@ async function connectWebSocket(): Promise<void> {
         if (message.type === 'presenceUpdate' && message.payload != null) {
           const payload = message.payload as { activeConnections: number };
           store.dispatch(setActiveConnections(payload.activeConnections));
+          return;
+        }
+
+        if (message.type === 'pinAdded' && message.payload != null) {
+          const payload = message.payload as { pin?: PinResponse };
+          if (payload.pin) {
+            store.dispatch(addPin(payload.pin));
+          }
+          return;
+        }
+
+        if (message.type === 'pinRemoved' && message.payload != null) {
+          const payload = message.payload as { chatId: string; pinId: string };
+          if (payload.chatId && payload.pinId) {
+            store.dispatch(removePin({ chatId: payload.chatId, pinId: payload.pinId }));
+          }
           return;
         }
 

@@ -515,6 +515,7 @@ pub(crate) async fn send_prepared_message(
         })?;
 
     let now = Utc::now();
+    let is_system_message = matches!(prepared.message_type, MessageType::System);
 
     let new_msg = NewMessage {
         id,
@@ -598,44 +599,46 @@ pub(crate) async fn send_prepared_message(
     ));
     state.ws_registry.broadcast_to_uids(&member_uids, ws_msg);
 
-    let sender_username = load_username_by_uid(conn, prepared.sender_uid)
-        .map_err(|e| {
-            tracing::error!("load sender username: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
-        })?
-        .unwrap_or_else(|| "Someone".to_string());
-    let chat_name = groups::table
-        .filter(groups::dsl::id.eq(prepared.chat_id))
-        .select(groups::dsl::name)
-        .first::<String>(conn)
-        .unwrap_or_else(|_| "Chat".to_string());
-    let mentioned_uids = response
-        .message
-        .as_deref()
-        .map(extract_mention_uids)
-        .unwrap_or_default();
-    state.push_service.enqueue(PushJob {
-        chat_id: prepared.chat_id,
-        sender_uid: prepared.sender_uid,
-        sender_username,
-        chat_name,
-        message_preview: push_message_preview_from_response(&response),
-        legacy_message_preview: prepared.push_preview_override.or_else(|| {
-            response
-                .message
-                .as_deref()
-                .map(|text| render_mentions_as_text(text, &response.mentions))
-                .or_else(|| {
-                    response
-                        .sticker
-                        .as_ref()
-                        .map(|sticker| sticker_preview_text(Some(&sticker.emoji)))
-                })
-        }),
-        message_id: response.id,
-        thread_root_id: response.reply_root_id,
-        mentioned_uids,
-    });
+    if !is_system_message {
+        let sender_username = load_username_by_uid(conn, prepared.sender_uid)
+            .map_err(|e| {
+                tracing::error!("load sender username: {:?}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+            })?
+            .unwrap_or_else(|| "Someone".to_string());
+        let chat_name = groups::table
+            .filter(groups::dsl::id.eq(prepared.chat_id))
+            .select(groups::dsl::name)
+            .first::<String>(conn)
+            .unwrap_or_else(|_| "Chat".to_string());
+        let mentioned_uids = response
+            .message
+            .as_deref()
+            .map(extract_mention_uids)
+            .unwrap_or_default();
+        state.push_service.enqueue(PushJob {
+            chat_id: prepared.chat_id,
+            sender_uid: prepared.sender_uid,
+            sender_username,
+            chat_name,
+            message_preview: push_message_preview_from_response(&response),
+            legacy_message_preview: prepared.push_preview_override.or_else(|| {
+                response
+                    .message
+                    .as_deref()
+                    .map(|text| render_mentions_as_text(text, &response.mentions))
+                    .or_else(|| {
+                        response
+                            .sticker
+                            .as_ref()
+                            .map(|sticker| sticker_preview_text(Some(&sticker.emoji)))
+                    })
+            }),
+            message_id: response.id,
+            thread_root_id: response.reply_root_id,
+            mentioned_uids,
+        });
+    }
 
     Ok(SendMessageResult {
         response,
@@ -2565,6 +2568,7 @@ pub fn router() -> Router<crate::AppState> {
                 .nest(
                     "/threads/{thread_root_id}",
                     super::threads::subscribe_router(),
-                ),
+                )
+                .nest("/pins", super::pins::router()),
         )
 }

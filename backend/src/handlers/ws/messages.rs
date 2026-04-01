@@ -1,4 +1,5 @@
 use crate::handlers::chats::{MessageResponse, ReactionSummary};
+use crate::handlers::pins::PinResponse;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
@@ -11,6 +12,8 @@ pub enum ServerWsMessage {
     ReactionUpdated(ReactionUpdatePayload),
     PresenceUpdate(PresenceUpdatePayload),
     ThreadUpdate(ThreadUpdatePayload),
+    PinAdded(PinUpdatePayload),
+    PinRemoved(PinUpdatePayload),
 }
 
 impl ServerWsMessage {
@@ -22,6 +25,8 @@ impl ServerWsMessage {
             Self::ReactionUpdated(_) => "reactionUpdated",
             Self::PresenceUpdate(_) => "presenceUpdate",
             Self::ThreadUpdate(_) => "threadUpdate",
+            Self::PinAdded(_) => "pinAdded",
+            Self::PinRemoved(_) => "pinRemoved",
         }
     }
 }
@@ -51,6 +56,19 @@ pub struct ThreadUpdatePayload {
     pub chat_id: i64,
     pub last_reply_at: DateTime<Utc>,
     pub reply_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinUpdatePayload {
+    #[serde(with = "crate::serde_i64_string")]
+    pub chat_id: i64,
+    #[serde(with = "crate::serde_i64_string")]
+    pub pin_id: i64,
+    #[serde(with = "crate::serde_i64_string")]
+    pub message_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pin: Option<PinResponse>,
 }
 
 #[cfg(test)]

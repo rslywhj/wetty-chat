@@ -3,6 +3,7 @@ pub mod chats;
 pub mod groups;
 pub mod invites;
 pub mod members;
+pub mod pins;
 pub mod push;
 pub mod stickers;
 pub mod threads;

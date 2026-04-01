@@ -8,6 +8,7 @@ import chatsReducer, {
   projectChatMessageConfirmed,
   projectChatMessagePatched,
 } from './chatsSlice';
+import pinsReducer from './pinsSlice';
 import userReducer from './userSlice';
 import { messageAdded, messageConfirmed, messagePatched } from './messageEvents';
 import { findLatestEligibleRootMessage, isOptimisticMessageId } from './messageProjection';
@@ -103,6 +104,7 @@ export function createStore(initialSettings?: Partial<SettingsState>) {
       settings: settingsReducer,
       chats: chatsReducer,
       threads: threadsReducer,
+      pins: pinsReducer,
       user: userReducer,
     },
     preloadedState: initialSettings

@@ -7,9 +7,9 @@ use discuz::discuz::{common_member, common_usergroup};
 use discuz_manual::discuz::common_member_profile;
 pub use primary::{
     activity_daily_metrics, attachments, clients, group_membership, groups, invites, media,
-    message_reactions, messages, push_subscriptions, sql_types, sticker_pack_stickers,
-    sticker_packs, stickers, thread_subscriptions, user_extra, user_favorite_stickers,
-    user_sticker_pack_subscriptions, usergroup_extra,
+    message_reactions, messages, pinned_messages, push_subscriptions, sql_types,
+    sticker_pack_stickers, sticker_packs, stickers, thread_subscriptions, user_extra,
+    user_favorite_stickers, user_sticker_pack_subscriptions, usergroup_extra,
 };
 
 diesel::allow_tables_to_appear_in_same_query!(group_membership, common_member);

@@ -144,6 +144,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    pinned_messages (id) {
+        id -> Int8,
+        chat_id -> Int8,
+        message_id -> Int8,
+        pinned_by -> Int4,
+        pinned_at -> Timestamptz,
+        expires_at -> Nullable<Timestamptz>,
+    }
+}
+
+diesel::table! {
     message_reactions (message_id, user_uid, emoji) {
         message_id -> Int8,
         user_uid -> Int4,
@@ -270,6 +281,8 @@ diesel::joinable!(attachments -> messages (message_id));
 diesel::joinable!(group_membership -> groups (chat_id));
 diesel::joinable!(groups -> media (avatar_image_id));
 diesel::joinable!(message_reactions -> messages (message_id));
+diesel::joinable!(pinned_messages -> groups (chat_id));
+diesel::joinable!(pinned_messages -> messages (message_id));
 diesel::joinable!(messages -> stickers (sticker_id));
 diesel::joinable!(sticker_pack_stickers -> sticker_packs (pack_id));
 diesel::joinable!(sticker_pack_stickers -> stickers (sticker_id));
@@ -289,6 +302,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     media,
     message_reactions,
     messages,
+    pinned_messages,
     push_subscriptions,
     sticker_pack_stickers,
     sticker_packs,

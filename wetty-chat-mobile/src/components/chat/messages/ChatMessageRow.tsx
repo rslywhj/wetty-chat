@@ -54,7 +54,7 @@ export function ChatMessageRow({
   const msg = row.message;
   const replyToMessage = msg.replyToMessage;
   if (isSystemMessage(msg)) {
-    return <SystemMessage message={msg.isDeleted ? t`[Deleted]` : (msg.message ?? '')} />;
+    return <SystemMessage senderName={msg.sender.name} message={msg.isDeleted ? t`[Deleted]` : (msg.message ?? '')} />;
   }
 
   if (isInviteMessage(msg)) {

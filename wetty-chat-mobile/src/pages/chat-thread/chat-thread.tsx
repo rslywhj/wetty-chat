@@ -27,6 +27,8 @@ import {
   linkOutline,
   notifications,
   people,
+  pin as pinIcon,
+  pinOutline,
   trashOutline,
 } from 'ionicons/icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -102,6 +104,10 @@ import {
   unsubscribeFromThread,
 } from '@/api/threads';
 import { markThreadRead as markThreadReadAction, removeThread } from '@/store/threadsSlice';
+import { listPins, createPin, deletePin } from '@/api/pins';
+import { setPins, selectPinsForChat, selectPinsLoaded } from '@/store/pinsSlice';
+import { PinBanner } from '@/components/chat/PinBanner';
+import { PinListModal } from '@/components/chat/PinListModal';
 
 const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -269,6 +275,18 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       setThreadSubLoading(false);
     }
   }, [chatId, threadId, threadSubscribed, dispatch]);
+
+  // Pinned messages state (main chat only)
+  const pins = useSelector((state: RootState) => selectPinsForChat(state, chatId));
+  const pinsLoaded = useSelector((state: RootState) => selectPinsLoaded(state, chatId));
+  const [pinListOpen, setPinListOpen] = useState(false);
+
+  useEffect(() => {
+    if (threadId || pinsLoaded) return;
+    listPins(chatId)
+      .then((res) => dispatch(setPins({ chatId, pins: res.data.pins })))
+      .catch(() => {});
+  }, [chatId, threadId, pinsLoaded, dispatch]);
 
   const [atBottom, setAtBottom] = useState(() => threadId || initialResumeRequest == null);
   const [replyingTo, setReplyingTo] = useState<MessageResponse | null>(null);
@@ -1401,6 +1419,25 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         },
       });
     }
+    if (!threadId && !msg.isDeleted) {
+      const existingPin = pins.find((p) => p.message.id === msg.id);
+      actions.push({
+        key: 'pin',
+        label: existingPin ? t`Unpin` : t`Pin`,
+        icon: existingPin ? pinIcon : pinOutline,
+        handler: () => {
+          if (existingPin) {
+            deletePin(chatId, existingPin.id).catch((e: any) => {
+              showToast(e.message || t`Failed to unpin message`);
+            });
+          } else {
+            createPin(chatId, msg.id).catch((e: any) => {
+              showToast(e.message || t`Failed to pin message`);
+            });
+          }
+        },
+      });
+    }
     if (msg.reactions?.length) {
       actions.push({
         key: 'reaction-details',
@@ -1421,6 +1458,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     isAdmin,
     threadId,
     chatId,
+    pins,
     history,
     dispatch,
     showToast,
@@ -1490,6 +1528,14 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           </IonToolbar>
         </IonHeader>
 
+        {!threadId && (
+          <PinBanner
+            chatId={chatId}
+            onClickPin={jumpToMessage}
+            onClickThread={(messageId) => history.push(`/chats/chat/${chatId}/thread/${messageId}`)}
+            onClickCounter={() => setPinListOpen(true)}
+          />
+        )}
         <IonContent className="chat-thread-content" scrollX={false} scrollY={false}>
           <ChatVirtualScroll
             key={storeChatId}
@@ -1558,6 +1604,13 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           onDismiss={() => setReactionDetail(null)}
         />
         <StickerPreviewModal stickerId={stickerPreviewId} onDismiss={() => setStickerPreviewId(null)} />
+        <PinListModal
+          chatId={chatId}
+          isOpen={pinListOpen}
+          onDismiss={() => setPinListOpen(false)}
+          onSelectPin={jumpToMessage}
+          onSelectThread={(messageId) => history.push(`/chats/chat/${chatId}/thread/${messageId}`)}
+        />
         {overlayMessage &&
           (() => {
             const msg = overlayMessage.message;
