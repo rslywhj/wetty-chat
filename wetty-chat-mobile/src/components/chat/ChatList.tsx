@@ -14,7 +14,7 @@ import {
   type RefresherEventDetail,
 } from '@ionic/react';
 import { useDispatch, useSelector } from 'react-redux';
-import { checkmarkDone, mailUnreadOutline, notificationsOffOutline } from 'ionicons/icons';
+import { chatbubbleEllipses, checkmarkDone, mailUnreadOutline, notificationsOffOutline } from 'ionicons/icons';
 import { type ChatListEntry, getChats } from '@/api/chats';
 import { selectAllChats, setChatLastReadMessageId, setChatsList, setChatUnreadCount } from '@/store/chatsSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
@@ -27,6 +27,13 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { formatMessagePreview, getNotificationPreviewLabels } from '@/utils/messagePreview';
 import { buildChatThreadRouteState, type ChatThreadRouteState } from '@/types/chatThreadNavigation';
 import { CHAT_LIST_REFRESH_MIN_DURATION_MS } from '@/constants/chatTiming';
+import { getThreads } from '@/api/threads';
+import {
+  selectShouldShowThreadsRow,
+  selectThreadsLoaded,
+  selectTotalUnreadThreadCount,
+  setThreadsList,
+} from '@/store/threadsSlice';
 import styles from './ChatList.module.scss';
 
 function formatLastActivity(isoString: string | null, locale: string): string {
@@ -87,13 +94,18 @@ function getMessagePreview(message: MessageResponse | null, locale: string): Rea
 
 interface ChatListProps {
   activeChatId?: string;
+  isThreadsActive?: boolean;
   onChatSelect: (chatId: string, routeState?: ChatThreadRouteState) => void;
+  onThreadsSelect?: () => void;
 }
 
-export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
+export function ChatList({ activeChatId, isThreadsActive, onChatSelect, onThreadsSelect }: ChatListProps) {
   const dispatch = useDispatch();
   const locale = useSelector(selectEffectiveLocale);
   const chats = useSelector(selectAllChats);
+  const showThreadsRow = useSelector(selectShouldShowThreadsRow);
+  const threadsLoaded = useSelector(selectThreadsLoaded);
+  const unreadThreadCount = useSelector(selectTotalUnreadThreadCount);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +126,14 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       .finally(() => setLoading(false));
     void updateAppBadge();
   }, [dispatch, updateAppBadge]);
+
+  useEffect(() => {
+    if (!threadsLoaded) {
+      void getThreads({ limit: 1 }).then((res) => {
+        dispatch(setThreadsList({ threads: res.data.threads, nextCursor: res.data.nextCursor }));
+      });
+    }
+  }, [threadsLoaded, dispatch]);
 
   const handleToggleRead = async (chat: ChatListEntry, slidingItem: HTMLIonItemSlidingElement | null) => {
     slidingItem?.close();
@@ -190,6 +210,39 @@ export function ChatList({ activeChatId, onChatSelect }: ChatListProps) {
       )}
       {!loading && !error && (
         <IonList>
+          {showThreadsRow && onThreadsSelect && (
+            <IonItem
+              button
+              detail={false}
+              onClick={onThreadsSelect}
+              className={`${styles.chatListItem} ${isThreadsActive ? styles.active : ''}`}
+            >
+              <span slot="start">
+                <span className={styles.threadsRowIcon}>
+                  <IonIcon icon={chatbubbleEllipses} />
+                </span>
+              </span>
+              <IonLabel className={styles.chatsListLabel}>
+                <h2 className={styles.chatsListTitle}>
+                  <span className={styles.chatsListTitleText}>
+                    <Trans>Threads</Trans>
+                  </span>
+                </h2>
+                <p className={styles.chatsListPreview}>
+                  {unreadThreadCount > 0 ? <Trans>Thread conversations</Trans> : <Trans>No new replies</Trans>}
+                </p>
+              </IonLabel>
+              <div slot="end" className={styles.chatsListEndSlot}>
+                <div className={styles.chatsListBadge}>
+                  {unreadThreadCount > 0 && (
+                    <IonBadge mode="ios" color="primary">
+                      {unreadThreadCount > 99 ? '99+' : unreadThreadCount}
+                    </IonBadge>
+                  )}
+                </div>
+              </div>
+            </IonItem>
+          )}
           {chats.length === 0 && (
             <IonItem>
               <IonLabel>

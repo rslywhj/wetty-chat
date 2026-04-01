@@ -47,6 +47,7 @@ export default function Chats() {
             state: routeState,
           })
         }
+        onThreadsSelect={() => history.push('/chats/threads')}
       />
     </IonPage>
   );

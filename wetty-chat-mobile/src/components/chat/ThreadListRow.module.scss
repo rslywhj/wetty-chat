@@ -1,20 +1,33 @@
 .threadRow {
-  padding: 10px 16px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--ion-item-border-color, var(--ion-border-color, var(--ion-color-step-150, #c8c7cc)));
-  transition: background-color 0.15s;
+  color: inherit;
+}
 
-  &:hover {
-    background: var(--ion-color-step-50);
+.threadRowInner {
+  padding: 10px 0;
+  width: 100%;
+}
+
+.active {
+  color: var(--ion-color-primary-contrast);
+  --background: var(--ion-color-primary);
+
+  .headerLeft,
+  .headerTime,
+  .repliedTo,
+  .repliedToLabel,
+  .participants,
+  .latestReply,
+  .latestReplySender {
+    color: var(--ion-color-primary-contrast);
   }
 
-  &:active {
-    background: var(--ion-color-step-100);
+  .headerTime {
+    color: rgba(var(--ion-color-primary-contrast-rgb), 0.8);
   }
 }
 
 .unread {
-  background: rgba(var(--ion-color-primary-rgb), 0.04);
+  --background: rgba(var(--ion-color-primary-rgb), 0.04);
 
   .participants {
     font-weight: 600;

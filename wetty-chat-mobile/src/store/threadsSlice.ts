@@ -103,5 +103,7 @@ export const selectThreads = (state: RootState) => state.threads.items;
 export const selectThreadsLoaded = (state: RootState) => state.threads.isLoaded;
 export const selectThreadsNextCursor = (state: RootState) => state.threads.nextCursor;
 export const selectTotalUnreadThreadCount = (state: RootState) => state.threads.totalUnreadCount;
+export const selectShouldShowThreadsRow = (state: RootState) =>
+  state.threads.totalUnreadCount > 0 || (state.threads.isLoaded && state.threads.items.length > 0);
 
 export default threadsSlice.reducer;

@@ -1,19 +1,8 @@
 import { type ReactNode, useCallback, useRef, useState } from 'react';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import { Trans } from '@lingui/react/macro';
-import {
-  IonBadge,
-  IonButton,
-  IonButtons,
-  IonHeader,
-  IonIcon,
-  IonModal,
-  IonSegment,
-  IonSegmentButton,
-  IonToolbar,
-} from '@ionic/react';
-import { addCircleOutline, settings } from 'ionicons/icons';
+import { IonButton, IonButtons, IonHeader, IonIcon, IonModal, IonTitle, IonToolbar } from '@ionic/react';
+import { addCircleOutline, arrowBack, settings } from 'ionicons/icons';
 import { ChatList } from '@/components/chat/ChatList';
 import { ThreadsListCore } from '@/pages/threads';
 import ChatThreadCore from '@/pages/chat-thread/chat-thread';
@@ -33,8 +22,6 @@ import type { ChatThreadRouteState } from '@/types/chatThreadNavigation';
 import styles from './DesktopSplitLayout.module.scss';
 import { HeaderActionMenu, type HeaderActionMenuItem } from '@/components/HeaderActionMenu';
 import { useFeatureGate } from '@/hooks/useFeatureGate';
-import { selectTotalUnreadThreadCount } from '@/store/threadsSlice';
-import { selectTotalUnreadChatCount } from '@/store/chatsSlice';
 
 type DesktopRouteState = ChatThreadRouteState;
 
@@ -179,8 +166,6 @@ export function DesktopSplitLayout() {
   const history = useHistory();
   const location = useLocation<DesktopRouteState | undefined>();
   const isFeatureGateEnabled = useFeatureGate();
-  const unreadThreadCount = useSelector(selectTotalUnreadThreadCount);
-  const unreadChatCount = useSelector(selectTotalUnreadChatCount);
   const [sidebarView, setSidebarView] = useState<SidebarView>('chats');
   const skipNextGlobalSettingsDismiss = useRef(false);
   const headerActions: HeaderActionMenuItem[] = [
@@ -292,7 +277,10 @@ export function DesktopSplitLayout() {
         key={threadId}
         chatId={id}
         threadId={threadId}
-        backAction={{ type: 'callback', onBack: () => history.go(-1) }}
+        backAction={{
+          type: 'callback',
+          onBack: () => history.replace(`/chats/chat/${id}`),
+        }}
       />
     );
   }
@@ -300,44 +288,46 @@ export function DesktopSplitLayout() {
   return (
     <div className={styles.desktopSplitLayout}>
       <div className={styles.desktopSplitLeft}>
-        <IonHeader>
-          <IonToolbar>
-            <IonButtons slot="start">
-              <IonButton onClick={openSettingsModal} aria-label="Open settings">
-                <IonIcon slot="icon-only" icon={settings} />
-              </IonButton>
-            </IonButtons>
-            <IonSegment value={sidebarView} onIonChange={(e) => setSidebarView(e.detail.value as SidebarView)}>
-              <IonSegmentButton value="chats">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Trans>Chats</Trans>
-                  {unreadChatCount > 0 && (
-                    <IonBadge color="primary">{unreadChatCount > 99 ? '99+' : unreadChatCount}</IonBadge>
-                  )}
-                </span>
-              </IonSegmentButton>
-              <IonSegmentButton value="threads">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Trans>Threads</Trans>
-                  {unreadThreadCount > 0 && (
-                    <IonBadge color="primary">{unreadThreadCount > 99 ? '99+' : unreadThreadCount}</IonBadge>
-                  )}
-                </span>
-              </IonSegmentButton>
-            </IonSegment>
-            <IonButtons slot="end">
-              {sidebarView === 'chats' ? (
-                <HeaderActionMenu icon={addCircleOutline} actions={headerActions} />
-              ) : (
-                <span style={{ width: 48 }} />
-              )}
-            </IonButtons>
-          </IonToolbar>
-        </IonHeader>
         {sidebarView === 'chats' ? (
-          <ChatList activeChatId={activeChatId} onChatSelect={handleChatSelect} />
+          <>
+            <IonHeader>
+              <IonToolbar>
+                <IonButtons slot="start">
+                  <IonButton onClick={openSettingsModal} aria-label="Open settings">
+                    <IonIcon slot="icon-only" icon={settings} />
+                  </IonButton>
+                </IonButtons>
+                <IonTitle>
+                  <Trans>Chats</Trans>
+                </IonTitle>
+                <IonButtons slot="end">
+                  <HeaderActionMenu icon={addCircleOutline} actions={headerActions} />
+                </IonButtons>
+              </IonToolbar>
+            </IonHeader>
+            <ChatList
+              activeChatId={threadMatch ? undefined : activeChatId}
+              isThreadsActive={!!threadMatch}
+              onChatSelect={handleChatSelect}
+              onThreadsSelect={() => setSidebarView('threads')}
+            />
+          </>
         ) : (
-          <ThreadsListCore onThreadSelect={handleThreadSelect} />
+          <>
+            <IonHeader>
+              <IonToolbar>
+                <IonButtons slot="start">
+                  <IonButton onClick={() => setSidebarView('chats')} aria-label="Back to chats">
+                    <IonIcon slot="icon-only" icon={arrowBack} />
+                  </IonButton>
+                </IonButtons>
+                <IonTitle>
+                  <Trans>Threads</Trans>
+                </IonTitle>
+              </IonToolbar>
+            </IonHeader>
+            <ThreadsListCore activeThreadId={threadMatch?.threadId} onThreadSelect={handleThreadSelect} />
+          </>
         )}
       </div>
       <div className={styles.desktopSplitRight}>

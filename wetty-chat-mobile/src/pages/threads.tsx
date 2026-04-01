@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  IonButtons,
   IonContent,
   IonHeader,
   IonList,
@@ -23,14 +24,16 @@ import {
 } from '@/store/threadsSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
 import { TitleWithConnectionStatus } from '@/components/TitleWithConnectionStatus';
+import { BackButton } from '@/components/BackButton';
 import { ThreadListRow } from '@/components/chat/ThreadListRow';
 import styles from './threads.module.scss';
 
 interface ThreadsListCoreProps {
+  activeThreadId?: string;
   onThreadSelect: (chatId: string, threadRootId: string) => void;
 }
 
-export function ThreadsListCore({ onThreadSelect }: ThreadsListCoreProps) {
+export function ThreadsListCore({ activeThreadId, onThreadSelect }: ThreadsListCoreProps) {
   const dispatch = useDispatch();
   const threads = useSelector(selectThreads);
   const isLoaded = useSelector(selectThreadsLoaded);
@@ -125,7 +128,13 @@ export function ThreadsListCore({ onThreadSelect }: ThreadsListCoreProps) {
       </IonRefresher>
       <IonList>
         {threads.map((thread) => (
-          <ThreadListRow key={thread.threadRootMessage.id} thread={thread} locale={locale} onSelect={onThreadSelect} />
+          <ThreadListRow
+            key={thread.threadRootMessage.id}
+            thread={thread}
+            locale={locale}
+            isActive={activeThreadId === thread.threadRootMessage.id}
+            onSelect={onThreadSelect}
+          />
         ))}
       </IonList>
       {isLoadingMore && (
@@ -151,6 +160,9 @@ export default function ThreadsPage() {
     <IonPage>
       <IonHeader>
         <IonToolbar>
+          <IonButtons slot="start">
+            <BackButton action={{ type: 'back', defaultHref: '/chats' }} />
+          </IonButtons>
           <TitleWithConnectionStatus>
             <Trans>Threads</Trans>
           </TitleWithConnectionStatus>
