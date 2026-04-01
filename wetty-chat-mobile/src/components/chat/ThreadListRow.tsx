@@ -96,8 +96,8 @@ export function ThreadListRow({ thread, locale, isActive, onSelect }: ThreadList
           <OverlayAvatar
             primaryName={thread.chatName}
             primaryAvatarUrl={thread.chatAvatar}
-            secondaryName={lastReply?.sender.name ?? null}
-            secondaryAvatarUrl={lastReply?.sender.avatarUrl}
+            secondaryName={rootMsg.sender.name ?? null}
+            secondaryAvatarUrl={rootMsg.sender.avatarUrl ?? null}
             size={40}
           />
           <div className={styles.bodyContent}>
