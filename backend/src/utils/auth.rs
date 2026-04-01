@@ -13,6 +13,7 @@ use std::fmt;
 
 pub const X_USER_ID: &str = "x-user-id";
 pub const X_CLIENT_ID: &str = "x-client-id";
+pub const X_APP_VERSION: &str = "x-app-version";
 
 #[derive(Clone, Copy, Debug)]
 pub struct CurrentUid(pub i32);

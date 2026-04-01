@@ -2,9 +2,10 @@ use axum::extract::{MatchedPath, State};
 use axum::http::{header, HeaderValue, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use dashmap::{DashMap, DashSet};
 use prometheus::{
     histogram_opts, opts, Encoder, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge,
-    Registry, TextEncoder,
+    IntGaugeVec, Registry, TextEncoder,
 };
 use std::sync::Arc;
 use std::time::Instant;
@@ -67,6 +68,9 @@ pub(crate) struct Metrics {
     activity_today_client_rebinds: IntGauge,
     activity_today_stale_clients_purged: IntGauge,
     activity_today_legacy_subscriptions_purged: IntGauge,
+    app_version_requests_total: IntCounterVec,
+    app_version_unique_clients: IntGaugeVec,
+    app_version_clients: DashMap<String, DashSet<String>>,
 }
 
 impl Metrics {
@@ -267,6 +271,22 @@ impl Metrics {
             "Today's exact legacy subscription purge count mirrored from the daily activity rollup"
         ))
         .expect("activity_today_legacy_subscriptions_purged metric should be valid");
+        let app_version_requests_total = IntCounterVec::new(
+            opts!(
+                "app_version_requests_total",
+                "Total number of HTTP requests by app version"
+            ),
+            &["version"],
+        )
+        .expect("app_version_requests_total metric should be valid");
+        let app_version_unique_clients = IntGaugeVec::new(
+            opts!(
+                "app_version_unique_clients",
+                "Number of unique client IDs observed per app version"
+            ),
+            &["version"],
+        )
+        .expect("app_version_unique_clients metric should be valid");
 
         registry
             .register(Box::new(http_requests_total.clone()))
@@ -358,6 +378,12 @@ impl Metrics {
         registry
             .register(Box::new(activity_today_legacy_subscriptions_purged.clone()))
             .expect("activity_today_legacy_subscriptions_purged registration should succeed");
+        registry
+            .register(Box::new(app_version_requests_total.clone()))
+            .expect("app_version_requests_total registration should succeed");
+        registry
+            .register(Box::new(app_version_unique_clients.clone()))
+            .expect("app_version_unique_clients registration should succeed");
 
         Self {
             registry,
@@ -391,6 +417,9 @@ impl Metrics {
             activity_today_client_rebinds,
             activity_today_stale_clients_purged,
             activity_today_legacy_subscriptions_purged,
+            app_version_requests_total,
+            app_version_unique_clients,
+            app_version_clients: DashMap::new(),
         }
     }
 
@@ -533,6 +562,23 @@ impl Metrics {
             .inc();
     }
 
+    pub(crate) fn record_app_version_request(&self, version: &str, client_id: Option<&str>) {
+        self.app_version_requests_total
+            .with_label_values(&[version])
+            .inc();
+        if let Some(cid) = client_id {
+            let set = self
+                .app_version_clients
+                .entry(version.to_owned())
+                .or_default();
+            if set.insert(cid.to_owned()) {
+                self.app_version_unique_clients
+                    .with_label_values(&[version])
+                    .set(set.len() as i64);
+            }
+        }
+    }
+
     pub(crate) fn set_activity_today(&self, snapshot: ActivityTodaySnapshot) {
         self.activity_today_active_users.set(snapshot.active_users);
         self.activity_today_new_users.set(snapshot.new_users);
@@ -649,6 +695,7 @@ mod tests {
             stale_clients_purged: 2,
             legacy_subscriptions_purged: 0,
         });
+        metrics.record_app_version_request("abc1234", Some("client-a"));
         let app = Router::new()
             .route("/metrics", get(metrics_handler))
             .with_state(metrics);
@@ -698,6 +745,8 @@ mod tests {
         assert!(body.contains("activity_today_client_rebinds"));
         assert!(body.contains("activity_today_stale_clients_purged"));
         assert!(body.contains("activity_today_legacy_subscriptions_purged"));
+        assert!(body.contains("app_version_requests_total"));
+        assert!(body.contains("app_version_unique_clients"));
     }
 
     #[tokio::test]
@@ -861,5 +910,37 @@ mod tests {
         assert!(rendered.contains("activity_today_active_clients 6"));
         assert!(rendered.contains("activity_today_new_clients 3"));
         assert!(rendered.contains("activity_today_client_rebinds 1"));
+
+        metrics.record_app_version_request("v1.0", Some("c1"));
+        metrics.record_app_version_request("v1.0", Some("c2"));
+        metrics.record_app_version_request("v2.0", None);
+        let rendered = metrics.render().expect("metrics should render");
+        assert!(rendered.contains("app_version_requests_total{version=\"v1.0\"} 2"));
+        assert!(rendered.contains("app_version_requests_total{version=\"v2.0\"} 1"));
+        assert!(rendered.contains("app_version_unique_clients{version=\"v1.0\"} 2"));
+    }
+
+    #[test]
+    fn app_version_tracks_unique_clients_per_version() {
+        let metrics = Metrics::new();
+
+        // Two requests from same client on same version — unique count stays 1
+        metrics.record_app_version_request("abc1234", Some("client-a"));
+        metrics.record_app_version_request("abc1234", Some("client-a"));
+        let rendered = metrics.render().expect("metrics should render");
+        assert!(rendered.contains("app_version_requests_total{version=\"abc1234\"} 2"));
+        assert!(rendered.contains("app_version_unique_clients{version=\"abc1234\"} 1"));
+
+        // Different client on same version — unique count becomes 2
+        metrics.record_app_version_request("abc1234", Some("client-b"));
+        let rendered = metrics.render().expect("metrics should render");
+        assert!(rendered.contains("app_version_requests_total{version=\"abc1234\"} 3"));
+        assert!(rendered.contains("app_version_unique_clients{version=\"abc1234\"} 2"));
+
+        // Request without client_id — request counter increments, unique count unchanged
+        metrics.record_app_version_request("abc1234", None);
+        let rendered = metrics.render().expect("metrics should render");
+        assert!(rendered.contains("app_version_requests_total{version=\"abc1234\"} 4"));
+        assert!(rendered.contains("app_version_unique_clients{version=\"abc1234\"} 2"));
     }
 }
