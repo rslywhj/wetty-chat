@@ -401,11 +401,15 @@ pub(super) async fn post_thread_message(
     let response = send_result.response;
     let member_uids = send_result.member_uids;
 
-    // Auto-subscribe the replying user to this thread
+    // Auto-subscribe the replying user to this thread and mark as read up to their own message
     if let Err(e) =
         crate::services::threads::ensure_thread_subscription(conn, chat_id, thread_id, uid)
     {
         tracing::warn!("auto-subscribe replier to thread: {:?}", e);
+    }
+    if let Err(e) = crate::services::threads::mark_thread_as_read(conn, thread_id, uid, response.id)
+    {
+        tracing::warn!("mark thread read for replier: {:?}", e);
     }
 
     // Auto-subscribe the root message author
