@@ -54,9 +54,15 @@ const threadsSlice = createSlice({
       state.totalUnreadCount = state.items.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
     },
     updateThreadLastReply(state, action: PayloadAction<{ threadRootId: string; lastReply: ThreadReplyPreview }>) {
-      const thread = state.items.find((t) => t.threadRootMessage.id === action.payload.threadRootId);
-      if (thread) {
+      const idx = state.items.findIndex((t) => t.threadRootMessage.id === action.payload.threadRootId);
+      if (idx >= 0) {
+        const thread = state.items[idx];
         thread.lastReply = action.payload.lastReply;
+        // Move to top so the list order reflects the newest reply
+        if (idx > 0) {
+          state.items.splice(idx, 1);
+          state.items.unshift(thread);
+        }
       }
     },
     incrementThreadUnread(state, action: PayloadAction<{ threadRootId: string }>) {

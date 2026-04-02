@@ -73,6 +73,29 @@ listenerMiddleware.startListening({
         message: action.payload.message,
       }),
     );
+
+    // Update thread list preview when the current user's own message is confirmed
+    if (action.payload.scope === 'thread' && action.payload.message.replyRootId != null) {
+      const { message } = action.payload;
+      const threadRootId = message.replyRootId!;
+      const state = api.getState() as RootState;
+      const isSubscribed = state.threads.items.some((t) => t.threadRootMessage.id === threadRootId);
+      if (isSubscribed && !message.isDeleted) {
+        api.dispatch(
+          updateThreadLastReply({
+            threadRootId,
+            lastReply: {
+              sender: { uid: message.sender.uid, name: message.sender.name, avatarUrl: message.sender.avatarUrl },
+              message: message.message,
+              messageType: message.messageType,
+              stickerEmoji: message.sticker?.emoji ?? null,
+              firstAttachmentKind: message.attachments?.[0]?.kind ?? null,
+              isDeleted: false,
+            },
+          }),
+        );
+      }
+    }
   },
 });
 
