@@ -89,6 +89,7 @@ import type { BackAction } from '@/types/back-action';
 import { requestUploadUrl, uploadFileToS3 } from '@/api/upload';
 import { syncAppBadgeCount } from '@/utils/badges';
 import { buildPermalinkUrl } from '@/utils/permalinkUrl';
+import { ChatContext } from '@/components/chat/messages/ChatContext';
 import { useIsDesktop } from '@/hooks/platformHooks';
 import { useChatRole } from '@/components/chat/permissions/useChatRole';
 import { ChatMessageRow } from '@/components/chat/messages/ChatMessageRow';
@@ -1447,156 +1448,164 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     [currentUserId, threadId, chatId, history, jumpToMessage, onClickChatItem, handleReactionToggle],
   );
 
+  const chatCtx = useMemo(() => ({ chatId, threadId, jumpToMessage }), [chatId, threadId, jumpToMessage]);
+
   return (
-    <div className="ion-page chat-thread-page">
-      <IonHeader>
-        <IonToolbar>
-          <IonButtons slot="start">{backAction && <BackButton action={backAction} />}</IonButtons>
-          <IonTitle>
-            <span className="chat-thread-title">
-              <span>{chatName}</span>
-              {isMuted && !threadId ? (
-                <IonIcon aria-hidden="true" icon={notificationsOffOutline} className="chat-thread-title__icon" />
-              ) : null}
-            </span>
-          </IonTitle>
-          <IonButtons slot="end">
-            {threadId ? (
-              threadSubscribed != null && (
-                <IonButton
-                  onClick={handleToggleThreadSubscription}
-                  disabled={threadSubLoading}
-                  color={threadSubscribed ? undefined : 'medium'}
-                >
-                  <IonIcon slot="icon-only" icon={threadSubscribed ? notifications : notificationsOffOutline} />
-                </IonButton>
-              )
-            ) : (
-              <>
-                <IonButton onClick={() => history.push(`/chats/chat/${chatId}/members`)}>
-                  <IonIcon slot="icon-only" icon={people} />
-                </IonButton>
-                <IonButton onClick={() => history.push(`/chats/chat/${chatId}/settings`)}>
-                  <IonIcon slot="icon-only" icon={informationCircleOutline} />
-                </IonButton>
-              </>
-            )}
-          </IonButtons>
-          {!wsConnected && <IonProgressBar type="indeterminate" />}
-        </IonToolbar>
-      </IonHeader>
+    <ChatContext.Provider value={chatCtx}>
+      <div className="ion-page chat-thread-page">
+        <IonHeader>
+          <IonToolbar>
+            <IonButtons slot="start">{backAction && <BackButton action={backAction} />}</IonButtons>
+            <IonTitle>
+              <span className="chat-thread-title">
+                <span>{chatName}</span>
+                {isMuted && !threadId ? (
+                  <IonIcon aria-hidden="true" icon={notificationsOffOutline} className="chat-thread-title__icon" />
+                ) : null}
+              </span>
+            </IonTitle>
+            <IonButtons slot="end">
+              {threadId ? (
+                threadSubscribed != null && (
+                  <IonButton
+                    onClick={handleToggleThreadSubscription}
+                    disabled={threadSubLoading}
+                    color={threadSubscribed ? undefined : 'medium'}
+                  >
+                    <IonIcon slot="icon-only" icon={threadSubscribed ? notifications : notificationsOffOutline} />
+                  </IonButton>
+                )
+              ) : (
+                <>
+                  <IonButton onClick={() => history.push(`/chats/chat/${chatId}/members`)}>
+                    <IonIcon slot="icon-only" icon={people} />
+                  </IonButton>
+                  <IonButton onClick={() => history.push(`/chats/chat/${chatId}/settings`)}>
+                    <IonIcon slot="icon-only" icon={informationCircleOutline} />
+                  </IonButton>
+                </>
+              )}
+            </IonButtons>
+            {!wsConnected && <IonProgressBar type="indeterminate" />}
+          </IonToolbar>
+        </IonHeader>
 
-      <IonContent className="chat-thread-content" scrollX={false} scrollY={false}>
-        <ChatVirtualScroll
-          key={storeChatId}
-          rows={chatRows}
-          renderRow={renderRow}
-          initialAnchor={initialAnchor}
-          loadOlder={{ hasMore: nextCursor != null, loading: loadingMore, onLoad: loadMore }}
-          loadNewer={prevCursor != null ? { hasMore: true, loading: loadingNewer, onLoad: loadNewer } : undefined}
-          scrollApiRef={scrollApiRef}
-          bottomPadding={16}
-          onAtBottomChange={setAtBottom}
-          onLastFullyVisibleMessageChange={setLastFullyVisibleMessageId}
-        />
-        <IonFab
-          vertical="bottom"
-          horizontal="end"
-          className={`scroll-to-bottom-fab ${atBottom ? 'scroll-to-bottom-fab--hidden' : ''}`}
-        >
-          <IonFabButton
-            size="small"
-            onClick={() => {
-              if (prevCursor != null) {
-                fetchLatestWindow({ forceReopen: true });
-              } else {
-                scrollApiRef.current?.scrollToBottom();
-              }
-            }}
+        <IonContent className="chat-thread-content" scrollX={false} scrollY={false}>
+          <ChatVirtualScroll
+            key={storeChatId}
+            rows={chatRows}
+            renderRow={renderRow}
+            initialAnchor={initialAnchor}
+            loadOlder={{ hasMore: nextCursor != null, loading: loadingMore, onLoad: loadMore }}
+            loadNewer={prevCursor != null ? { hasMore: true, loading: loadingNewer, onLoad: loadNewer } : undefined}
+            scrollApiRef={scrollApiRef}
+            bottomPadding={16}
+            onAtBottomChange={setAtBottom}
+            onLastFullyVisibleMessageChange={setLastFullyVisibleMessageId}
+          />
+          <IonFab
+            vertical="bottom"
+            horizontal="end"
+            className={`scroll-to-bottom-fab ${atBottom ? 'scroll-to-bottom-fab--hidden' : ''}`}
           >
-            <IonIcon icon={chevronDown} />
-          </IonFabButton>
-        </IonFab>
-      </IonContent>
+            <IonFabButton
+              size="small"
+              onClick={() => {
+                if (prevCursor != null) {
+                  fetchLatestWindow({ forceReopen: true });
+                } else {
+                  scrollApiRef.current?.scrollToBottom();
+                }
+              }}
+            >
+              <IonIcon icon={chevronDown} />
+            </IonFabButton>
+          </IonFab>
+        </IonContent>
 
-      <IonFooter className="chat-thread-footer">
-        <MessageComposeBar
-          ref={composeBarRef}
+        <IonFooter className="chat-thread-footer">
+          <MessageComposeBar
+            ref={composeBarRef}
+            chatId={chatId}
+            onSend={handleSend}
+            uploadAttachment={uploadAttachment}
+            onError={(message) => showToast(message, 2200, { positionAnchor: 'message-compose-bar' })}
+            onFocusChange={handleComposeFocusChange}
+            replyTo={
+              replyingTo
+                ? {
+                    messageId: replyingTo.id,
+                    username: replyingTo.sender.name ?? `User ${replyingTo.sender.uid}`,
+                    messageType: replyingTo.messageType,
+                    text: replyingTo.message,
+                    attachments: replyingTo.attachments,
+                    firstAttachmentKind: replyingTo.attachments?.[0]?.kind,
+                    isDeleted: replyingTo.isDeleted,
+                  }
+                : undefined
+            }
+            onCancelReply={() => setReplyingTo(null)}
+            editing={editingSession ?? undefined}
+            onCancelEdit={() => setEditingSession(null)}
+            onRequestEditLastMessage={requestEditLastOwnMessage}
+          />
+        </IonFooter>
+        <UserProfileModal key={profileSender?.uid} sender={profileSender} onDismiss={() => setProfileSender(null)} />
+        <ReactionDetailsModal
           chatId={chatId}
-          onSend={handleSend}
-          uploadAttachment={uploadAttachment}
-          onError={(message) => showToast(message, 2200, { positionAnchor: 'message-compose-bar' })}
-          onFocusChange={handleComposeFocusChange}
-          replyTo={
-            replyingTo
-              ? {
-                  messageId: replyingTo.id,
-                  username: replyingTo.sender.name ?? `User ${replyingTo.sender.uid}`,
-                  messageType: replyingTo.messageType,
-                  text: replyingTo.message,
-                  attachments: replyingTo.attachments,
-                  firstAttachmentKind: replyingTo.attachments?.[0]?.kind,
-                  isDeleted: replyingTo.isDeleted,
-                }
-              : undefined
-          }
-          onCancelReply={() => setReplyingTo(null)}
-          editing={editingSession ?? undefined}
-          onCancelEdit={() => setEditingSession(null)}
-          onRequestEditLastMessage={requestEditLastOwnMessage}
+          messageId={reactionDetail?.messageId ?? null}
+          initialEmoji={reactionDetail?.emoji}
+          onDismiss={() => setReactionDetail(null)}
         />
-      </IonFooter>
-      <UserProfileModal key={profileSender?.uid} sender={profileSender} onDismiss={() => setProfileSender(null)} />
-      <ReactionDetailsModal
-        chatId={chatId}
-        messageId={reactionDetail?.messageId ?? null}
-        initialEmoji={reactionDetail?.emoji}
-        onDismiss={() => setReactionDetail(null)}
-      />
-      <StickerPreviewModal stickerId={stickerPreviewId} onDismiss={() => setStickerPreviewId(null)} />
-      {overlayMessage &&
-        (() => {
-          const msg = overlayMessage.message;
-          const sharedOverlayProps = {
-            senderName: msg.sender.name ?? `User ${msg.sender.uid}`,
-            isSent: msg.sender.uid === currentUserId,
-            showName: true,
-            timestamp: msg.createdAt,
-            edited: msg.isEdited,
-            isConfirmed: !msg.id.startsWith('cg_'),
-            replyTo: msg.replyToMessage
-              ? {
-                  senderName: msg.replyToMessage.sender.name ?? `User ${msg.replyToMessage.sender.uid}`,
-                  preview: msg.replyToMessage,
-                }
-              : undefined,
-            sourceRect: overlayMessage.sourceRect,
-            actions: overlayActions,
-            reactions: {
-              emojis: QUICK_REACTION_EMOJIS,
-              onReact: (emoji: string) => {
-                handleReactionToggle(msg, emoji, !!msg.reactions?.some((r) => r.emoji === emoji && r.reactedByMe));
+        <StickerPreviewModal stickerId={stickerPreviewId} onDismiss={() => setStickerPreviewId(null)} />
+        {overlayMessage &&
+          (() => {
+            const msg = overlayMessage.message;
+            const sharedOverlayProps = {
+              senderName: msg.sender.name ?? `User ${msg.sender.uid}`,
+              isSent: msg.sender.uid === currentUserId,
+              showName: true,
+              timestamp: msg.createdAt,
+              edited: msg.isEdited,
+              isConfirmed: !msg.id.startsWith('cg_'),
+              replyTo: msg.replyToMessage
+                ? {
+                    senderName: msg.replyToMessage.sender.name ?? `User ${msg.replyToMessage.sender.uid}`,
+                    preview: msg.replyToMessage,
+                  }
+                : undefined,
+              sourceRect: overlayMessage.sourceRect,
+              actions: overlayActions,
+              reactions: {
+                emojis: QUICK_REACTION_EMOJIS,
+                onReact: (emoji: string) => {
+                  handleReactionToggle(msg, emoji, !!msg.reactions?.some((r) => r.emoji === emoji && r.reactedByMe));
+                },
               },
-            },
-            onClose: () => setOverlayMessage(null),
-          } as const;
+              onClose: () => setOverlayMessage(null),
+            } as const;
 
-          if (msg.messageType === 'sticker') {
+            if (msg.messageType === 'sticker') {
+              return (
+                <MessageOverlay
+                  messageType="sticker"
+                  stickerUrl={msg.sticker?.media.url ?? ''}
+                  {...sharedOverlayProps}
+                />
+              );
+            }
+
             return (
-              <MessageOverlay messageType="sticker" stickerUrl={msg.sticker?.media.url ?? ''} {...sharedOverlayProps} />
+              <MessageOverlay
+                messageType={msg.messageType as 'text' | 'audio'}
+                message={msg.isDeleted ? t`[Deleted]` : (msg.message ?? '')}
+                attachments={msg.attachments}
+                {...sharedOverlayProps}
+              />
             );
-          }
-
-          return (
-            <MessageOverlay
-              messageType={msg.messageType as 'text' | 'audio'}
-              message={msg.isDeleted ? t`[Deleted]` : (msg.message ?? '')}
-              attachments={msg.attachments}
-              {...sharedOverlayProps}
-            />
-          );
-        })()}
-    </div>
+          })()}
+      </div>
+    </ChatContext.Provider>
   );
 }
 

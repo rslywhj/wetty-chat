@@ -19,11 +19,28 @@ import { selectChatFontSizeStyle, selectEffectiveLocale } from '@/store/settings
 import { UserAvatar } from '@/components/UserAvatar';
 import { useMouseDetected } from '@/hooks/platformHooks';
 import { parseInviteCodeFromUrl } from '@/utils/inviteUrl';
+import { decodePermalink } from '@/utils/permalinkUrl';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
 import { InviteLinkInline } from './InviteLinkInline';
+import { PermalinkInline } from './PermalinkInline';
 
 const URL_REGEX = /(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]+)/g;
 const TRAILING_PUNCT = /[.,);!?]+$/;
+const PERMALINK_PATH_RE = /^\/m\/([A-Za-z0-9_-]+)$/;
+
+function parsePermalinkFromUrl(url: string): { chatId: string; messageId: string; encoded: string } | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== document.location.origin) return null;
+    const match = PERMALINK_PATH_RE.exec(parsed.pathname);
+    if (!match) return null;
+    const encoded = match[1];
+    const { chatId, messageId } = decodePermalink(encoded);
+    return { chatId, messageId, encoded };
+  } catch {
+    return null;
+  }
+}
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -39,10 +56,18 @@ function renderMessageWithLinks(message: string): ReactNode[] {
       const trimmed = part.replace(TRAILING_PUNCT, '');
       const suffix = part.slice(trimmed.length);
       const inviteCode = parseInviteCodeFromUrl(trimmed);
+      const permalink = !inviteCode ? parsePermalinkFromUrl(trimmed) : null;
       return (
         <span key={i}>
           {inviteCode ? (
             <InviteLinkInline code={inviteCode} url={trimmed} />
+          ) : permalink ? (
+            <PermalinkInline
+              targetChatId={permalink.chatId}
+              targetMessageId={permalink.messageId}
+              encoded={permalink.encoded}
+              url={trimmed}
+            />
           ) : (
             <a
               href={trimmed}
