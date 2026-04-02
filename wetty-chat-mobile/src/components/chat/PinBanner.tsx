@@ -30,7 +30,7 @@ export function PinBanner({ chatId, onClickPin, onClickThread, onClickCounter }:
       if (!latestPin) return;
       presentAlert({
         header: t`Unpin Message`,
-        message: t`Are you sure you want to unpin this message?`,
+        message: t`Would you like to unpin this message?`,
         buttons: [
           { text: t`Cancel`, role: 'cancel' },
           {

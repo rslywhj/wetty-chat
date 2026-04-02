@@ -38,7 +38,7 @@ export function PinListModal({ chatId, isOpen, onDismiss, onSelectPin, onSelectT
       e.stopPropagation();
       presentAlert({
         header: t`Unpin Message`,
-        message: t`Are you sure you want to unpin this message?`,
+        message: t`Would you like to unpin this message?`,
         buttons: [
           { text: t`Cancel`, role: 'cancel' },
           {

@@ -129,14 +129,14 @@ msgid "Are you sure you want to leave this group?"
 msgstr "Are you sure you want to leave this group?"
 
 #: src/pages/chat-thread/chat-thread.tsx
-msgid "Are you sure you want to pin this message?"
-msgstr "Are you sure you want to pin this message?"
+msgid "Pin this message in the group?"
+msgstr "Pin this message in the group?"
 
 #: src/components/chat/PinBanner.tsx
 #: src/components/chat/PinListModal.tsx
 #: src/pages/chat-thread/chat-thread.tsx
-msgid "Are you sure you want to unpin this message?"
-msgstr "Are you sure you want to unpin this message?"
+msgid "Would you like to unpin this message?"
+msgstr "Would you like to unpin this message?"
 
 #: src/pages/settings.tsx
 msgid "Ask first"

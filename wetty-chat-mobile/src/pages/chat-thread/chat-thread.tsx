@@ -1393,7 +1393,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         handler: () => {
           presentAlert({
             header: existingPin ? t`Unpin Message` : t`Pin Message`,
-            message: existingPin ? t`Are you sure you want to unpin this message?` : t`Are you sure you want to pin this message?`,
+            message: existingPin ? t`Would you like to unpin this message?` : t`Pin this message in the group?`,
             buttons: [
               { text: t`Cancel`, role: 'cancel' },
               {

@@ -105,14 +105,14 @@ msgid "Are you sure you want to leave this group?"
 msgstr "確定要退出這個群組嗎？"
 
 #: src/pages/chat-thread/chat-thread.tsx
-msgid "Are you sure you want to pin this message?"
-msgstr "確定要釘選這則訊息嗎？"
+msgid "Pin this message in the group?"
+msgstr "確定要釘選此訊息嗎？"
 
 #: src/components/chat/PinBanner.tsx
 #: src/components/chat/PinListModal.tsx
 #: src/pages/chat-thread/chat-thread.tsx
-msgid "Are you sure you want to unpin this message?"
-msgstr "確定要取消釘選這則訊息嗎？"
+msgid "Would you like to unpin this message?"
+msgstr "確定要取消釘選此訊息嗎？"
 
 #: src/pages/settings.tsx
 msgid "Ask first"
