@@ -24,5 +24,31 @@ services:
       - 3000:3000
     environment:
       DATABASE_URL: postgresql://wetty_chat:NIM1gs7unjbQumYD@postgres:5432/wetty_chat
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: "rustfsadmin"
+      RUSTFS_SECRET_KEY: "rustfsadmin"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_REGION: "us-west-2"
+    command: /data --console-enable --address ":9000"
+  init-rustfs:
+    image: minio/mc:latest
+    depends_on:
+      - rustfs
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for RustFS to start...';
+      sleep 3;
+      mc alias set myrustfs http://rustfs:9000 rustfsadmin rustfsadmin;
+      mc mb myrustfs/wetty-chat-local-dev --ignore-existing;
+      mc anonymous set download myrustfs/wetty-chat-local-dev;
+      echo 'Bucket created and set to public!';
+      exit 0;
+      "
 volumes:
   postgres_data:
