@@ -19,6 +19,7 @@ import {
   favoriteSticker,
   unfavoriteSticker,
   uploadStickerToPack,
+  MAX_STICKER_FILE_BYTES,
 } from '@/api/stickers';
 
 interface StickerPickerProps {
@@ -174,7 +175,16 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     e.target.value = '';
-    if (file) setAddStickerFile(file);
+    if (!file) return;
+    if (file.size > MAX_STICKER_FILE_BYTES) {
+      presentToast({
+        message: t`File is too large. Maximum sticker size is 10 MB.`,
+        duration: 3000,
+        position: 'bottom',
+      });
+      return;
+    }
+    setAddStickerFile(file);
   };
 
   const handleAddSticker = async (file: File, emoji: string, name: string) => {

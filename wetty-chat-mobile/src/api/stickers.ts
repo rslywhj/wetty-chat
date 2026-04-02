@@ -1,6 +1,9 @@
 import type { AxiosResponse } from 'axios';
 import apiClient from './client';
 
+/** Must match backend MAX_STICKER_UPLOAD_BYTES (10 MB). */
+export const MAX_STICKER_FILE_BYTES = 10 * 1024 * 1024;
+
 export interface StickerMedia {
   id: string;
   url: string;
