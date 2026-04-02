@@ -79,6 +79,10 @@ msgstr "加入收藏"
 msgid "Alex"
 msgstr "風紀委員"
 
+#: src/components/chat/ChatListSegment.tsx
+msgid "All"
+msgstr "全部"
+
 #: src/pages/settings.tsx
 msgid "Allowed"
 msgstr "已允許"
@@ -203,8 +207,8 @@ msgid "Choose the member group first"
 msgstr "請先選擇成員群組"
 
 #: src/components/chat/ChatList.tsx
-msgid "Click to view new replies"
-msgstr "點擊查看新回覆"
+#~ msgid "Click to view new replies"
+#~ msgstr "點擊查看新回覆"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
@@ -515,6 +519,7 @@ msgstr "載入表情失敗"
 msgid "Failed to mute"
 msgstr "靜音失敗"
 
+#: src/components/chat/messages/PermalinkInline.tsx
 #: src/pages/permalink.tsx
 msgid "Failed to open link"
 msgstr "開啟連結失敗"
@@ -629,6 +634,10 @@ msgstr "群組名稱"
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Group Settings"
 msgstr "群組設定"
+
+#: src/components/chat/ChatListSegment.tsx
+msgid "Groups"
+msgstr "群組"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "indefinitely"
@@ -794,6 +803,7 @@ msgstr "訊息"
 msgid "Message cannot be empty"
 msgstr "訊息不能為空"
 
+#: src/components/chat/messages/PermalinkInline.tsx
 #: src/pages/permalink.tsx
 msgid "Message not found"
 msgstr "找不到訊息"
@@ -851,6 +861,7 @@ msgid "No active invite links created by you."
 msgstr "你建立的有效邀請連結為空。"
 
 #: src/components/chat/ChatList.tsx
+#: src/components/chat/ChatList.tsx
 msgid "No chats yet"
 msgstr "暫無聊天"
 
@@ -884,8 +895,8 @@ msgid "No messages yet"
 msgstr "暫無訊息"
 
 #: src/components/chat/ChatList.tsx
-msgid "No new replies"
-msgstr "沒有新回覆"
+#~ msgid "No new replies"
+#~ msgstr "沒有新回覆"
 
 #: src/components/chat/PinListModal.tsx
 msgid "No pinned messages"
@@ -1324,8 +1335,7 @@ msgstr "話題"
 msgid "Thread in {0}"
 msgstr "{0} 中的話題"
 
-#: src/components/chat/ChatList.tsx
-#: src/layouts/DesktopSplitLayout.tsx
+#: src/components/chat/ChatListSegment.tsx
 #: src/pages/threads.tsx
 msgid "Threads"
 msgstr "話題"

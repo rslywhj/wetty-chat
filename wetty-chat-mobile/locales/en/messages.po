@@ -103,6 +103,10 @@ msgstr "Add to Favorites"
 msgid "Alex"
 msgstr "Alex"
 
+#: src/components/chat/ChatListSegment.tsx
+msgid "All"
+msgstr "All"
+
 #: src/pages/settings.tsx
 msgid "Allowed"
 msgstr "Allowed"
@@ -231,8 +235,8 @@ msgid "Choose the member group first"
 msgstr "Choose the member group first"
 
 #: src/components/chat/ChatList.tsx
-msgid "Click to view new replies"
-msgstr "Click to view new replies"
+#~ msgid "Click to view new replies"
+#~ msgstr "Click to view new replies"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
@@ -547,6 +551,7 @@ msgstr "Failed to load stickers"
 msgid "Failed to mute"
 msgstr "Failed to mute"
 
+#: src/components/chat/messages/PermalinkInline.tsx
 #: src/pages/permalink.tsx
 msgid "Failed to open link"
 msgstr "Failed to open link"
@@ -661,6 +666,10 @@ msgstr "Group Name"
 #: src/pages/chat-thread/chat-settings.tsx
 msgid "Group Settings"
 msgstr "Group Settings"
+
+#: src/components/chat/ChatListSegment.tsx
+msgid "Groups"
+msgstr "Groups"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "indefinitely"
@@ -831,6 +840,7 @@ msgstr "Message"
 msgid "Message cannot be empty"
 msgstr "Message cannot be empty"
 
+#: src/components/chat/messages/PermalinkInline.tsx
 #: src/pages/permalink.tsx
 msgid "Message not found"
 msgstr "Message not found"
@@ -896,6 +906,7 @@ msgid "No active invite links created by you."
 msgstr "No active invite links created by you."
 
 #: src/components/chat/ChatList.tsx
+#: src/components/chat/ChatList.tsx
 msgid "No chats yet"
 msgstr "No chats yet"
 
@@ -929,8 +940,8 @@ msgid "No messages yet"
 msgstr "No messages yet"
 
 #: src/components/chat/ChatList.tsx
-msgid "No new replies"
-msgstr "No new replies"
+#~ msgid "No new replies"
+#~ msgstr "No new replies"
 
 #: src/components/chat/PinListModal.tsx
 msgid "No pinned messages"
@@ -1377,8 +1388,7 @@ msgstr "Thread"
 msgid "Thread in {0}"
 msgstr "Thread in {0}"
 
-#: src/components/chat/ChatList.tsx
-#: src/layouts/DesktopSplitLayout.tsx
+#: src/components/chat/ChatListSegment.tsx
 #: src/pages/threads.tsx
 msgid "Threads"
 msgstr "Threads"
