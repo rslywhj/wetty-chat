@@ -1,6 +1,7 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 import type { MessageResponse } from '@/api/messages';
 import { messageAdded, messageConfirmed, messagePatched, reactionsUpdated } from './messageEvents';
+import { compareMessageOrder } from './messageProjection';
 
 const MAX_WINDOWS = 5;
 
@@ -25,8 +26,42 @@ const initialState: MessagesState = {
 };
 
 function dedup(existing: MessageResponse[], incoming: MessageResponse[]): MessageResponse[] {
-  const ids = new Set(existing.map((m) => m.id));
-  return incoming.filter((m) => !ids.has(m.id));
+  return incoming.filter(
+    (incomingMessage) => !existing.some((current) => isSameLogicalMessage(current, incomingMessage)),
+  );
+}
+
+function isOptimisticMessage(message: MessageResponse): boolean {
+  return message.id.startsWith('cg_');
+}
+
+function isSameLogicalMessage(
+  left: MessageResponse,
+  right: Pick<MessageResponse, 'id' | 'clientGeneratedId'>,
+  fallbackClientGeneratedId?: string,
+): boolean {
+  if (left.id === right.id) return true;
+
+  const rightClientGeneratedId = right.clientGeneratedId || fallbackClientGeneratedId;
+  return !!left.clientGeneratedId && !!rightClientGeneratedId && left.clientGeneratedId === rightClientGeneratedId;
+}
+
+function insertMessageSorted(messages: MessageResponse[], message: MessageResponse): MessageResponse[] {
+  const next = [...messages];
+  const insertAt = next.findIndex((current) => compareMessageOrder(message, current) < 0);
+  if (insertAt === -1) {
+    next.push(message);
+  } else {
+    next.splice(insertAt, 0, message);
+  }
+  return next;
+}
+
+function hasLogicalMessage(
+  chat: ChatMessageState,
+  message: Pick<MessageResponse, 'id' | 'clientGeneratedId'>,
+): boolean {
+  return chat.windows.some((window) => window.messages.some((current) => isSameLogicalMessage(current, message)));
 }
 
 function getChat(state: MessagesState, chatId: string): ChatMessageState {
@@ -46,9 +81,9 @@ function addMessageToWindow(state: MessagesState, chatId: string, message: Messa
     chat.windows.push({ messages: [], nextCursor: null, prevCursor: null });
     chat.activeWindowIndex = 0;
   }
+  if (hasLogicalMessage(chat, message)) return;
   const lastWin = chat.windows[chat.windows.length - 1];
-  if (lastWin.messages.some((m) => m.id === message.id)) return;
-  lastWin.messages.push(message);
+  lastWin.messages = insertMessageSorted(lastWin.messages, message);
 }
 
 function confirmPendingInWindows(
@@ -57,18 +92,33 @@ function confirmPendingInWindows(
   clientGeneratedId: string,
   message: MessageResponse,
 ): void {
-  const chat = state.chats[chatId];
-  if (!chat) return;
-  for (const win of chat.windows) {
-    const idx = win.messages.findIndex((m) => m.clientGeneratedId === clientGeneratedId);
-    if (idx !== -1) {
-      win.messages[idx] = {
-        ...message,
-        clientGeneratedId: message.clientGeneratedId || clientGeneratedId,
-      };
-      return;
+  const chat = getChat(state, chatId);
+  if (chat.windows.length === 0) {
+    chat.windows.push({ messages: [], nextCursor: null, prevCursor: null });
+    chat.activeWindowIndex = 0;
+  }
+
+  const resolvedMessage = {
+    ...message,
+    clientGeneratedId: message.clientGeneratedId || clientGeneratedId,
+  };
+
+  let targetWindowIndex = chat.windows.length - 1;
+  for (let i = 0; i < chat.windows.length; i++) {
+    if (chat.windows[i].messages.some((current) => isSameLogicalMessage(current, resolvedMessage, clientGeneratedId))) {
+      targetWindowIndex = i;
+      break;
     }
   }
+
+  for (const win of chat.windows) {
+    win.messages = win.messages.filter((current) => !isSameLogicalMessage(current, resolvedMessage, clientGeneratedId));
+  }
+
+  chat.windows[targetWindowIndex].messages = insertMessageSorted(
+    chat.windows[targetWindowIndex].messages,
+    resolvedMessage,
+  );
 }
 
 function patchMessageInWindows(
@@ -254,12 +304,29 @@ const messagesSlice = createSlice({
       const lastWinIdx = chat.windows.length - 1;
       const lastWin = chat.windows[lastWinIdx];
       const fetchedIds = new Set(messages.map((m) => m.id));
+      const fetchedClientGeneratedIds = new Set(messages.map((m) => m.clientGeneratedId).filter(Boolean));
       const hasOverlap = lastWin.messages.some((m) => fetchedIds.has(m.id));
+      const pendingOptimistic = lastWin.messages.filter((message) => isOptimisticMessage(message));
 
-      if (hasOverlap) {
-        // Merge: keep existing messages not in fetched set, then append fetched
-        const older = lastWin.messages.filter((m) => !fetchedIds.has(m.id));
-        lastWin.messages = [...older, ...messages];
+      if (hasOverlap || pendingOptimistic.length > 0) {
+        // Preserve still-pending optimistic rows during latest-window refreshes so
+        // API confirm / websocket echo can reconcile them later.
+        const unmatchedExisting = lastWin.messages.filter((current) => {
+          if (isOptimisticMessage(current)) return false;
+          if (fetchedIds.has(current.id)) return false;
+          return !current.clientGeneratedId || !fetchedClientGeneratedIds.has(current.clientGeneratedId);
+        });
+
+        let nextMessages = [...unmatchedExisting, ...messages];
+        for (const optimistic of pendingOptimistic) {
+          if (nextMessages.some((current) => isSameLogicalMessage(current, optimistic))) continue;
+          nextMessages = insertMessageSorted(nextMessages, optimistic);
+        }
+
+        lastWin.messages = nextMessages;
+        if (!hasOverlap) {
+          lastWin.nextCursor = nextCursor;
+        }
         // Preserve nextCursor from existing window (allows loading older),
         // use prevCursor from API response
         lastWin.prevCursor = prevCursor;

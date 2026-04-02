@@ -237,7 +237,6 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const [loadingNewer, setLoadingNewer] = useState(false);
   const loadingMoreRef = useRef(false);
   const loadingNewerRef = useRef(false);
-  const pendingSendScrollKeyRef = useRef<string | null>(null);
   const [initialAnchor, setInitialAnchor] = useState<VirtualScrollAnchor>({ type: 'bottom', token: 0 });
   const [pendingResumeRequest, setPendingResumeRequest] = useState<ChatThreadResumeRequest | null>(
     initialResumeRequest,
@@ -363,29 +362,6 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       initialAnchor,
     });
   }, [chatId, storeChatId, messages, chatRows.length, initialAnchor]);
-
-  useEffect(() => {
-    const pendingKey = pendingSendScrollKeyRef.current;
-    if (!pendingKey) return;
-    if (!chatRows.some((row) => row.key === pendingKey)) return;
-
-    if (import.meta.env.DEV) {
-      console.log('[ChatThread] execute-pending-send-scroll', {
-        chatId,
-        storeChatId,
-        threadId: threadId ?? null,
-        pendingKey,
-      });
-    }
-
-    scrollApiRef.current?.scrollToBottom({
-      behavior: 'smooth',
-      ifAlreadyMountedKey: pendingKey,
-      fallbackBehavior: 'auto',
-      source: 'chat-thread-send',
-    });
-    pendingSendScrollKeyRef.current = null;
-  }, [chatId, chatRows, storeChatId, threadId]);
 
   const getMessageKey = useCallback((message: MessageResponse) => `msg:${message.clientGeneratedId || message.id}`, []);
 
@@ -889,6 +865,15 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     return { attachmentId };
   }, []);
 
+  const revealLatestAfterSend = useCallback(() => {
+    if (prevCursor != null) {
+      fetchLatestWindow({ forceReopen: true });
+      return;
+    }
+
+    scrollApiRef.current?.scrollToBottom();
+  }, [fetchLatestWindow, prevCursor]);
+
   const handleSend = useCallback(
     (payload: ComposeSendPayload) => {
       if (!chatId) return;
@@ -992,21 +977,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           }),
         );
         setReplyingTo(null);
-        if (!atBottom) {
-          pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
-          if (import.meta.env.DEV) {
-            console.log('[ChatThread] schedule-pending-send-scroll', {
-              chatId,
-              storeChatId,
-              threadId: threadId ?? null,
-              clientGeneratedId,
-              pendingKey: pendingSendScrollKeyRef.current,
-              atBottom,
-            });
-          }
-        } else {
-          pendingSendScrollKeyRef.current = null;
-        }
+        revealLatestAfterSend();
 
         const messagePayload = {
           message: text,
@@ -1118,11 +1089,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           }),
         );
         setReplyingTo(null);
-        if (!atBottom) {
-          pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
-        } else {
-          pendingSendScrollKeyRef.current = null;
-        }
+        revealLatestAfterSend();
 
         const messagePayload = {
           messageType: 'sticker' as const,
@@ -1234,11 +1201,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         }),
       );
       setReplyingTo(null);
-      if (!atBottom) {
-        pendingSendScrollKeyRef.current = `msg:${clientGeneratedId}`;
-      } else {
-        pendingSendScrollKeyRef.current = null;
-      }
+      revealLatestAfterSend();
 
       const messagePayload = {
         message: '',
@@ -1317,7 +1280,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       currentUserName,
       currentUserAvatarUrl,
       messageLookup,
-      atBottom,
+      revealLatestAfterSend,
     ],
   );
 
