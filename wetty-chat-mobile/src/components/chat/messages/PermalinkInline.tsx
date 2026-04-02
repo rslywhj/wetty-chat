@@ -1,4 +1,8 @@
+import { useIonToast } from '@ionic/react';
+import { t } from '@lingui/core/macro';
 import { useHistory } from 'react-router-dom';
+import { useIsDesktop } from '@/hooks/platformHooks';
+import { openPermalinkTarget } from '@/utils/openPermalinkTarget';
 import styles from './ChatBubble.module.scss';
 import { useChatContext } from './ChatContext';
 
@@ -12,6 +16,8 @@ interface PermalinkInlineProps {
 export function PermalinkInline({ targetChatId, targetMessageId, encoded, url }: PermalinkInlineProps) {
   const history = useHistory();
   const ctx = useChatContext();
+  const isDesktop = useIsDesktop();
+  const [presentToast] = useIonToast();
 
   return (
     <a
@@ -33,9 +39,33 @@ export function PermalinkInline({ targetChatId, targetMessageId, encoded, url }:
           console.debug('[PermalinkInline] jumping within current chat', { targetMessageId });
           ctx.jumpToMessage(targetMessageId);
         } else {
-          // Different chat — navigate through permalink resolver
-          console.debug('[PermalinkInline] routing through permalink page', { encoded });
-          history.push(`/m/${encoded}`);
+          // Different chat — resolve the destination directly to avoid flashing the resolver page
+          console.debug('[PermalinkInline] resolving direct permalink navigation', {
+            targetChatId,
+            targetMessageId,
+            encoded,
+            isDesktop,
+          });
+          void openPermalinkTarget({
+            chatId: targetChatId,
+            messageId: targetMessageId,
+            isDesktop,
+            preserveCurrentEntry: true,
+          }).catch((err) => {
+            console.debug('[PermalinkInline] direct permalink navigation failed, falling back to resolver route', {
+              targetChatId,
+              targetMessageId,
+              encoded,
+              status: err?.response?.status,
+              err,
+            });
+            presentToast({
+              message: err?.response?.status === 404 ? t`Message not found` : t`Failed to open link`,
+              duration: 2000,
+              color: 'danger',
+            });
+            history.push(`/m/${encoded}`);
+          });
         }
       }}
     >

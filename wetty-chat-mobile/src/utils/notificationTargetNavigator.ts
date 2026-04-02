@@ -5,6 +5,10 @@ const THREAD_TARGET_RE = /^\/chats\/chat\/([^/]+)\/thread\/([^/]+)$/;
 
 let pendingMobileNavigationIds: number[] = [];
 
+interface NavigateToNotificationTargetOptions {
+  preserveCurrentEntry?: boolean;
+}
+
 function clearPendingMobileNavigation() {
   for (const id of pendingMobileNavigationIds) {
     window.clearTimeout(id);
@@ -12,15 +16,28 @@ function clearPendingMobileNavigation() {
   pendingMobileNavigationIds = [];
 }
 
-export function navigateToNotificationTarget(target: string, isDesktop: boolean, state?: object): void {
+function pushHiddenHistoryEntry(pathname: string) {
+  const href = appHistory.createHref({ pathname });
+  const key = Math.random().toString(36).slice(2, 8);
+  window.history.pushState({ key, state: undefined }, '', href);
+}
+
+export function navigateToNotificationTarget(
+  target: string,
+  isDesktop: boolean,
+  state?: object,
+  options?: NavigateToNotificationTargetOptions,
+): void {
   clearPendingMobileNavigation();
   const currentPath = appHistory.location.pathname;
+  const preserveCurrentEntry = options?.preserveCurrentEntry ?? false;
 
   console.debug('[app] navigateToNotificationTarget', {
     target,
     isDesktop,
     currentPath,
     historyLength: window.history.length,
+    preserveCurrentEntry,
   });
 
   if (currentPath === target) {
@@ -29,8 +46,24 @@ export function navigateToNotificationTarget(target: string, isDesktop: boolean,
   }
 
   if (isDesktop) {
-    console.debug('[app] replacing desktop route', { target });
-    appHistory.replace({ pathname: target, state });
+    console.debug(preserveCurrentEntry ? '[app] pushing desktop route' : '[app] replacing desktop route', { target });
+    if (preserveCurrentEntry) {
+      appHistory.push({ pathname: target, state });
+    } else {
+      appHistory.replace({ pathname: target, state });
+    }
+    return;
+  }
+
+  if (preserveCurrentEntry) {
+    const threadMatch = THREAD_TARGET_RE.exec(target);
+    console.debug('[app] seeding mobile back stack for direct target', { target, threadMatch });
+    pushHiddenHistoryEntry(DEFAULT_NOTIFICATION_TARGET);
+    if (threadMatch) {
+      const chatPath = `/chats/chat/${threadMatch[1]}`;
+      pushHiddenHistoryEntry(chatPath);
+    }
+    appHistory.push({ pathname: target, state });
     return;
   }
 
