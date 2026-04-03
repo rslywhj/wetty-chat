@@ -3,7 +3,7 @@ use crate::handlers::pins::PinResponse;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 pub enum ServerWsMessage {
     Message(MessageResponse),
@@ -31,41 +31,48 @@ impl ServerWsMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReactionUpdatePayload {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub message_id: i64,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     pub reactions: Vec<ReactionSummary>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceUpdatePayload {
     pub active_connections: u32,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadUpdatePayload {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub thread_root_id: i64,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     pub last_reply_at: DateTime<Utc>,
     pub reply_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PinUpdatePayload {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub pin_id: i64,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub message_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pin: Option<PinResponse>,

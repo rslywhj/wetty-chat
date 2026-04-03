@@ -9,6 +9,7 @@ use diesel::PgConnection;
 use diesel::PgTextExpressionMethods;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
@@ -33,16 +34,17 @@ fn indefinite_mute_until() -> DateTime<Utc> {
     DateTime::from_timestamp(253402300799, 0).unwrap() // 9999-12-31T23:59:59Z
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct CreateChatBody {
     name: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct CreateChatResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     name: Option<String>,
     created_at: DateTime<Utc>,
@@ -53,29 +55,32 @@ pub(super) struct ChatIdPath {
     pub(super) chat_id: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct GroupInfoResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     name: String,
     description: Option<String>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     avatar_image_id: Option<i64>,
     avatar: Option<String>,
     visibility: GroupVisibility,
     created_at: DateTime<Utc>,
+    muted_until: Option<DateTime<Utc>>,
     my_role: Option<GroupRole>,
 }
 
-#[derive(Debug, Clone, Copy, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 enum GroupSearchMode {
     Autocomplete,
     Submitted,
 }
 
-#[derive(Debug, Clone, Copy, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 enum GroupSelectorScope {
     Manageable,
@@ -83,7 +88,7 @@ enum GroupSelectorScope {
     Public,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListGroupsQuery {
     #[serde(default)]
@@ -96,15 +101,17 @@ struct ListGroupsQuery {
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     after: Option<i64>,
     #[serde(default)]
     scope: Option<GroupSelectorScope>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct GroupSelectorItem {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     name: String,
     description: Option<String>,
@@ -113,11 +120,12 @@ struct GroupSelectorItem {
     role: Option<GroupRole>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListGroupsResponse {
     groups: Vec<GroupSelectorItem>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     next_cursor: Option<i64>,
 }
 
@@ -127,7 +135,7 @@ struct ParsedGroupSearch {
     exact_id: Option<i64>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct UpdateChatBody {
     name: Option<String>,
@@ -136,11 +144,12 @@ pub(super) struct UpdateChatBody {
         default,
         deserialize_with = "crate::serde_i64_string::double_opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     avatar_image_id: Option<Option<i64>>,
     visibility: Option<GroupVisibility>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct AvatarUploadUrlRequest {
     filename: String,
@@ -150,7 +159,7 @@ struct AvatarUploadUrlRequest {
     height: Option<i32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct AvatarUploadUrlResponse {
     image_id: String,
@@ -158,14 +167,14 @@ struct AvatarUploadUrlResponse {
     upload_headers: BTreeMap<String, String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct MuteBody {
     /// Duration in seconds, or null/absent for indefinite mute.
     duration_seconds: Option<i64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct MuteResponse {
     muted_until: DateTime<Utc>,
@@ -236,6 +245,17 @@ pub(super) fn load_group_info(
 
     let my_role = load_requester_group_role(conn, chat_id, requester_uid)?;
 
+    let muted_until: Option<DateTime<Utc>> = group_membership::table
+        .filter(
+            group_membership::chat_id
+                .eq(chat_id)
+                .and(group_membership::uid.eq(requester_uid)),
+        )
+        .select(group_membership::muted_until)
+        .first(conn)
+        .optional()?
+        .flatten();
+
     Ok(GroupInfoResponse {
         id: group.id,
         name: group.name,
@@ -247,11 +267,22 @@ pub(super) fn load_group_info(
             .map(|image| build_public_object_url(state, &image.storage_key)),
         visibility: group.visibility,
         created_at: group.created_at,
+        muted_until,
         my_role,
     })
 }
 
 /// POST /group — Create a new chat.
+#[utoipa::path(
+    post,
+    path = "/",
+    tag = "groups",
+    request_body = CreateChatBody,
+    responses(
+        (status = CREATED, body = CreateChatResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn post_group(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -304,6 +335,22 @@ async fn post_group(
 }
 
 /// GET /group — List groups for selector/search.
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "groups",
+    params(
+        ("q" = Option<String>, Query, description = "Search query"),
+        ("mode" = Option<GroupSearchMode>, Query, description = "Search mode"),
+        ("limit" = Option<i64>, Query, description = "Page size limit"),
+        ("after" = Option<String>, Query, description = "Cursor for pagination"),
+        ("scope" = Option<GroupSelectorScope>, Query, description = "Group scope filter"),
+    ),
+    responses(
+        (status = OK, body = ListGroupsResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_groups(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -399,6 +446,18 @@ async fn get_groups(
 }
 
 /// GET /group/:chat_id — Get chat details.
+#[utoipa::path(
+    get,
+    path = "/{chat_id}",
+    tag = "groups",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    responses(
+        (status = OK, body = GroupInfoResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_group(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -413,6 +472,19 @@ async fn get_group(
 }
 
 /// POST /group/:chat_id/avatar/upload-url — Create a group avatar upload URL.
+#[utoipa::path(
+    post,
+    path = "/{chat_id}/avatar/upload-url",
+    tag = "groups",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = AvatarUploadUrlRequest,
+    responses(
+        (status = CREATED, body = AvatarUploadUrlResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn post_avatar_upload_url(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -476,6 +548,19 @@ async fn post_avatar_upload_url(
 }
 
 /// PATCH /group/:chat_id — Update chat metadata (admin only).
+#[utoipa::path(
+    patch,
+    path = "/{chat_id}",
+    tag = "groups",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = UpdateChatBody,
+    responses(
+        (status = OK, body = GroupInfoResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn patch_group(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -542,6 +627,19 @@ async fn patch_group(
 }
 
 /// PUT /group/:chat_id/mute — Mute notifications for a chat.
+#[utoipa::path(
+    put,
+    path = "/{chat_id}/mute",
+    tag = "groups",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = MuteBody,
+    responses(
+        (status = OK, body = MuteResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn put_mute(
     CurrentUid(uid): CurrentUid,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
@@ -573,6 +671,18 @@ async fn put_mute(
 }
 
 /// DELETE /group/:chat_id/mute — Unmute notifications for a chat.
+#[utoipa::path(
+    delete,
+    path = "/{chat_id}/mute",
+    tag = "groups",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    responses(
+        (status = NO_CONTENT),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn delete_mute(
     CurrentUid(uid): CurrentUid,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
@@ -592,20 +702,11 @@ async fn delete_mute(
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route("/", axum::routing::get(get_groups).post(post_group))
-        .route(
-            "/{chat_id}",
-            axum::routing::get(get_group).patch(patch_group),
-        )
-        .route(
-            "/{chat_id}/avatar/upload-url",
-            axum::routing::post(post_avatar_upload_url),
-        )
-        .route(
-            "/{chat_id}/mute",
-            axum::routing::put(put_mute).delete(delete_mute),
-        )
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_groups, post_group))
+        .routes(utoipa_axum::routes!(get_group, patch_group))
+        .routes(utoipa_axum::routes!(post_avatar_upload_url))
+        .routes(utoipa_axum::routes!(put_mute, delete_mute))
         .nest("/{chat_id}/members", crate::handlers::members::router())
 }

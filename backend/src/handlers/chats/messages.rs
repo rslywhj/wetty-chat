@@ -2,12 +2,13 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Json, Router,
+    Json,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
 use serde::Serialize;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     errors::AppError,
@@ -24,23 +25,26 @@ use super::{
     ChatIdPath, CreateMessageBody, MessageResponse, PreparedMessageSend,
 };
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListMessagesQuery {
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     before: Option<i64>,
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     around: Option<i64>,
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     after: Option<i64>,
     #[serde(default)]
     max: Option<i64>,
@@ -48,16 +52,19 @@ pub struct ListMessagesQuery {
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     thread_id: Option<i64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListMessagesResponse {
     messages: Vec<MessageResponse>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     next_cursor: Option<i64>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     prev_cursor: Option<i64>,
 }
 
@@ -75,7 +82,7 @@ pub struct MessageIdPath {
     message_id: i64,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateMessageBody {
     message: String,
@@ -136,6 +143,23 @@ fn validate_message_payload(
 }
 
 /// GET /chats/:chat_id/messages — List messages in a chat (cursor-based).
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("before" = Option<String>, Query, description = "Cursor: fetch messages before this ID"),
+        ("around" = Option<String>, Query, description = "Cursor: fetch messages around this ID"),
+        ("after" = Option<String>, Query, description = "Cursor: fetch messages after this ID"),
+        ("max" = Option<i64>, Query, description = "Max number of messages to return"),
+        ("thread_id" = Option<String>, Query, description = "Thread root ID to filter by"),
+    ),
+    responses(
+        (status = 200, description = "List of messages", body = ListMessagesResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_messages(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -271,6 +295,19 @@ async fn get_messages(
 }
 
 /// GET /chats/:chat_id/messages/:message_id — Get a single message.
+#[utoipa::path(
+    get,
+    path = "/{message_id}",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+    ),
+    responses(
+        (status = 200, description = "Single message", body = MessageResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -304,6 +341,19 @@ async fn get_message(
 }
 
 /// POST /chats/:chat_id/messages — Send a message.
+#[utoipa::path(
+    post,
+    path = "/",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = CreateMessageBody,
+    responses(
+        (status = 201, description = "Message created", body = MessageResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn post_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -348,6 +398,20 @@ async fn post_message(
 }
 
 /// POST /chats/:chat_id/threads/:thread_id/messages — Send a message in a thread.
+#[utoipa::path(
+    post,
+    path = "/threads/{thread_id}/messages",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("thread_id" = i64, Path, description = "Thread root message ID"),
+    ),
+    request_body = CreateMessageBody,
+    responses(
+        (status = 201, description = "Thread message created", body = MessageResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 pub(super) async fn post_thread_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -502,6 +566,20 @@ pub(super) async fn post_thread_message(
 }
 
 /// PATCH /chats/:chat_id/messages/:message_id — Edit a message.
+#[utoipa::path(
+    patch,
+    path = "/{message_id}",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+    ),
+    request_body = UpdateMessageBody,
+    responses(
+        (status = 200, description = "Updated message", body = MessageResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn patch_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -588,6 +666,19 @@ async fn patch_message(
 }
 
 /// DELETE /chats/:chat_id/messages/:message_id — Delete a message (soft delete).
+#[utoipa::path(
+    delete,
+    path = "/{message_id}",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+    ),
+    responses(
+        (status = 204, description = "Message deleted"),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn delete_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -690,14 +781,14 @@ async fn delete_message(
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub fn router() -> Router<crate::AppState> {
-    use axum::routing::*;
-    Router::new()
-        .route("/", get(get_messages).post(post_message))
-        .route(
-            "/{message_id}",
-            get(get_message).patch(patch_message).delete(delete_message),
-        )
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_messages, post_message))
+        .routes(utoipa_axum::routes!(
+            get_message,
+            patch_message,
+            delete_message
+        ))
 }
 
 #[cfg(test)]

@@ -3,12 +3,13 @@ mod reactions;
 
 use axum::{
     extract::{Path, Query, State},
-    Json, Router,
+    Json,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
 use serde::Serialize;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     errors::AppError,
@@ -54,7 +55,7 @@ pub use self::reactions::router as reactions_router;
 // ---------------------------------------------------------------------------
 
 /// Parsed mention info for serialization in `MessageResponse`.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MentionInfo {
     pub uid: i32,
@@ -105,20 +106,23 @@ pub struct ChatIdPath {
     chat_id: i64,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub id: i64,
     pub message: Option<String>,
     pub message_type: MessageType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sticker: Option<MessageStickerResponse>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     pub reply_root_id: Option<i64>,
     pub client_generated_id: String,
     pub sender: Sender,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     pub created_at: DateTime<Utc>,
     pub is_edited: bool,
@@ -132,7 +136,7 @@ pub struct MessageResponse {
     pub mentions: Vec<MentionInfo>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReactionReactor {
     pub uid: i32,
@@ -140,7 +144,7 @@ pub struct ReactionReactor {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReactionSummary {
     pub emoji: String,
@@ -151,10 +155,11 @@ pub struct ReactionSummary {
     pub reactors: Option<Vec<ReactionReactor>>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplyToMessage {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     message: Option<String>,
     message_type: MessageType,
@@ -168,10 +173,11 @@ pub struct ReplyToMessage {
     mentions: Vec<MentionInfo>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StickerMediaResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub id: i64,
     pub url: String,
     pub content_type: String,
@@ -180,10 +186,11 @@ pub struct StickerMediaResponse {
     pub height: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageStickerResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub id: i64,
     pub emoji: String,
     pub name: Option<String>,
@@ -212,7 +219,7 @@ pub(crate) struct SendMessageResult {
     pub member_uids: Vec<i32>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateMessageBody {
     pub message: Option<String>,
@@ -221,12 +228,14 @@ pub struct CreateMessageBody {
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     pub sticker_id: Option<i64>,
     pub client_generated_id: String,
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     pub reply_to_id: Option<i64>,
     #[serde(default)]
     pub attachment_ids: Vec<String>,
@@ -934,7 +943,7 @@ pub async fn attach_metadata(
 // Chat listing endpoints
 // ---------------------------------------------------------------------------
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListChatsQuery {
     #[serde(default)]
@@ -943,33 +952,50 @@ pub struct ListChatsQuery {
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     after: Option<i64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatListItem {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     name: Option<String>,
     avatar: Option<String>,
     last_message_at: Option<DateTime<Utc>>,
     unread_count: i64,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     last_read_message_id: Option<i64>,
     last_message: Option<MessageResponse>,
     muted_until: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListChatsResponse {
     chats: Vec<ChatListItem>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     next_cursor: Option<i64>,
 }
 
 /// GET /chats — List chats for the current user (cursor-based).
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "chats",
+    params(
+        ("limit" = Option<i64>, Query, description = "Max number of chats to return"),
+        ("after" = Option<String>, Query, description = "Cursor for pagination"),
+    ),
+    responses(
+        (status = 200, description = "List of chats", body = ListChatsResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_chats(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -1162,22 +1188,37 @@ async fn get_chats(
     Ok(Json(ListChatsResponse { chats, next_cursor }))
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkAsReadBody {
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     message_id: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct MarkChatReadStateResponse {
     #[serde(serialize_with = "crate::serde_i64_string::opt::serialize")]
+    #[schema(value_type = Option<String>)]
     last_read_message_id: Option<i64>,
     unread_count: i64,
 }
 
 /// POST /chats/:chat_id/messages/read — Mark messages as read up to a specific message ID.
+#[utoipa::path(
+    post,
+    path = "/read",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = MarkAsReadBody,
+    responses(
+        (status = 200, description = "Updated read state", body = MarkChatReadStateResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn mark_as_read(
     CurrentUid(uid): CurrentUid,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
@@ -1205,6 +1246,18 @@ async fn mark_as_read(
 }
 
 /// POST /chats/:chat_id/unread — Mark a chat as unread by rewinding the read pointer.
+#[utoipa::path(
+    post,
+    path = "/unread",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    responses(
+        (status = 200, description = "Updated read state", body = MarkChatReadStateResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn mark_as_unread(
     CurrentUid(uid): CurrentUid,
     Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
@@ -1254,13 +1307,22 @@ async fn mark_as_unread(
     }))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UnreadCountResponse {
     unread_count: i64,
 }
 
 /// GET /chats/unread — Get total unread count for the current user.
+#[utoipa::path(
+    get,
+    path = "/unread",
+    tag = "chats",
+    responses(
+        (status = 200, description = "Total unread count", body = UnreadCountResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_unread_count(
     CurrentUid(uid): CurrentUid,
     mut conn: DbConn,
@@ -1278,24 +1340,20 @@ async fn get_unread_count(
 // Router
 // ---------------------------------------------------------------------------
 
-pub fn router() -> Router<crate::AppState> {
-    use axum::routing::*;
-    Router::new()
-        .route("/", get(get_chats))
-        .route("/unread", get(get_unread_count))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_chats))
+        .routes(utoipa_axum::routes!(get_unread_count))
         .nest(
             "/{chat_id}",
-            Router::new()
+            OpenApiRouter::new()
                 .nest(
                     "/messages",
                     messages_router().nest("/{message_id}/reactions", reactions_router()),
                 )
-                .route("/read", post(mark_as_read))
-                .route("/unread", post(mark_as_unread))
-                .route(
-                    "/threads/{thread_id}/messages",
-                    post(self::messages::post_thread_message),
-                )
+                .routes(utoipa_axum::routes!(mark_as_read))
+                .routes(utoipa_axum::routes!(mark_as_unread))
+                .routes(utoipa_axum::routes!(self::messages::post_thread_message))
                 .nest(
                     "/threads/{thread_root_id}",
                     super::threads::subscribe_router(),

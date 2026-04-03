@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::time::timeout;
 use tracing::{debug, trace};
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::services::ws_registry;
 use crate::utils::auth::{decode_auth_token, encode_auth_token, AuthClaims, ClientId, CurrentUid};
@@ -19,12 +20,21 @@ use crate::AppState;
 use messages::ServerWsMessage;
 use ws_registry::AppPresenceState;
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TicketResponse {
     pub ticket: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/ticket",
+    tag = "websocket",
+    responses(
+        (status = OK, body = TicketResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_ws_ticket(
     CurrentUid(uid): CurrentUid,
     ClientId(client_id): ClientId,
@@ -75,6 +85,15 @@ impl From<WsAppState> for AppPresenceState {
 const PONG_JSON: &str = r#"{"type":"pong"}"#;
 
 /// Upgrades the connection to WebSocket and initiates auth handshake.
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "websocket",
+    description = "WebSocket upgrade endpoint",
+    responses(
+        (status = 101, description = "Switching Protocols"),
+    ),
+)]
 async fn ws_handler(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
     ws.on_upgrade(move |socket| handle_auth_and_socket(socket, state))
 }
@@ -178,8 +197,8 @@ async fn handle_socket(
         .record_ws_connection_duration(started_at.elapsed().as_secs_f64());
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route("/", axum::routing::get(ws_handler))
-        .route("/ticket", axum::routing::get(get_ws_ticket))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(ws_handler))
+        .routes(utoipa_axum::routes!(get_ws_ticket))
 }

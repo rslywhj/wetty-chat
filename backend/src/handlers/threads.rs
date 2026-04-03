@@ -1,12 +1,13 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    Json, Router,
+    Json,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     errors::AppError,
@@ -26,7 +27,7 @@ use crate::handlers::chats::attach_metadata;
 // Re-export response type used by the handler
 pub use thread_svc::ListThreadsResponse;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListThreadsQuery {
     #[serde(default)]
@@ -36,6 +37,19 @@ pub struct ListThreadsQuery {
 }
 
 /// GET /threads — List threads the user is subscribed to.
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "threads",
+    params(
+        ("limit" = Option<i64>, Query, description = "Page size limit"),
+        ("before" = Option<DateTime<Utc>>, Query, description = "Cursor for pagination"),
+    ),
+    responses(
+        (status = OK, body = ListThreadsResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_threads(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -74,14 +88,15 @@ async fn get_threads(
     Ok(Json(response))
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkThreadReadBody {
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     message_id: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct MarkThreadReadResponse {
     updated: bool,
@@ -94,6 +109,19 @@ pub struct ThreadRootIdPath {
 }
 
 /// POST /threads/:thread_root_id/read — Mark a thread as read.
+#[utoipa::path(
+    post,
+    path = "/{thread_root_id}/read",
+    tag = "threads",
+    params(
+        ("thread_root_id" = i64, Path, description = "Thread root message ID"),
+    ),
+    request_body = MarkThreadReadBody,
+    responses(
+        (status = OK, body = MarkThreadReadResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn mark_thread_read(
     CurrentUid(uid): CurrentUid,
     Path(ThreadRootIdPath { thread_root_id }): Path<ThreadRootIdPath>,
@@ -107,13 +135,22 @@ async fn mark_thread_read(
     Ok(Json(MarkThreadReadResponse { updated }))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct UnreadThreadCountResponse {
     unread_thread_count: i64,
 }
 
 /// GET /threads/unread — Get total unread thread count for the current user.
+#[utoipa::path(
+    get,
+    path = "/unread",
+    tag = "threads",
+    responses(
+        (status = OK, body = UnreadThreadCountResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_unread_thread_count(
     CurrentUid(uid): CurrentUid,
     mut conn: DbConn,
@@ -135,6 +172,19 @@ pub struct ThreadSubscribePath {
 }
 
 /// PUT /chats/:chat_id/threads/:thread_root_id/subscribe — Follow a thread.
+#[utoipa::path(
+    put,
+    path = "/subscribe",
+    tag = "threads",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("thread_root_id" = i64, Path, description = "Thread root message ID"),
+    ),
+    responses(
+        (status = NO_CONTENT),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn subscribe_thread(
     CurrentUid(uid): CurrentUid,
     Path(ThreadSubscribePath {
@@ -167,6 +217,19 @@ async fn subscribe_thread(
 }
 
 /// DELETE /chats/:chat_id/threads/:thread_root_id/subscribe — Unfollow a thread.
+#[utoipa::path(
+    delete,
+    path = "/subscribe",
+    tag = "threads",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("thread_root_id" = i64, Path, description = "Thread root message ID"),
+    ),
+    responses(
+        (status = NO_CONTENT),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn unsubscribe_thread(
     CurrentUid(uid): CurrentUid,
     Path(ThreadSubscribePath {
@@ -191,13 +254,26 @@ pub struct ThreadSubscriptionStatusPath {
     thread_root_id: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ThreadSubscriptionStatusResponse {
     subscribed: bool,
 }
 
 /// GET /chats/:chat_id/threads/:thread_root_id/subscribe — Check subscription status.
+#[utoipa::path(
+    get,
+    path = "/subscribe",
+    tag = "threads",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("thread_root_id" = i64, Path, description = "Thread root message ID"),
+    ),
+    responses(
+        (status = OK, body = ThreadSubscriptionStatusResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_subscription_status(
     CurrentUid(uid): CurrentUid,
     Path(ThreadSubscriptionStatusPath {
@@ -215,21 +291,18 @@ async fn get_subscription_status(
     Ok(Json(ThreadSubscriptionStatusResponse { subscribed }))
 }
 
-pub fn router() -> Router<crate::AppState> {
-    use axum::routing::*;
-    Router::new()
-        .route("/", get(get_threads))
-        .route("/unread", get(get_unread_thread_count))
-        .route("/{thread_root_id}/read", post(mark_thread_read))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_threads))
+        .routes(utoipa_axum::routes!(get_unread_thread_count))
+        .routes(utoipa_axum::routes!(mark_thread_read))
 }
 
 /// Routes that are nested under /chats/:chat_id/threads/:thread_root_id
-pub fn subscribe_router() -> Router<crate::AppState> {
-    use axum::routing::*;
-    Router::new().route(
-        "/subscribe",
-        get(get_subscription_status)
-            .put(subscribe_thread)
-            .delete(unsubscribe_thread),
-    )
+pub fn subscribe_router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new().routes(utoipa_axum::routes!(
+        get_subscription_status,
+        subscribe_thread,
+        unsubscribe_thread
+    ))
 }

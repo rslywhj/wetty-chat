@@ -1,5 +1,8 @@
 use axum::{extract::State, http::HeaderMap, Json};
 use serde::Serialize;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
@@ -9,7 +12,7 @@ use crate::utils::auth::{
 };
 use crate::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MeResponse {
     pub uid: i32,
@@ -18,12 +21,21 @@ pub struct MeResponse {
     pub gender: i16,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct AuthTokenResponse {
     pub token: String,
 }
 
 /// GET /users/me — Get the current logged in user's information
+#[utoipa::path(
+    get,
+    path = "/me",
+    tag = "users",
+    responses(
+        (status = 200, description = "Current user info", body = MeResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_me(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -48,6 +60,14 @@ async fn get_me(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth-token",
+    tag = "users",
+    responses(
+        (status = 200, description = "Auth token", body = AuthTokenResponse)
+    )
+)]
 async fn get_auth_token(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -71,8 +91,8 @@ async fn get_auth_token(
     Ok(Json(AuthTokenResponse { token }))
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route("/me", axum::routing::get(get_me))
-        .route("/auth-token", axum::routing::get(get_auth_token))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(get_me))
+        .routes(routes!(get_auth_token))
 }

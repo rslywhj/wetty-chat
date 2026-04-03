@@ -1,11 +1,12 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    Json, Router,
+    Json,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa_axum::router::OpenApiRouter;
 use uuid::Uuid;
 
 use crate::errors::AppError;
@@ -21,12 +22,14 @@ use crate::AppState;
 
 const MAX_PINS_PER_CHAT: i64 = 50;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PinResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub id: i64,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     pub message: MessageResponse,
     pub pinned_by: i32,
@@ -35,16 +38,17 @@ pub struct PinResponse {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListPinsResponse {
     pins: Vec<PinResponse>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct CreatePinBody {
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     message_id: i64,
 }
 
@@ -59,6 +63,18 @@ struct PinIdPath {
     pin_id: i64,
 }
 
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "pins",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    responses(
+        (status = OK, body = ListPinsResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn list_pins(
     State(state): State<AppState>,
     Path(path): Path<ChatIdPath>,
@@ -113,6 +129,19 @@ async fn list_pins(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/",
+    tag = "pins",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = CreatePinBody,
+    responses(
+        (status = CREATED, body = PinResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn create_pin(
     State(state): State<AppState>,
     Path(path): Path<ChatIdPath>,
@@ -232,6 +261,19 @@ async fn create_pin(
     Ok((StatusCode::CREATED, Json(pin_response)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/{pin_id}",
+    tag = "pins",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("pin_id" = i64, Path, description = "Pin ID"),
+    ),
+    responses(
+        (status = NO_CONTENT),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn delete_pin(
     State(state): State<AppState>,
     Path(path): Path<PinIdPath>,
@@ -292,9 +334,8 @@ async fn delete_pin(
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub fn router() -> Router<AppState> {
-    use axum::routing::*;
-    Router::new()
-        .route("/", get(list_pins).post(create_pin))
-        .route("/{pin_id}", delete(delete_pin))
+pub fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(list_pins, create_pin))
+        .routes(utoipa_axum::routes!(delete_pin))
 }

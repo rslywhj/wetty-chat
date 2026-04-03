@@ -11,10 +11,10 @@ pub mod users;
 pub mod ws;
 
 use crate::AppState;
-use axum::Router;
+use utoipa_axum::router::OpenApiRouter;
 
-pub fn api_router() -> Router<AppState> {
-    Router::new()
+pub fn api_router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .nest("/ws", ws::router())
         .nest("/chats", chats::router())
         .nest("/threads", threads::router())

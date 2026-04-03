@@ -3,7 +3,16 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::GroupVisibility"]
 #[serde(rename_all = "snake_case")]
 pub enum GroupVisibility {
@@ -12,7 +21,16 @@ pub enum GroupVisibility {
     Private,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::MediaPurpose"]
 #[serde(rename_all = "snake_case")]
 pub enum MediaPurpose {
@@ -21,7 +39,16 @@ pub enum MediaPurpose {
     Generic,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::GroupJoinReason"]
 #[serde(rename_all = "snake_case")]
 pub enum GroupJoinReason {
@@ -31,7 +58,16 @@ pub enum GroupJoinReason {
     DirectInvite,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::GroupRole"]
 #[serde(rename_all = "snake_case")]
 pub enum GroupRole {
@@ -39,7 +75,16 @@ pub enum GroupRole {
     Admin,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::InviteType"]
 #[serde(rename_all = "snake_case")]
 pub enum InviteType {
@@ -48,7 +93,16 @@ pub enum InviteType {
     Membership,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::MessageType"]
 #[serde(rename_all = "snake_case")]
 pub enum MessageType {
@@ -60,7 +114,7 @@ pub enum MessageType {
     System,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UserGroupInfo {
     pub group_id: i32,
@@ -69,7 +123,7 @@ pub struct UserGroupInfo {
     pub chat_group_color_dark: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Sender {
     pub uid: i32,
@@ -289,7 +343,7 @@ pub struct Message {
     pub sticker_id: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadInfo {
     pub reply_count: i64,
@@ -393,10 +447,11 @@ pub struct Attachment {
     pub height: Option<i32>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AttachmentResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub id: i64,
     pub url: String,
     pub kind: String,

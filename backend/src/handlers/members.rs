@@ -8,6 +8,7 @@ use diesel::prelude::*;
 use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
+use utoipa_axum::router::OpenApiRouter;
 
 use diesel::PgConnection;
 
@@ -37,7 +38,7 @@ pub struct MemberPath {
     uid: i32,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AddMemberBody {
     uid: i32,
@@ -45,13 +46,13 @@ pub struct AddMemberBody {
     role: Option<GroupRole>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateMemberBody {
     role: GroupRole,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MemberResponse {
     uid: i32,
@@ -63,7 +64,7 @@ pub struct MemberResponse {
     user_group: Option<UserGroupInfo>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListMembersQuery {
     limit: Option<i64>,
@@ -72,7 +73,7 @@ struct ListMembersQuery {
     mode: Option<UserSearchMode>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListMembersResponse {
     members: Vec<MemberResponse>,
@@ -148,6 +149,22 @@ pub(super) fn require_admin_role(
 }
 
 /// GET /group/:chat_id/members — List members of a chat.
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "members",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("limit" = Option<i64>, Query, description = "Page size limit"),
+        ("after" = Option<i32>, Query, description = "Cursor for pagination"),
+        ("q" = Option<String>, Query, description = "Search query"),
+        ("mode" = Option<UserSearchMode>, Query, description = "Search mode"),
+    ),
+    responses(
+        (status = OK, body = ListMembersResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_members(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -208,6 +225,19 @@ async fn get_members(
 }
 
 /// POST /group/:chat_id/members — Add a member to the chat (caller must be admin).
+#[utoipa::path(
+    post,
+    path = "/",
+    tag = "members",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    request_body = AddMemberBody,
+    responses(
+        (status = CREATED, body = MemberResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn post_add_member(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -275,6 +305,19 @@ async fn post_add_member(
 }
 
 /// DELETE /group/:chat_id/members/:uid — Remove a member from the chat (caller must be admin).
+#[utoipa::path(
+    delete,
+    path = "/{uid}",
+    tag = "members",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("uid" = i32, Path, description = "User ID of the member"),
+    ),
+    responses(
+        (status = NO_CONTENT),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn delete_remove_member(
     CurrentUid(uid): CurrentUid,
     Path(MemberPath {
@@ -312,6 +355,20 @@ async fn delete_remove_member(
 }
 
 /// PATCH /group/:chat_id/members/:uid — Update member role (admin only).
+#[utoipa::path(
+    patch,
+    path = "/{uid}",
+    tag = "members",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("uid" = i32, Path, description = "User ID of the member"),
+    ),
+    request_body = UpdateMemberBody,
+    responses(
+        (status = OK, body = MemberResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn patch_member(
     CurrentUid(requester_uid): CurrentUid,
     State(state): State<AppState>,
@@ -374,11 +431,8 @@ async fn patch_member(
     }))
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route("/", axum::routing::get(get_members).post(post_add_member))
-        .route(
-            "/{uid}",
-            axum::routing::delete(delete_remove_member).patch(patch_member),
-        )
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_members, post_add_member))
+        .routes(utoipa_axum::routes!(delete_remove_member, patch_member))
 }

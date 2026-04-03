@@ -15,7 +15,13 @@ import { useHistory, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
-import { selectChatMeta, selectChatMutedUntil, setChatInList, setChatMeta } from '@/store/chatsSlice';
+import {
+  selectChatMeta,
+  selectChatMutedUntil,
+  setChatInList,
+  setChatMeta,
+  setChatMutedUntil,
+} from '@/store/chatsSlice';
 import type { RootState } from '@/store/index';
 import { getGroupInfo, leaveGroup, requestGroupAvatarUploadUrl, updateGroupInfo, type GroupRole } from '@/api/group';
 import { uploadFileToS3 } from '@/api/upload';
@@ -166,9 +172,10 @@ function ChatSettingsSession({ chatId, backAction }: { chatId: string; backActio
 
     getGroupInfo(chatId)
       .then((res) => {
-        const { id, ...meta } = res.data;
+        const { id, mutedUntil, ...meta } = res.data;
         void id;
         dispatch(setChatMeta({ chatId, meta }));
+        dispatch(setChatMutedUntil({ chatId, mutedUntil: mutedUntil ?? null }));
         setFormState(getInitialFormState(meta));
       })
       .catch((err: Error) => {

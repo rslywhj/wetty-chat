@@ -6,6 +6,9 @@ use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use uuid::Uuid;
 
 use diesel::PgConnection;
@@ -35,10 +38,11 @@ struct InviteIdPath {
     invite_id: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct CreateInviteBody {
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     chat_id: i64,
     invite_type: InviteType,
     target_uid: Option<i32>,
@@ -46,67 +50,76 @@ struct CreateInviteBody {
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     required_chat_id: Option<i64>,
     expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema, utoipa::IntoParams)]
 #[serde(rename_all = "camelCase")]
 struct ListInvitesQuery {
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     group_id: Option<i64>,
     limit: Option<i64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema, utoipa::IntoParams)]
 #[serde(rename_all = "camelCase")]
 struct GetInviteByCodeQuery {
     invite_code: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PatchInviteBody {
     #[serde(default, deserialize_with = "double_opt_datetime::deserialize")]
+    #[schema(value_type = Option<String>)]
     expires_at: Option<Option<DateTime<Utc>>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 struct RedeemInviteBody {
     code: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct SendInviteMessageBody {
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     source_chat_id: i64,
     #[serde(deserialize_with = "crate::serde_i64_string::deserialize")]
+    #[schema(value_type = String)]
     destination_chat_id: i64,
     #[serde(
         default,
         deserialize_with = "crate::serde_i64_string::opt::deserialize"
     )]
+    #[schema(value_type = Option<String>)]
     invite_id: Option<i64>,
     expires_at: Option<DateTime<Utc>>,
     client_generated_id: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct InviteResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     code: String,
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     chat_id: i64,
     invite_type: InviteType,
     creator_uid: Option<i32>,
     target_uid: Option<i32>,
     #[serde(with = "crate::serde_i64_string::opt")]
+    #[schema(value_type = Option<String>)]
     required_chat_id: Option<i64>,
     created_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
@@ -114,13 +127,13 @@ struct InviteResponse {
     used_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ListInvitesResponse {
     invites: Vec<InviteResponse>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct InvitePreviewResponse {
     invite: InviteResponse,
@@ -128,13 +141,13 @@ struct InvitePreviewResponse {
     already_member: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct RedeemInviteResponse {
     chat: GroupInfoResponse,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct SendInviteMessageResponse {
     invite: InviteResponse,
@@ -438,6 +451,16 @@ fn preview_eligibility(
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/",
+    tag = "invites",
+    request_body = CreateInviteBody,
+    responses(
+        (status = 201, description = "Invite created", body = InviteResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_invite(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -454,6 +477,16 @@ async fn post_invite(
     Ok((StatusCode::CREATED, Json(invite_to_response(invite))))
 }
 
+#[utoipa::path(
+    post,
+    path = "/send",
+    tag = "invites",
+    request_body = SendInviteMessageBody,
+    responses(
+        (status = 201, description = "Invite message sent", body = SendInviteMessageResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_send_invite_message(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -510,6 +543,16 @@ async fn post_send_invite_message(
     ))
 }
 
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "invites",
+    params(ListInvitesQuery),
+    responses(
+        (status = 200, description = "List of invites", body = ListInvitesResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_invites(
     CurrentUid(uid): CurrentUid,
     mut conn: DbConn,
@@ -538,6 +581,18 @@ async fn get_invites(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/invite/{invite_id}",
+    tag = "invites",
+    params(
+        ("invite_id" = i64, Path, description = "Invite ID")
+    ),
+    responses(
+        (status = 200, description = "Invite details", body = InviteResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_invite(
     CurrentUid(uid): CurrentUid,
     Path(InviteIdPath { invite_id }): Path<InviteIdPath>,
@@ -551,6 +606,16 @@ async fn get_invite(
     Ok(Json(invite_to_response(invite)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/invite",
+    tag = "invites",
+    params(GetInviteByCodeQuery),
+    responses(
+        (status = 200, description = "Invite preview", body = InvitePreviewResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_invite_by_code(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -593,6 +658,19 @@ async fn get_invite_by_code(
     }))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/invite/{invite_id}",
+    tag = "invites",
+    params(
+        ("invite_id" = i64, Path, description = "Invite ID")
+    ),
+    request_body = PatchInviteBody,
+    responses(
+        (status = 200, description = "Invite updated", body = InviteResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn patch_invite(
     CurrentUid(uid): CurrentUid,
     Path(InviteIdPath { invite_id }): Path<InviteIdPath>,
@@ -616,6 +694,18 @@ async fn patch_invite(
     Ok(Json(invite_to_response(updated)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/invite/{invite_id}",
+    tag = "invites",
+    params(
+        ("invite_id" = i64, Path, description = "Invite ID")
+    ),
+    responses(
+        (status = 204, description = "Invite deleted")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn delete_invite(
     CurrentUid(uid): CurrentUid,
     Path(InviteIdPath { invite_id }): Path<InviteIdPath>,
@@ -633,6 +723,16 @@ async fn delete_invite(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    post,
+    path = "/redeem",
+    tag = "invites",
+    request_body = RedeemInviteBody,
+    responses(
+        (status = 200, description = "Invite redeemed", body = RedeemInviteResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_redeem_invite(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -758,16 +858,11 @@ async fn post_redeem_invite(
     Ok(Json(RedeemInviteResponse { chat }))
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route("/", axum::routing::post(post_invite).get(get_invites))
-        .route("/send", axum::routing::post(post_send_invite_message))
-        .route("/redeem", axum::routing::post(post_redeem_invite))
-        .route("/invite", axum::routing::get(get_invite_by_code))
-        .route(
-            "/invite/{invite_id}",
-            axum::routing::get(get_invite)
-                .patch(patch_invite)
-                .delete(delete_invite),
-        )
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(post_invite, get_invites))
+        .routes(routes!(post_send_invite_message))
+        .routes(routes!(post_redeem_invite))
+        .routes(routes!(get_invite_by_code))
+        .routes(routes!(get_invite, patch_invite, delete_invite))
 }

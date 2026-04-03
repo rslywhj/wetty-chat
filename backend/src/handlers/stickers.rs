@@ -3,14 +3,14 @@ use axum::{
     extract::{Json, Multipart, Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
-    Json as AxumJson, Router,
+    Json as AxumJson,
 };
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel::PgConnection;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
@@ -36,24 +36,26 @@ const MAX_STICKER_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
 const STICKER_STORAGE_PREFIX: &str = "stickers";
 const MAX_STICKER_EMOJI_GRAPHEMES: usize = 4;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct CreateStickerPackBody {
     name: String,
     description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct UpdateStickerPackBody {
     name: Option<String>,
     description: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
+#[schema(as = StickersStickerMediaResponse)]
 #[serde(rename_all = "camelCase")]
 struct StickerMediaResponse {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     url: String,
     content_type: String,
@@ -62,10 +64,11 @@ struct StickerMediaResponse {
     height: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerSummary {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     media: StickerMediaResponse,
     emoji: String,
@@ -75,19 +78,21 @@ struct StickerSummary {
     is_favorited: bool,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerPackPreviewSticker {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     media: StickerMediaResponse,
     emoji: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerPackSummary {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     id: i64,
     owner_uid: i32,
     owner_name: Option<String>,
@@ -100,29 +105,31 @@ struct StickerPackSummary {
     preview_sticker: Option<StickerPackPreviewSticker>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerPackDetailResponse {
     #[serde(flatten)]
+    #[schema(inline)]
     pack: StickerPackSummary,
     stickers: Vec<StickerSummary>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerDetailResponse {
     #[serde(flatten)]
+    #[schema(inline)]
     sticker: StickerSummary,
     packs: Vec<StickerPackSummary>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct StickerPackListResponse {
     packs: Vec<StickerPackSummary>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct FavoriteStickerListResponse {
     stickers: Vec<StickerSummary>,
@@ -361,6 +368,16 @@ fn build_sticker_summaries(
         .collect())
 }
 
+#[utoipa::path(
+    post,
+    path = "/packs",
+    tag = "stickers",
+    request_body = CreateStickerPackBody,
+    responses(
+        (status = 201, description = "Sticker pack created", body = StickerPackDetailResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_pack(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -409,6 +426,19 @@ async fn post_pack(
     Ok(AxumJson(summary))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/packs/{pack_id}",
+    tag = "stickers",
+    request_body = UpdateStickerPackBody,
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    responses(
+        (status = 200, description = "Sticker pack updated", body = StickerPackDetailResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn patch_pack(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -445,6 +475,18 @@ async fn patch_pack(
     Ok(AxumJson(summary))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/packs/{pack_id}",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    responses(
+        (status = 204, description = "Sticker pack deleted")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn delete_pack(
     CurrentUid(uid): CurrentUid,
     Path(pack_id): Path<i64>,
@@ -458,6 +500,18 @@ async fn delete_pack(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    get,
+    path = "/packs/{pack_id}",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    responses(
+        (status = 200, description = "Sticker pack details", body = StickerPackDetailResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_pack(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -482,6 +536,15 @@ async fn get_pack(
     Ok(AxumJson(StickerPackDetailResponse { pack, stickers }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/packs/mine/subscribed",
+    tag = "stickers",
+    responses(
+        (status = 200, description = "Subscribed sticker packs", body = StickerPackListResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_my_subscribed_packs(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -500,6 +563,15 @@ async fn get_my_subscribed_packs(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/packs/mine/owned",
+    tag = "stickers",
+    responses(
+        (status = 200, description = "Owned sticker packs", body = StickerPackListResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_my_owned_packs(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -517,6 +589,18 @@ async fn get_my_owned_packs(
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/packs/{pack_id}/subscription",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    responses(
+        (status = 204, description = "Subscribed to sticker pack")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn put_subscription(
     CurrentUid(uid): CurrentUid,
     Path(pack_id): Path<i64>,
@@ -542,6 +626,18 @@ async fn put_subscription(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/packs/{pack_id}/subscription",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    responses(
+        (status = 204, description = "Unsubscribed from sticker pack")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn delete_subscription(
     CurrentUid(uid): CurrentUid,
     Path(pack_id): Path<i64>,
@@ -569,6 +665,32 @@ async fn delete_subscription(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[derive(utoipa::ToSchema)]
+#[allow(dead_code)]
+struct PostStickerMultipart {
+    /// Sticker image file
+    file: Vec<u8>,
+    /// Emoji for the sticker
+    emoji: String,
+    /// Optional sticker name
+    name: Option<String>,
+    /// Optional sticker description
+    description: Option<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/packs/{pack_id}/stickers",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID")
+    ),
+    request_body(content = PostStickerMultipart, content_type = "multipart/form-data"),
+    responses(
+        (status = 201, description = "Sticker created", body = StickerSummary)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_pack_sticker(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -753,6 +875,19 @@ async fn post_pack_sticker(
     Ok((StatusCode::CREATED, AxumJson(summary)))
 }
 
+#[utoipa::path(
+    put,
+    path = "/packs/{pack_id}/stickers/{sticker_id}",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID"),
+        ("sticker_id" = i64, Path, description = "Sticker ID")
+    ),
+    responses(
+        (status = 204, description = "Sticker added to pack")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn put_pack_sticker(
     CurrentUid(uid): CurrentUid,
     Path((pack_id, sticker_id)): Path<(i64, i64)>,
@@ -779,6 +914,19 @@ async fn put_pack_sticker(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/packs/{pack_id}/stickers/{sticker_id}",
+    tag = "stickers",
+    params(
+        ("pack_id" = i64, Path, description = "Sticker pack ID"),
+        ("sticker_id" = i64, Path, description = "Sticker ID")
+    ),
+    responses(
+        (status = 204, description = "Sticker removed from pack")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn delete_pack_sticker(
     CurrentUid(uid): CurrentUid,
     Path((pack_id, sticker_id)): Path<(i64, i64)>,
@@ -797,6 +945,18 @@ async fn delete_pack_sticker(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    get,
+    path = "/{sticker_id}",
+    tag = "stickers",
+    params(
+        ("sticker_id" = i64, Path, description = "Sticker ID")
+    ),
+    responses(
+        (status = 200, description = "Sticker details", body = StickerDetailResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_sticker(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -833,6 +993,18 @@ async fn get_sticker(
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/{sticker_id}/favorite",
+    tag = "stickers",
+    params(
+        ("sticker_id" = i64, Path, description = "Sticker ID")
+    ),
+    responses(
+        (status = 204, description = "Sticker favorited")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn put_favorite(
     CurrentUid(uid): CurrentUid,
     Path(sticker_id): Path<i64>,
@@ -858,6 +1030,18 @@ async fn put_favorite(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/{sticker_id}/favorite",
+    tag = "stickers",
+    params(
+        ("sticker_id" = i64, Path, description = "Sticker ID")
+    ),
+    responses(
+        (status = 204, description = "Sticker unfavorited")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn delete_favorite(
     CurrentUid(uid): CurrentUid,
     Path(sticker_id): Path<i64>,
@@ -875,6 +1059,15 @@ async fn delete_favorite(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    get,
+    path = "/mine/favorites",
+    tag = "stickers",
+    responses(
+        (status = 200, description = "Favorite stickers", body = FavoriteStickerListResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_my_favorites(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -893,28 +1086,16 @@ async fn get_my_favorites(
     }))
 }
 
-pub fn router() -> Router<crate::AppState> {
-    Router::new()
-        .route("/packs", post(post_pack))
-        .route("/packs/mine/subscribed", get(get_my_subscribed_packs))
-        .route("/packs/mine/owned", get(get_my_owned_packs))
-        .route("/mine/favorites", get(get_my_favorites))
-        .route(
-            "/packs/{pack_id}",
-            get(get_pack).patch(patch_pack).delete(delete_pack),
-        )
-        .route(
-            "/packs/{pack_id}/subscription",
-            put(put_subscription).delete(delete_subscription),
-        )
-        .route("/packs/{pack_id}/stickers", post(post_pack_sticker))
-        .route(
-            "/packs/{pack_id}/stickers/{sticker_id}",
-            put(put_pack_sticker).delete(delete_pack_sticker),
-        )
-        .route("/{sticker_id}", get(get_sticker))
-        .route(
-            "/{sticker_id}/favorite",
-            put(put_favorite).delete(delete_favorite),
-        )
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(post_pack))
+        .routes(utoipa_axum::routes!(get_my_subscribed_packs))
+        .routes(utoipa_axum::routes!(get_my_owned_packs))
+        .routes(utoipa_axum::routes!(get_my_favorites))
+        .routes(utoipa_axum::routes!(get_pack, patch_pack, delete_pack))
+        .routes(utoipa_axum::routes!(put_subscription, delete_subscription))
+        .routes(utoipa_axum::routes!(post_pack_sticker))
+        .routes(utoipa_axum::routes!(put_pack_sticker, delete_pack_sticker))
+        .routes(utoipa_axum::routes!(get_sticker))
+        .routes(utoipa_axum::routes!(put_favorite, delete_favorite))
 }

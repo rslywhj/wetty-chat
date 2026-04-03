@@ -1,13 +1,14 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    Json, Router,
+    Json,
 };
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel::PgConnection;
 use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     errors::AppError,
@@ -118,19 +119,32 @@ fn broadcast_reaction_update(
     state.ws_registry.broadcast_to_uids(&member_uids, ws_msg);
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ReactionDetailGroup {
     emoji: String,
     reactors: Vec<ReactionReactor>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct ReactionDetailResponse {
     reactions: Vec<ReactionDetailGroup>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+    ),
+    responses(
+        (status = 200, description = "Reaction details", body = ReactionDetailResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn get_reaction_details(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -198,6 +212,20 @@ async fn get_reaction_details(
     Ok(Json(ReactionDetailResponse { reactions: groups }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/{emoji}",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+        ("emoji" = String, Path, description = "Emoji character"),
+    ),
+    responses(
+        (status = 204, description = "Reaction added"),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn put_reaction(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -238,6 +266,20 @@ async fn put_reaction(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    delete,
+    path = "/{emoji}",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+        ("message_id" = i64, Path, description = "Message ID"),
+        ("emoji" = String, Path, description = "Emoji character"),
+    ),
+    responses(
+        (status = 204, description = "Reaction removed"),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
 async fn delete_reaction(
     CurrentUid(uid): CurrentUid,
     State(state): State<AppState>,
@@ -275,11 +317,10 @@ async fn delete_reaction(
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub fn router() -> Router<crate::AppState> {
-    use axum::routing::*;
-    Router::new()
-        .route("/", get(get_reaction_details))
-        .route("/{emoji}", put(put_reaction).delete(delete_reaction))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_reaction_details))
+        .routes(utoipa_axum::routes!(put_reaction, delete_reaction))
 }
 
 #[cfg(test)]

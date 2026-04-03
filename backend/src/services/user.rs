@@ -18,7 +18,7 @@ pub(crate) fn normalize_discuz_username(username: &str) -> String {
     username.trim_end().to_string()
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum UserSearchMode {
     Autocomplete,

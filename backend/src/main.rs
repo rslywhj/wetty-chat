@@ -19,6 +19,7 @@ use tower_http::ServiceBuilderExt;
 use tracing::{debug_span, info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use utils::auth::{X_APP_VERSION, X_CLIENT_ID, X_USER_ID};
+use utoipa::OpenApi;
 
 mod db_tracing;
 pub(crate) mod errors;
@@ -26,6 +27,7 @@ pub(crate) mod extractors;
 mod handlers;
 mod metrics;
 mod models;
+mod openapi;
 mod schema;
 mod serde_i64_string;
 mod services;
@@ -218,8 +220,13 @@ async fn main() {
 
     let metrics_registry = state.metrics.clone();
     let client_tracking_state = state.clone();
+
+    let (api_router, api_openapi) = handlers::api_router().split_for_parts();
+    let mut openapi_doc = openapi::ApiDoc::openapi();
+    openapi_doc.merge(api_openapi);
+
     let app = Router::new()
-        .merge(handlers::api_router())
+        .merge(api_router)
         // Keep enough headroom for sticker multipart uploads; per-feature logic still
         // enforces tighter file-size checks where needed.
         .layer(RequestBodyLimitLayer::new(MAX_REQUEST_BODY_BYTES))
@@ -238,6 +245,10 @@ async fn main() {
             metrics::track_http_metrics,
         ))
         .with_state(state);
+
+    let app = app.merge(
+        utoipa_swagger_ui::SwaggerUi::new("/docs").url("/api-docs/openapi.json", openapi_doc),
+    );
     let app = if let Some(allowed_origins) = cors_allowed_origins {
         info!(
             allowed_origins = ?allowed_origins,

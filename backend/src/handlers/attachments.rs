@@ -8,6 +8,9 @@ use chrono::{Duration, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
@@ -16,7 +19,7 @@ use crate::utils::auth::CurrentUid;
 use crate::utils::ids;
 use crate::{models::NewAttachment, schema::attachments, AppState};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadUrlRequest {
     filename: String,
@@ -26,7 +29,7 @@ pub struct UploadUrlRequest {
     height: Option<i32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UploadUrlResponse {
     attachment_id: String,
@@ -62,6 +65,16 @@ pub async fn get_presigned_url(
     Ok(presigned_request.uri().to_string())
 }
 
+#[utoipa::path(
+    post,
+    path = "/upload-url",
+    tag = "attachments",
+    request_body = UploadUrlRequest,
+    responses(
+        (status = 201, description = "Upload URL created", body = UploadUrlResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_upload_url(
     CurrentUid(_uid): CurrentUid,
     State(state): State<AppState>,
@@ -114,6 +127,6 @@ async fn post_upload_url(
     Ok((StatusCode::CREATED, Json(response)))
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new().route("/upload-url", axum::routing::post(post_upload_url))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new().routes(routes!(post_upload_url))
 }

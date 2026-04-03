@@ -7,6 +7,9 @@ use axum::{
 use chrono::Utc;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
@@ -16,30 +19,48 @@ use crate::utils::auth::{ClientId, CurrentUid};
 use crate::utils::ids;
 use crate::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct VapidPublicKeyResponse {
     pub public_key: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/vapid-public-key",
+    tag = "push",
+    responses(
+        (status = 200, description = "VAPID public key", body = VapidPublicKeyResponse)
+    )
+)]
 async fn get_vapid_public_key(State(state): State<AppState>) -> Json<VapidPublicKeyResponse> {
     Json(VapidPublicKeyResponse {
         public_key: state.push_service.vapid_public_key.clone(),
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct SubscribeBody {
     pub endpoint: String,
     pub keys: SubscribeKeys,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct SubscribeKeys {
     pub p256dh: String,
     pub auth: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/subscribe",
+    tag = "push",
+    request_body = SubscribeBody,
+    responses(
+        (status = 201, description = "Subscribed")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_subscribe(
     CurrentUid(uid): CurrentUid,
     ClientId(client_id): ClientId,
@@ -90,12 +111,22 @@ async fn post_subscribe(
     Ok(StatusCode::CREATED)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct UnsubscribeBody {
     #[allow(dead_code)]
     pub endpoint: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/unsubscribe",
+    tag = "push",
+    request_body = UnsubscribeBody,
+    responses(
+        (status = 200, description = "Unsubscribed")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn post_unsubscribe(
     CurrentUid(uid): CurrentUid,
     ClientId(client_id): ClientId,
@@ -114,18 +145,28 @@ async fn post_unsubscribe(
     Ok(StatusCode::OK)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct SubscriptionStatusQuery {
     pub endpoint: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscriptionStatusResponse {
     pub has_active_subscription: bool,
     pub has_matching_endpoint: Option<bool>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/subscription-status",
+    tag = "push",
+    params(SubscriptionStatusQuery),
+    responses(
+        (status = 200, description = "Subscription status", body = SubscriptionStatusResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
 async fn get_subscription_status(
     CurrentUid(uid): CurrentUid,
     ClientId(client_id): ClientId,
@@ -161,16 +202,10 @@ async fn get_subscription_status(
     }))
 }
 
-pub fn router() -> axum::Router<crate::AppState> {
-    axum::Router::new()
-        .route(
-            "/vapid-public-key",
-            axum::routing::get(get_vapid_public_key),
-        )
-        .route(
-            "/subscription-status",
-            axum::routing::get(get_subscription_status),
-        )
-        .route("/subscribe", axum::routing::post(post_subscribe))
-        .route("/unsubscribe", axum::routing::post(post_unsubscribe))
+pub fn router() -> OpenApiRouter<crate::AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(get_vapid_public_key))
+        .routes(routes!(get_subscription_status))
+        .routes(routes!(post_subscribe))
+        .routes(routes!(post_unsubscribe))
 }

@@ -225,7 +225,7 @@ pub fn get_total_unread_thread_count(
 
 // --- Thread list enrichment types and logic ---
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadParticipant {
     pub uid: i32,
@@ -233,7 +233,7 @@ pub struct ThreadParticipant {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadReplyPreview {
     pub sender: ThreadParticipant,
@@ -248,10 +248,11 @@ pub struct ThreadReplyPreview {
     pub mentions: Vec<MentionInfo>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadListItem {
     #[serde(with = "crate::serde_i64_string")]
+    #[schema(value_type = String)]
     pub chat_id: i64,
     pub chat_name: String,
     pub chat_avatar: Option<String>,
@@ -264,7 +265,7 @@ pub struct ThreadListItem {
     pub subscribed_at: DateTime<Utc>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListThreadsResponse {
     pub threads: Vec<ThreadListItem>,
