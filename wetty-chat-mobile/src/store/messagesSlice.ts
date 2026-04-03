@@ -426,4 +426,32 @@ export function selectPrevCursorForChat(state: { messages: MessagesState }, chat
   return chat.windows[chat.activeWindowIndex]?.prevCursor ?? null;
 }
 
+/**
+ * Find the latest non-deleted message in a thread's windows.
+ * Returns null if no window exists for this thread (caller should fall back to cached preview).
+ */
+export function selectLatestThreadReplyMessage(
+  state: { messages: MessagesState },
+  chatId: string,
+  threadRootId: string,
+): MessageResponse | null {
+  const storeKey = `${chatId}_thread_${threadRootId}`;
+  const chat = state.messages.chats[storeKey];
+  if (!chat || chat.windows.length === 0) return null;
+
+  let latest: MessageResponse | null = null;
+  for (const win of chat.windows) {
+    for (let i = win.messages.length - 1; i >= 0; i--) {
+      const msg = win.messages[i];
+      if (!msg.isDeleted) {
+        if (!latest || compareMessageOrder(msg, latest) > 0) {
+          latest = msg;
+        }
+        break; // sorted within window — first non-deleted from end is the latest in this window
+      }
+    }
+  }
+  return latest;
+}
+
 export default messagesSlice.reducer;

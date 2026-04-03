@@ -1,6 +1,10 @@
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import { IonBadge, IonItem, IonLabel } from '@ionic/react';
-import type { ThreadListItem, ThreadReplyPreview } from '@/api/threads';
+import type { StoredThreadListItem, ThreadReplyPreview } from '@/api/threads';
 import { OverlayAvatar } from '@/components/OverlayAvatar';
+import type { RootState } from '@/store/index';
+import { selectLatestThreadReplyMessage } from '@/store/messagesSlice';
 import { formatMessagePreview, getNotificationPreviewLabels } from '@/utils/messagePreview';
 import styles from './ThreadListRow.module.scss';
 
@@ -44,7 +48,7 @@ function formatReplyPreview(reply: ThreadReplyPreview, locale: string): string {
 }
 
 interface ThreadListRowProps {
-  thread: ThreadListItem;
+  thread: StoredThreadListItem;
   locale: string;
   isActive?: boolean;
   onSelect: (chatId: string, threadRootId: string) => void;
@@ -53,7 +57,26 @@ interface ThreadListRowProps {
 export function ThreadListRow({ thread, locale, isActive, onSelect }: ThreadListRowProps) {
   const rootMsg = thread.threadRootMessage;
   const rootPreview = formatMessagePreview(rootMsg, getNotificationPreviewLabels(locale));
-  const lastReply = thread.lastReply;
+
+  const liveMessage = useSelector((state: RootState) =>
+    selectLatestThreadReplyMessage(state, thread.chatId, rootMsg.id),
+  );
+
+  const lastReply = useMemo(() => {
+    if (liveMessage) {
+      return {
+        sender: { uid: liveMessage.sender.uid, name: liveMessage.sender.name, avatarUrl: liveMessage.sender.avatarUrl },
+        message: liveMessage.message,
+        messageType: liveMessage.messageType,
+        stickerEmoji: liveMessage.sticker?.emoji ?? null,
+        firstAttachmentKind: liveMessage.attachments?.[0]?.kind ?? null,
+        isDeleted: liveMessage.isDeleted,
+        mentions: liveMessage.mentions ?? null,
+      } satisfies ThreadReplyPreview;
+    }
+    return thread.cachedLastReply;
+  }, [liveMessage, thread.cachedLastReply]);
+
   const lastReplyPreview = lastReply ? formatReplyPreview(lastReply, locale) : null;
 
   return (

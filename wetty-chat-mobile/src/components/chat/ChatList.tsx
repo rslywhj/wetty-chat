@@ -93,7 +93,7 @@ function getMessagePreview(message: MessageResponse | null, locale: string): Rea
 
 type MergedItem =
   | { type: 'group'; chat: ChatListEntry; sortTime: number }
-  | { type: 'thread'; thread: import('@/api/threads').ThreadListItem; sortTime: number };
+  | { type: 'thread'; thread: import('@/api/threads').StoredThreadListItem; sortTime: number };
 
 interface ChatListProps {
   activeChatId?: string;

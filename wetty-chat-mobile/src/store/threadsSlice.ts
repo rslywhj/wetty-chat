@@ -1,7 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
 import type { RootState } from './index';
-import type { ThreadListItem, ThreadReplyPreview } from '@/api/threads';
+import type { StoredThreadListItem, ThreadListItem, ThreadReplyPreview } from '@/api/threads';
 
 export interface ThreadUpdatePayload {
   threadRootId: string;
@@ -10,8 +10,13 @@ export interface ThreadUpdatePayload {
   replyCount: number;
 }
 
+function toStoredThread(item: ThreadListItem): StoredThreadListItem {
+  const { lastReply, ...rest } = item;
+  return { ...rest, cachedLastReply: lastReply };
+}
+
 interface ThreadsState {
-  items: ThreadListItem[];
+  items: StoredThreadListItem[];
   nextCursor: string | null;
   totalUnreadCount: number;
   isLoaded: boolean;
@@ -29,14 +34,16 @@ const threadsSlice = createSlice({
   initialState,
   reducers: {
     setThreadsList(state, action: PayloadAction<{ threads: ThreadListItem[]; nextCursor: string | null }>) {
-      state.items = action.payload.threads;
+      state.items = action.payload.threads.map(toStoredThread);
       state.nextCursor = action.payload.nextCursor;
       state.isLoaded = true;
       state.totalUnreadCount = state.items.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
     },
     appendThreads(state, action: PayloadAction<{ threads: ThreadListItem[]; nextCursor: string | null }>) {
       const existingIds = new Set(state.items.map((t) => t.threadRootMessage.id));
-      const newThreads = action.payload.threads.filter((t) => !existingIds.has(t.threadRootMessage.id));
+      const newThreads = action.payload.threads
+        .filter((t) => !existingIds.has(t.threadRootMessage.id))
+        .map(toStoredThread);
       state.items.push(...newThreads);
       state.nextCursor = action.payload.nextCursor;
       state.totalUnreadCount = state.items.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
@@ -54,16 +61,24 @@ const threadsSlice = createSlice({
       }
       state.totalUnreadCount = state.items.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
     },
-    updateThreadLastReply(state, action: PayloadAction<{ threadRootId: string; lastReply: ThreadReplyPreview }>) {
-      const idx = state.items.findIndex((t) => t.threadRootMessage.id === action.payload.threadRootId);
-      if (idx >= 0) {
-        const thread = state.items[idx];
-        thread.lastReply = action.payload.lastReply;
-        // Move to top so the list order reflects the newest reply
-        if (idx > 0) {
-          state.items.splice(idx, 1);
-          state.items.unshift(thread);
-        }
+    /** Update the cached preview for threads whose messages aren't loaded in messagesSlice. */
+    updateThreadCachedLastReply(
+      state,
+      action: PayloadAction<{ threadRootId: string; cachedLastReply: ThreadReplyPreview }>,
+    ) {
+      const thread = state.items.find((t) => t.threadRootMessage.id === action.payload.threadRootId);
+      if (thread) {
+        thread.cachedLastReply = action.payload.cachedLastReply;
+      }
+    },
+    /** Partially patch the cached preview (e.g. mark as deleted when the thread window isn't loaded). */
+    patchThreadCachedLastReply(
+      state,
+      action: PayloadAction<{ threadRootId: string; patch: Partial<ThreadReplyPreview> }>,
+    ) {
+      const thread = state.items.find((t) => t.threadRootMessage.id === action.payload.threadRootId);
+      if (thread && thread.cachedLastReply) {
+        Object.assign(thread.cachedLastReply, action.payload.patch);
       }
     },
     incrementThreadUnread(state, action: PayloadAction<{ threadRootId: string }>) {
@@ -83,15 +98,6 @@ const threadsSlice = createSlice({
     removeThread(state, action: PayloadAction<{ threadRootId: string }>) {
       state.items = state.items.filter((t) => t.threadRootMessage.id !== action.payload.threadRootId);
       state.totalUnreadCount = state.items.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0);
-    },
-    patchThreadLastReply(
-      state,
-      action: PayloadAction<{ threadRootId: string; patch: Partial<ThreadReplyPreview> }>,
-    ) {
-      const thread = state.items.find((t) => t.threadRootMessage.id === action.payload.threadRootId);
-      if (thread && thread.lastReply) {
-        Object.assign(thread.lastReply, action.payload.patch);
-      }
     },
     patchThreadRootMessage(
       state,
@@ -114,11 +120,11 @@ export const {
   setThreadsList,
   appendThreads,
   updateThreadFromWs,
-  updateThreadLastReply,
+  updateThreadCachedLastReply,
+  patchThreadCachedLastReply,
   incrementThreadUnread,
   markThreadRead,
   removeThread,
-  patchThreadLastReply,
   patchThreadRootMessage,
   clearThreads,
 } = threadsSlice.actions;

@@ -31,6 +31,11 @@ export interface ThreadListItem {
   subscribedAt: string;
 }
 
+/** Internal Redux state representation — replaces `lastReply` with a cache-only fallback. */
+export interface StoredThreadListItem extends Omit<ThreadListItem, 'lastReply'> {
+  cachedLastReply: ThreadReplyPreview | null;
+}
+
 export interface ListThreadsResponse {
   threads: ThreadListItem[];
   nextCursor: string | null;

@@ -6,7 +6,9 @@ use serde::Serialize;
 use std::collections::HashMap;
 use tracing::warn;
 
-use crate::handlers::chats::{build_mention_info, extract_mention_uids, MentionInfo, MessageResponse};
+use crate::handlers::chats::{
+    build_mention_info, extract_mention_uids, MentionInfo, MessageResponse,
+};
 use crate::models::{Attachment, MessageType};
 use crate::schema::{attachments, stickers, thread_subscriptions};
 use crate::services::chat::MAX_UNREAD_COUNT;

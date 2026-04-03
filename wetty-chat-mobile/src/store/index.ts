@@ -4,9 +4,9 @@ import messagesReducer from './messagesSlice';
 import settingsReducer, { type SettingsState } from './settingsSlice';
 import threadsReducer, {
   incrementThreadUnread,
-  updateThreadLastReply,
   removeThread,
-  patchThreadLastReply,
+  updateThreadCachedLastReply,
+  patchThreadCachedLastReply,
   patchThreadRootMessage,
 } from './threadsSlice';
 import chatsReducer, {
@@ -47,19 +47,26 @@ listenerMiddleware.startListening({
       const isSubscribed = state.threads.items.some((t) => t.threadRootMessage.id === threadRootId);
       if (isSubscribed) {
         if (!message.isDeleted) {
-          api.dispatch(
-            updateThreadLastReply({
-              threadRootId,
-              lastReply: {
-                sender: { uid: message.sender.uid, name: message.sender.name, avatarUrl: message.sender.avatarUrl },
-                message: message.message,
-                messageType: message.messageType,
-                stickerEmoji: message.sticker?.emoji ?? null,
-                firstAttachmentKind: message.attachments?.[0]?.kind ?? null,
-                isDeleted: false,
-              },
-            }),
-          );
+          // Only update the cached preview if the thread window isn't loaded
+          // (when loaded, the UI derives the preview from messagesSlice directly)
+          const storeKey = `${message.chatId}_thread_${threadRootId}`;
+          const hasWindow = (state.messages.chats[storeKey]?.windows?.length ?? 0) > 0;
+          if (!hasWindow) {
+            api.dispatch(
+              updateThreadCachedLastReply({
+                threadRootId,
+                cachedLastReply: {
+                  sender: { uid: message.sender.uid, name: message.sender.name, avatarUrl: message.sender.avatarUrl },
+                  message: message.message,
+                  messageType: message.messageType,
+                  stickerEmoji: message.sticker?.emoji ?? null,
+                  firstAttachmentKind: message.attachments?.[0]?.kind ?? null,
+                  isDeleted: false,
+                  mentions: message.mentions ?? null,
+                },
+              }),
+            );
+          }
         }
         if (!message.isDeleted && message.sender.uid !== (state.user.uid ?? 0)) {
           api.dispatch(incrementThreadUnread({ threadRootId }));
@@ -87,19 +94,24 @@ listenerMiddleware.startListening({
       const state = api.getState() as RootState;
       const isSubscribed = state.threads.items.some((t) => t.threadRootMessage.id === threadRootId);
       if (isSubscribed && !message.isDeleted) {
-        api.dispatch(
-          updateThreadLastReply({
-            threadRootId,
-            lastReply: {
-              sender: { uid: message.sender.uid, name: message.sender.name, avatarUrl: message.sender.avatarUrl },
-              message: message.message,
-              messageType: message.messageType,
-              stickerEmoji: message.sticker?.emoji ?? null,
-              firstAttachmentKind: message.attachments?.[0]?.kind ?? null,
-              isDeleted: false,
-            },
-          }),
-        );
+        const storeKey = `${message.chatId}_thread_${threadRootId}`;
+        const hasWindow = (state.messages.chats[storeKey]?.windows?.length ?? 0) > 0;
+        if (!hasWindow) {
+          api.dispatch(
+            updateThreadCachedLastReply({
+              threadRootId,
+              cachedLastReply: {
+                sender: { uid: message.sender.uid, name: message.sender.name, avatarUrl: message.sender.avatarUrl },
+                message: message.message,
+                messageType: message.messageType,
+                stickerEmoji: message.sticker?.emoji ?? null,
+                firstAttachmentKind: message.attachments?.[0]?.kind ?? null,
+                isDeleted: false,
+                mentions: message.mentions ?? null,
+              },
+            }),
+          );
+        }
       }
     }
   },
@@ -125,9 +137,7 @@ listenerMiddleware.startListening({
 
     // Handle thread root deletion — remove the thread entirely
     if (action.payload.message.isDeleted && !action.payload.message.replyRootId) {
-      const thread = state.threads.items.find(
-        (t) => t.threadRootMessage.id === action.payload.messageId,
-      );
+      const thread = state.threads.items.find((t) => t.threadRootMessage.id === action.payload.messageId);
       if (thread) {
         api.dispatch(removeThread({ threadRootId: action.payload.messageId }));
       }
@@ -135,9 +145,7 @@ listenerMiddleware.startListening({
 
     // Handle thread root edit (not delete) — update the root message preview
     if (!action.payload.message.isDeleted && !action.payload.message.replyRootId) {
-      const thread = state.threads.items.find(
-        (t) => t.threadRootMessage.id === action.payload.messageId,
-      );
+      const thread = state.threads.items.find((t) => t.threadRootMessage.id === action.payload.messageId);
       if (thread) {
         api.dispatch(
           patchThreadRootMessage({
@@ -151,20 +159,24 @@ listenerMiddleware.startListening({
       }
     }
 
-    // Handle thread reply edit/delete — update lastReply preview
+    // Handle thread reply edit/delete — update cache only if window not loaded
     if (action.payload.message.replyRootId) {
       const threadRootId = action.payload.message.replyRootId;
-      const thread = state.threads.items.find((t) => t.threadRootMessage.id === threadRootId);
-      if (thread?.lastReply) {
-        api.dispatch(
-          patchThreadLastReply({
-            threadRootId,
-            patch: {
-              message: action.payload.message.message,
-              isDeleted: action.payload.message.isDeleted,
-            },
-          }),
-        );
+      const storeKey = `${action.payload.chatId}_thread_${threadRootId}`;
+      const hasWindow = (state.messages.chats[storeKey]?.windows?.length ?? 0) > 0;
+      if (!hasWindow) {
+        const thread = state.threads.items.find((t) => t.threadRootMessage.id === threadRootId);
+        if (thread?.cachedLastReply) {
+          api.dispatch(
+            patchThreadCachedLastReply({
+              threadRootId,
+              patch: {
+                message: action.payload.message.message,
+                isDeleted: action.payload.message.isDeleted,
+              },
+            }),
+          );
+        }
       }
     }
   },
