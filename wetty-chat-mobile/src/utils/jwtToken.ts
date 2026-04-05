@@ -63,6 +63,15 @@ export async function syncJwtTokenToIdb(): Promise<string> {
     return cookieToken;
   }
 
+  const cacheToken = await GetTokenCacheStorage();
+  if (cacheToken) {
+    cachedJwtToken = cacheToken;
+    syncClientIdFromJwt(cacheToken);
+    setJwtTokenCookie(cacheToken);
+    await kvSet('jwt_token', cacheToken);
+    return cacheToken;
+  }
+
   return '';
 }
 
@@ -73,9 +82,21 @@ export function syncJwtTokenFromLanding(search: string): string {
     setJwtTokenCookie(queryToken);
     syncClientIdFromJwt(queryToken);
     void kvSet('jwt_token', queryToken);
+    void SetTokenCacheStorage(queryToken);
     return queryToken;
   }
 
   // No query token — just return what we have
   return getStoredJwtToken();
+}
+
+// for iOS16 compat
+async function SetTokenCacheStorage(token: string): Promise<void> {
+  const cache = await caches.open('jwt_token');
+  return cache.put('jwt_token', new Response(token));
+}
+async function GetTokenCacheStorage(): Promise<string | undefined> {
+  const cache = await caches.open('jwt_token');
+  const response = await cache.match('jwt_token');
+  return response?.text();
 }
