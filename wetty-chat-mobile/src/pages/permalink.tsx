@@ -6,11 +6,10 @@ import { navigateToNotificationTarget } from '@/utils/notificationTargetNavigato
 import { openPermalinkTarget } from '@/utils/openPermalinkTarget';
 
 interface PermalinkPageProps {
-  isDesktop: boolean;
   encoded: string;
 }
 
-export default function PermalinkPage({ isDesktop, encoded }: PermalinkPageProps) {
+export default function PermalinkPage({ encoded }: PermalinkPageProps) {
   const [presentToast] = useIonToast();
 
   const decoded = useMemo(() => {
@@ -28,13 +27,13 @@ export default function PermalinkPage({ isDesktop, encoded }: PermalinkPageProps
 
     if (!decoded) {
       presentToast({ message: t`Invalid link`, duration: 2000, color: 'danger' });
-      navigateToNotificationTarget('/chats', isDesktop);
+      navigateToNotificationTarget('/chats');
       return;
     }
 
     const { chatId, messageId } = decoded;
 
-    openPermalinkTarget({ chatId, messageId, isDesktop })
+    openPermalinkTarget({ chatId, messageId })
       .then(() => {
         console.debug('[PermalinkPage] permalink target opened', { encoded, chatId, messageId });
       })
@@ -53,10 +52,10 @@ export default function PermalinkPage({ isDesktop, encoded }: PermalinkPageProps
             duration: 2000,
             color: 'danger',
           });
-          navigateToNotificationTarget('/chats', isDesktop);
+          navigateToNotificationTarget('/chats');
         }
       });
-  }, [decoded, encoded, isDesktop, presentToast]);
+  }, [decoded, encoded, presentToast]);
 
   return (
     <IonPage>

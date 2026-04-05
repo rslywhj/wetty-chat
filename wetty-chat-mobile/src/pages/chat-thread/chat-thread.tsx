@@ -325,6 +325,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       chatId,
       storeChatId,
       threadId: threadId ?? null,
+      locationState: location.state ?? null,
     });
     return () => {
       console.log('[ChatThread] view-unmounted', {
@@ -582,6 +583,14 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   useEffect(() => {
     const resumeRequest = location.state?.resumeRequest;
     if (!resumeRequest) return;
+
+    // On mobile, Ionic keeps hidden pages mounted — their useLocation() sees the
+    // global location too.  Only the instance whose route matches the current
+    // pathname should consume the request; otherwise a hidden page steals it and
+    // clears the state before the entering page can read it.
+    const expectedPath = threadId ? `/chats/chat/${chatId}/thread/${threadId}` : `/chats/chat/${chatId}`;
+    if (location.pathname !== expectedPath) return;
+
     if (resumeRequest.token === consumedResumeTokenRef.current) return;
 
     consumedResumeTokenRef.current = resumeRequest.token;
@@ -599,7 +608,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
       hash: location.hash,
       state: nextState,
     });
-  }, [history, location]);
+  }, [history, location, chatId, threadId]);
 
   const fetchLatestWindow = useCallback(
     (options?: { forceReopen?: boolean }) => {

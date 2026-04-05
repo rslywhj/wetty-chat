@@ -1,7 +1,6 @@
 import { useIonToast } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import { useHistory } from 'react-router-dom';
-import { useIsDesktop } from '@/hooks/platformHooks';
 import { openPermalinkTarget } from '@/utils/openPermalinkTarget';
 import styles from './ChatBubble.module.scss';
 import { useChatContext } from './ChatContext';
@@ -16,7 +15,6 @@ interface PermalinkInlineProps {
 export function PermalinkInline({ targetChatId, targetMessageId, encoded, url }: PermalinkInlineProps) {
   const history = useHistory();
   const ctx = useChatContext();
-  const isDesktop = useIsDesktop();
   const [presentToast] = useIonToast();
 
   return (
@@ -44,12 +42,10 @@ export function PermalinkInline({ targetChatId, targetMessageId, encoded, url }:
             targetChatId,
             targetMessageId,
             encoded,
-            isDesktop,
           });
           void openPermalinkTarget({
             chatId: targetChatId,
             messageId: targetMessageId,
-            isDesktop,
             preserveCurrentEntry: true,
           }).catch((err) => {
             console.debug('[PermalinkInline] direct permalink navigation failed, falling back to resolver route', {

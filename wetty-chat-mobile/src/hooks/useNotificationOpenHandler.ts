@@ -11,7 +11,7 @@ function isNotificationOpenMessage(data: unknown): data is NotificationOpenMessa
   );
 }
 
-export function useNotificationOpenHandler(isDesktop: boolean): void {
+export function useNotificationOpenHandler(): void {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
       return;
@@ -20,7 +20,6 @@ export function useNotificationOpenHandler(isDesktop: boolean): void {
     const handleMessage = (event: MessageEvent<unknown>) => {
       console.debug('[app] service worker message received', {
         data: event.data,
-        isDesktop,
         pathname: window.location.pathname,
         visibilityState: document.visibilityState,
         hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : null,
@@ -36,11 +35,8 @@ export function useNotificationOpenHandler(isDesktop: boolean): void {
         target: event.data.target,
       });
 
-      console.debug('[app] resolved notification target', {
-        target,
-        isDesktop,
-      });
-      navigateToNotificationTarget(target, isDesktop);
+      console.debug('[app] resolved notification target', { target });
+      navigateToNotificationTarget(target);
     };
 
     navigator.serviceWorker.addEventListener('message', handleMessage);
@@ -48,5 +44,5 @@ export function useNotificationOpenHandler(isDesktop: boolean): void {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, [isDesktop]);
+  }, []);
 }

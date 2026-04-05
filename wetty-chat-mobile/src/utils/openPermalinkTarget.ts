@@ -4,17 +4,15 @@ import { navigateToNotificationTarget } from '@/utils/notificationTargetNavigato
 interface OpenPermalinkTargetParams {
   chatId: string;
   messageId: string;
-  isDesktop: boolean;
   preserveCurrentEntry?: boolean;
 }
 
 export async function openPermalinkTarget({
   chatId,
   messageId,
-  isDesktop,
   preserveCurrentEntry = false,
 }: OpenPermalinkTargetParams): Promise<void> {
-  console.debug('[permalink] resolving target', { chatId, messageId, isDesktop, preserveCurrentEntry });
+  console.debug('[permalink] resolving target', { chatId, messageId, preserveCurrentEntry });
 
   const res = await getMessage(chatId, messageId);
   const msg = res.data;
@@ -36,5 +34,5 @@ export async function openPermalinkTarget({
     preserveCurrentEntry,
   });
 
-  navigateToNotificationTarget(target, isDesktop, state, { preserveCurrentEntry });
+  navigateToNotificationTarget(target, state, { preserveCurrentEntry });
 }

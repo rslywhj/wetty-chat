@@ -4,11 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { resolveNotificationTarget } from '@/utils/notificationNavigation';
 import { navigateToNotificationTarget } from '@/utils/notificationTargetNavigator';
 
-interface PushOpenPageProps {
-  isDesktop: boolean;
-}
-
-export default function PushOpenPage({ isDesktop }: PushOpenPageProps) {
+export default function PushOpenPage() {
   const location = useLocation();
   const target = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -22,12 +18,11 @@ export default function PushOpenPage({ isDesktop }: PushOpenPageProps) {
   useEffect(() => {
     console.debug('[app] push-open route mounted', {
       target,
-      isDesktop,
       search: location.search,
       pathname: location.pathname,
     });
-    navigateToNotificationTarget(target, isDesktop);
-  }, [isDesktop, location.pathname, location.search, target]);
+    navigateToNotificationTarget(target);
+  }, [location.pathname, location.search, target]);
 
   return (
     <IonPage>

@@ -2,6 +2,7 @@ import { appHistory } from '@/utils/navigationHistory';
 
 const DEFAULT_NOTIFICATION_TARGET = '/chats';
 const THREAD_TARGET_RE = /^\/chats\/chat\/([^/]+)\/thread\/([^/]+)$/;
+const DESKTOP_QUERY = '(min-width: 900px)';
 
 let pendingMobileNavigationIds: number[] = [];
 
@@ -16,21 +17,20 @@ function clearPendingMobileNavigation() {
   pendingMobileNavigationIds = [];
 }
 
-function pushHiddenHistoryEntry(pathname: string) {
-  const href = appHistory.createHref({ pathname });
-  const key = Math.random().toString(36).slice(2, 8);
-  window.history.pushState({ key, state: undefined }, '', href);
+/** Read current layout at execution time — not from a stale React hook value. */
+function isDesktopLayout(): boolean {
+  return window.matchMedia(DESKTOP_QUERY).matches;
 }
 
 export function navigateToNotificationTarget(
   target: string,
-  isDesktop: boolean,
   state?: object,
   options?: NavigateToNotificationTargetOptions,
 ): void {
   clearPendingMobileNavigation();
   const currentPath = appHistory.location.pathname;
   const preserveCurrentEntry = options?.preserveCurrentEntry ?? false;
+  const isDesktop = isDesktopLayout();
 
   console.debug('[app] navigateToNotificationTarget', {
     target,
@@ -45,25 +45,20 @@ export function navigateToNotificationTarget(
     return;
   }
 
-  if (isDesktop) {
-    console.debug(preserveCurrentEntry ? '[app] pushing desktop route' : '[app] replacing desktop route', { target });
-    if (preserveCurrentEntry) {
-      appHistory.push({ pathname: target, state });
-    } else {
-      appHistory.replace({ pathname: target, state });
-    }
+  // When preserving the current entry (e.g. user clicked a link in a message),
+  // always push — the back button returns to where they were.  No back-stack
+  // seeding needed because there is a real page behind us.
+  if (preserveCurrentEntry) {
+    console.debug('[app] pushing route (preserveCurrentEntry)', { target });
+    appHistory.push({ pathname: target, state });
     return;
   }
 
-  if (preserveCurrentEntry) {
-    const threadMatch = THREAD_TARGET_RE.exec(target);
-    console.debug('[app] seeding mobile back stack for direct target', { target, threadMatch });
-    pushHiddenHistoryEntry(DEFAULT_NOTIFICATION_TARGET);
-    if (threadMatch) {
-      const chatPath = `/chats/chat/${threadMatch[1]}`;
-      pushHiddenHistoryEntry(chatPath);
-    }
-    appHistory.push({ pathname: target, state });
+  // --- Non-preserving paths (cold-start: notifications, push-open, permalink page) ---
+
+  if (isDesktop) {
+    console.debug('[app] replacing desktop route', { target });
+    appHistory.replace({ pathname: target, state });
     return;
   }
 
@@ -99,10 +94,6 @@ export function navigateToNotificationTarget(
   pendingMobileNavigationIds.push(
     window.setTimeout(() => {
       if (appHistory.location.pathname !== target) {
-        console.debug('[app] pushing mobile notification target after root replace', {
-          currentPath: appHistory.location.pathname,
-          target,
-        });
         appHistory.push({ pathname: target, state });
       }
     }, 0),

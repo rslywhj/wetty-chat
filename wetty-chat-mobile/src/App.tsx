@@ -1,8 +1,8 @@
 import { IonApp, IonToast } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { Redirect, useRouteMatch } from 'react-router-dom';
+import { Redirect, useHistory, useLocation, useRouteMatch } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { AppDispatch } from '@/store/index';
 import { fetchCurrentUser, setUser } from '@/store/userSlice';
 
@@ -32,7 +32,36 @@ function hasCompletedOobe() {
   return localStorage.getItem(OOBE_STORAGE_KEY) !== null;
 }
 
+/**
+ * Strip desktop-only route state (backgroundPath) when switching from desktop
+ * to mobile layout.  Without this, stale modal state left in the history entry
+ * has no consumer on mobile and can confuse future navigations.
+ */
+function useLayoutTransitionCleanup(isDesktop: boolean) {
+  const history = useHistory();
+  const location = useLocation<{ backgroundPath?: string } | undefined>();
+  const prevIsDesktop = useRef(isDesktop);
+
+  useEffect(() => {
+    const wasDesktop = prevIsDesktop.current;
+    prevIsDesktop.current = isDesktop;
+
+    // Only clean up when transitioning from desktop → mobile
+    if (wasDesktop && !isDesktop && location.state?.backgroundPath) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { backgroundPath, ...rest } = location.state;
+      history.replace({
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+        state: Object.keys(rest).length > 0 ? rest : undefined,
+      });
+    }
+  }, [isDesktop, history, location]);
+}
+
 function AppRouter({ isDesktop }: { isDesktop: boolean }) {
+  useLayoutTransitionCleanup(isDesktop);
   const isOobeRoute = useRouteMatch('/oobe');
   const isLandingRoute = useRouteMatch('/landing');
   const isPushOpenRoute = useRouteMatch('/push-open');
@@ -43,9 +72,9 @@ function AppRouter({ isDesktop }: { isDesktop: boolean }) {
   } else if (isOobeRoute?.isExact) {
     return <OobePage />;
   } else if (isPushOpenRoute?.isExact) {
-    return <PushOpenPage isDesktop={isDesktop} />;
+    return <PushOpenPage />;
   } else if (isPermalinkRoute) {
-    return <PermalinkPage isDesktop={isDesktop} encoded={isPermalinkRoute.params.encoded} />;
+    return <PermalinkPage encoded={isPermalinkRoute.params.encoded} />;
   } else if (!hasCompletedOobe()) {
     return <Redirect to="/oobe" />;
   }
@@ -59,7 +88,7 @@ function AppShell() {
   const token = useDeviceToken(true);
   useAppLifecycle();
   usePushNotificationBootstrap();
-  useNotificationOpenHandler(isDesktop);
+  useNotificationOpenHandler();
   const { needRefresh, setNeedRefresh, updateServiceWorker } = useAppUpdate();
   const missingProdToken = import.meta.env.PROD && (!token || token.length === 0);
 
