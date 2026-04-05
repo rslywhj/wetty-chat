@@ -2187,6 +2187,22 @@ export function ChatVirtualScroll({
           nextCount: rowKeys.length,
           logicalAtBottom: isAtBottomRef.current,
         });
+        // When at bottom, eagerly expand mounted range to include appended rows
+        // so they render immediately (with estimated heights). This avoids the
+        // case where ensureBottomMeasured bails due to a pending staging batch,
+        // leaving the new rows unmounted and invisible until the batch completes.
+        const mounted = mountedRef.current;
+        if (mounted && isAtBottomRef.current) {
+          const cappedEnd = Math.min(rowKeys.length - 1, mounted.end + WINDOW_CAP);
+          if (cappedEnd > mounted.end) {
+            mountedRef.current = { start: mounted.start, end: cappedEnd };
+            logMutationSnapshot('append-expanded-mounted-window', {
+              appendCount: rowKeys.length - adjustPrevKeysRef.current.length,
+              previousMounted: mounted,
+              nextMounted: mountedRef.current,
+            });
+          }
+        }
       }
     }
 

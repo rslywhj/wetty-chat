@@ -55,6 +55,7 @@ import {
   setChatUnreadCount,
 } from '@/store/chatsSlice';
 import {
+  activateLatestWindow,
   appendMessages,
   prependMessages,
   pushWindow,
@@ -886,12 +887,18 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
 
   const revealLatestAfterSend = useCallback(() => {
     if (prevCursor != null) {
+      // Synchronously switch to the latest window so the optimistic message
+      // (which addMessageToWindow placed in the last window) becomes visible
+      // via selectMessagesForChat immediately. Then reset the virtual scroll
+      // anchor to bottom and fetch fresh data in the background.
+      dispatch(activateLatestWindow({ chatId: storeChatId }));
+      setInitialAnchor((current) => ({ type: 'bottom', token: current.token + 1 }));
       fetchLatestWindow({ forceReopen: true });
       return;
     }
 
     scrollApiRef.current?.scrollToBottom();
-  }, [fetchLatestWindow, prevCursor]);
+  }, [dispatch, fetchLatestWindow, prevCursor, storeChatId]);
 
   const handleSend = useCallback(
     (payload: ComposeSendPayload) => {

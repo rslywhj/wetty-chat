@@ -289,6 +289,14 @@ const messagesSlice = createSlice({
       if (win) win.prevCursor = cursor;
     },
 
+    activateLatestWindow(state, action: { payload: { chatId: string } }) {
+      const chat = state.chats[action.payload.chatId];
+      if (chat && chat.windows.length > 0 && chat.activeWindowIndex !== chat.windows.length - 1) {
+        chat.activeWindowIndex = chat.windows.length - 1;
+        chat.generation++;
+      }
+    },
+
     refreshLatest(
       state,
       action: {
@@ -414,6 +422,7 @@ export const {
   setMessagesForChat,
   setNextCursorForChat,
   setPrevCursorForChat,
+  activateLatestWindow,
   appendMessages,
   prependMessages,
   refreshLatest,
