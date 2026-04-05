@@ -114,7 +114,7 @@ export default function LandingPage() {
       <IonContent fullscreen={true} className="landing-page">
         <section className="landing-hero">
           <div className="landing-hero__copy">
-            <h1>把 茶话 添加到主屏幕</h1>
+            <h1>把茶话添加到主屏幕</h1>
             <p>安装后可以像原生应用一样从桌面直接启动。</p>
             <p>
               如果你要向朋友推荐，请发送论坛帖子的地址，不要直接发送当前页面地址。当前页面的地址包含你的账号登录信息。
