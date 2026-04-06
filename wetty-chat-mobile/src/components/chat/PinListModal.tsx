@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { t } from '@lingui/core/macro';
 import type { RootState } from '@/store/index';
+import { useChatRole } from '@/components/chat/permissions/useChatRole';
 import { selectPinsForChat } from '@/store/pinsSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
 import type { PinResponse } from '@/api/pins';
@@ -21,6 +22,8 @@ interface PinListModalProps {
 
 export function PinListModal({ chatId, isOpen, onDismiss, onSelectPin, onSelectThread }: PinListModalProps) {
   const [presentAlert] = useIonAlert();
+  const { role } = useChatRole(chatId);
+  const isAdmin = role === 'admin';
   const pins = useSelector((state: RootState) => selectPinsForChat(state, chatId));
   const locale = useSelector(selectEffectiveLocale);
 
@@ -104,15 +107,17 @@ export function PinListModal({ chatId, isOpen, onDismiss, onSelectPin, onSelectT
                           <IonIcon icon={chatbubbles} slot="icon-only" className={styles.threadBadge} />
                         </IonButton>
                       )}
-                      <IonButton
-                        fill="clear"
-                        size="small"
-                        color="danger"
-                        className={styles.unpinBtn}
-                        onClick={(e) => handleUnpin(e, pin)}
-                      >
-                        {t`Unpin`}
-                      </IonButton>
+                      {isAdmin && (
+                        <IonButton
+                          fill="clear"
+                          size="small"
+                          color="danger"
+                          className={styles.unpinBtn}
+                          onClick={(e) => handleUnpin(e, pin)}
+                        >
+                          {t`Unpin`}
+                        </IonButton>
+                      )}
                     </div>
                   </div>
                 </IonItem>

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::extractors::DbConn;
 use crate::handlers::chats::{attach_metadata, MessageResponse, PreparedMessageSend};
-use crate::handlers::members::check_membership;
+use crate::handlers::members::{check_membership, require_admin_role};
 use crate::handlers::ws::messages::{PinUpdatePayload, ServerWsMessage};
 use crate::models::{Message, MessageType, NewPinnedMessage, PinnedMessage};
 use crate::schema::{group_membership, messages, pinned_messages};
@@ -151,7 +151,7 @@ async fn create_pin(
 ) -> Result<(StatusCode, Json<PinResponse>), AppError> {
     let conn = &mut *conn;
 
-    check_membership(conn, path.chat_id, uid)?;
+    require_admin_role(conn, path.chat_id, uid)?;
 
     // Verify message exists in this chat and is not deleted
     let msg: Message = messages::table
@@ -282,7 +282,7 @@ async fn delete_pin(
 ) -> Result<StatusCode, AppError> {
     let conn = &mut *conn;
 
-    check_membership(conn, path.chat_id, uid)?;
+    require_admin_role(conn, path.chat_id, uid)?;
 
     let pin: PinnedMessage = pinned_messages::table
         .filter(

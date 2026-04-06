@@ -199,7 +199,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const chatName = threadId ? t`Thread` : (storedName ?? t`Loading...`);
 
   useEffect(() => {
-    if (!chatId || storedName != null) return;
+    if (!chatId || (storedName != null && myRole !== undefined)) return;
     getGroupInfo(chatId)
       .then((res) => {
         const { id, mutedUntil, ...meta } = res.data;
@@ -208,7 +208,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         dispatch(setChatMutedUntil({ chatId, mutedUntil: mutedUntil ?? null }));
       })
       .catch(() => {});
-  }, [chatId, storedName, dispatch]);
+  }, [chatId, storedName, myRole, dispatch]);
   const messages = useSelector((state: RootState) => selectMessagesForChat(state, storeChatId));
   const messageLookup = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
 
@@ -1395,7 +1395,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         },
       });
     }
-    if (!threadId && !msg.isDeleted) {
+    if (!threadId && !msg.isDeleted && isAdmin) {
       const existingPin = pins.find((p) => p.message.id === msg.id);
       actions.push({
         key: 'pin',

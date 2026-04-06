@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { t } from '@lingui/core/macro';
 import type { RootState } from '@/store/index';
+import { useChatRole } from '@/components/chat/permissions/useChatRole';
 import { selectPinsForChat } from '@/store/pinsSlice';
 import { selectEffectiveLocale } from '@/store/settingsSlice';
 import { deletePin } from '@/api/pins';
@@ -26,6 +27,8 @@ export function PinBanner({
   onClickCounter,
 }: PinBannerProps) {
   const [presentAlert] = useIonAlert();
+  const { role } = useChatRole(chatId);
+  const isAdmin = role === 'admin';
   const pins = useSelector((state: RootState) => selectPinsForChat(state, chatId));
   const locale = useSelector(selectEffectiveLocale);
 
@@ -120,9 +123,11 @@ export function PinBanner({
         </button>
       )}
 
-      <button className={styles.closeBtn} onClick={handleUnpin} aria-label={t`Unpin`}>
-        <IonIcon icon={close} />
-      </button>
+      {isAdmin && (
+        <button className={styles.closeBtn} onClick={handleUnpin} aria-label={t`Unpin`}>
+          <IonIcon icon={close} />
+        </button>
+      )}
     </div>
   );
 }
