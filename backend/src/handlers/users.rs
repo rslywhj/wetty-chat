@@ -6,11 +6,56 @@ use utoipa_axum::routes;
 
 use crate::errors::AppError;
 use crate::extractors::DbConn;
+use crate::handlers::ws::messages::{ServerWsMessage, StickerPackOrderUpdatePayload};
+use crate::models::UserExtra;
+use crate::schema::user_extra;
 use crate::services::user::{lookup_user_avatars, lookup_user_profiles};
 use crate::utils::auth::{
     encode_auth_token, extract_auth_context, required_client_id, AuthClaims, AuthSource, CurrentUid,
 };
 use crate::AppState;
+use diesel::prelude::*;
+use std::sync::Arc;
+
+#[derive(serde::Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateStickerPackOrderRequest {
+    pub order: Vec<String>,
+}
+
+#[utoipa::path(
+    put,
+    path = "/me/stickerpack-order",
+    tag = "users",
+    request_body = UpdateStickerPackOrderRequest,
+    responses(
+        (status = 200, description = "Order updated successfully")
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
+async fn put_stickerpack_order(
+    CurrentUid(uid): CurrentUid,
+    State(state): State<AppState>,
+    mut conn: DbConn,
+    Json(req): Json<UpdateStickerPackOrderRequest>,
+) -> Result<Json<()>, AppError> {
+    let conn = &mut *conn;
+    let order_i64: Result<Vec<i64>, _> = req.order.iter().map(|s| s.parse::<i64>()).collect();
+    let order_i64 = order_i64.map_err(|_| AppError::BadRequest("Invalid pack ID"))?;
+
+    diesel::update(user_extra::table.filter(user_extra::uid.eq(uid)))
+        .set(user_extra::sticker_pack_order.eq(&order_i64))
+        .execute(conn)?;
+
+    let msg = Arc::new(ServerWsMessage::StickerPackOrderUpdated(
+        StickerPackOrderUpdatePayload {
+            order: req.order.clone(),
+        },
+    ));
+    state.ws_registry.broadcast_to_uids(&[uid], msg);
+
+    Ok(Json(()))
+}
 
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +64,7 @@ pub struct MeResponse {
     pub username: String,
     pub avatar_url: Option<String>,
     pub gender: i16,
+    pub sticker_pack_order: Vec<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -52,11 +98,27 @@ async fn get_me(
     let mut avatars = lookup_user_avatars(&state, &[uid]);
     let avatar_url = avatars.remove(&uid).flatten();
 
+    let extra = user_extra::table
+        .filter(user_extra::uid.eq(uid))
+        .select(UserExtra::as_select())
+        .first::<UserExtra>(conn)
+        .optional()?;
+
+    let sticker_pack_order = extra
+        .map(|e| {
+            e.sticker_pack_order
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
     Ok(Json(MeResponse {
         uid,
         username,
         avatar_url,
         gender: profile.map(|profile| profile.gender).unwrap_or(0),
+        sticker_pack_order,
     }))
 }
 
@@ -95,4 +157,5 @@ pub fn router() -> OpenApiRouter<crate::AppState> {
     OpenApiRouter::new()
         .routes(routes!(get_me))
         .routes(routes!(get_auth_token))
+        .routes(routes!(put_stickerpack_order))
 }

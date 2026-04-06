@@ -536,6 +536,7 @@ pub struct UserExtra {
     pub uid: i32,
     pub first_seen_at: chrono::NaiveDateTime,
     pub last_seen_at: chrono::NaiveDateTime,
+    pub sticker_pack_order: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Insertable)]
@@ -544,6 +545,7 @@ pub struct NewUserExtra {
     pub uid: i32,
     pub first_seen_at: chrono::NaiveDateTime,
     pub last_seen_at: chrono::NaiveDateTime,
+    pub sticker_pack_order: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Insertable)]

@@ -8,6 +8,7 @@ import { StickerImage } from '@/components/shared/StickerImage';
 import { AddStickerModal } from './AddStickerModal';
 import styles from './StickerPicker.module.scss';
 import { kvGet, kvSet } from '@/utils/db';
+import { usersApi } from '@/api/users';
 import {
   createStickerPack,
   getFavoriteStickers,
@@ -181,6 +182,7 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
                 newOrder = newOrder.filter((id) => id !== activePack.id);
                 newOrder.unshift(activePack.id);
                 await kvSet('stickerPackOrder', newOrder);
+                void usersApi.updateStickerPackOrder(newOrder).catch(console.error);
                 window.dispatchEvent(new Event('stickerPackOrderChanged'));
               }
             }

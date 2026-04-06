@@ -22,6 +22,7 @@ pub enum ServerWsMessage {
     ThreadUpdate(ThreadUpdatePayload),
     PinAdded(PinUpdatePayload),
     PinRemoved(PinUpdatePayload),
+    StickerPackOrderUpdated(StickerPackOrderUpdatePayload),
 }
 
 impl ServerWsMessage {
@@ -36,6 +37,7 @@ impl ServerWsMessage {
             Self::ThreadUpdate(_) => "threadUpdate",
             Self::PinAdded(_) => "pinAdded",
             Self::PinRemoved(_) => "pinRemoved",
+            Self::StickerPackOrderUpdated(_) => "stickerPackOrderUpdated",
         }
     }
 }
@@ -103,4 +105,10 @@ mod tests {
         assert_eq!(value["payload"]["activeConnections"], json!(3));
         assert!(value["payload"].get("active_connections").is_none());
     }
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct StickerPackOrderUpdatePayload {
+    pub order: Vec<String>,
 }

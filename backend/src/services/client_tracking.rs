@@ -196,6 +196,9 @@ impl ClientTrackingService {
                     .as_ref()
                     .map_or(now, |user| user.first_seen_at),
                 last_seen_at: now,
+                sticker_pack_order: existing_user
+                    .as_ref()
+                    .map_or(vec![], |u| u.sticker_pack_order.clone()),
             };
 
             diesel::insert_into(user_extra::table)

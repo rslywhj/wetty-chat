@@ -32,6 +32,7 @@ import {
   type StickerPackSummary,
 } from '@/api/stickers';
 import { kvGet, kvSet } from '@/utils/db';
+import { usersApi } from '@/api/users';
 import type { BackAction } from '@/types/back-action';
 
 interface StickerSettingsCoreProps {
@@ -46,25 +47,17 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const [ownedPacks, setOwnedPacks] = useState<StickerPackSummary[]>([]);
   const [allPacks, setAllPacks] = useState<StickerPackSummary[]>([]);
   const [autoSort, setAutoSort] = useState<boolean>(false);
-  const [packOrder, setPackOrder] = useState<string[]>([]);
+  const [, setPackOrder] = useState<string[]>([]);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     const initStorage = async () => {
       try {
         const storedAutoSort = await kvGet<boolean>('autoSortStickerPacks');
-        if (storedAutoSort !== undefined) {
-          setAutoSort(storedAutoSort);
-        } else {
-          setAutoSort(false);
-        }
+        setAutoSort(storedAutoSort ?? false);
 
         const storedOrder = await kvGet<string[]>('stickerPackOrder');
-        if (storedOrder !== undefined) {
-          setPackOrder(storedOrder);
-        } else {
-          setPackOrder([]);
-        }
+        setPackOrder(storedOrder ?? []);
       } catch (error) {
         console.error('Failed to init sticker storage', error);
       } finally {
@@ -72,22 +65,55 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
       }
     };
     void initStorage();
+
+    const handleOrderChange = async () => {
+      try {
+        const _order = await kvGet<string[]>('stickerPackOrder');
+        const order = _order ?? [];
+        setPackOrder(order);
+        setAllPacks((prev) => {
+          const copy = [...prev];
+          if (order.length > 0) {
+            copy.sort((a, b) => {
+              const indexA = order.indexOf(a.id);
+              const indexB = order.indexOf(b.id);
+              if (indexA === -1 && indexB === -1) return 0;
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              return indexA - indexB;
+            });
+          }
+          return copy;
+        });
+      } catch (e) {
+        console.error('Failed to handle order change', e);
+      }
+    };
+
+    window.addEventListener('stickerPackOrderChanged', handleOrderChange);
+    return () => {
+      window.removeEventListener('stickerPackOrderChanged', handleOrderChange);
+    };
   }, []);
 
   const loadPacks = useCallback(async () => {
     try {
-      const [ownedRes, subscribedRes] = await Promise.all([getOwnedStickerPacks(), getSubscribedStickerPacks()]);
+      const [ownedRes, subscribedRes, currentOrder] = await Promise.all([
+        getOwnedStickerPacks(),
+        getSubscribedStickerPacks(),
+        kvGet<string[]>('stickerPackOrder'),
+      ]);
       setOwnedPacks(ownedRes.data.packs);
       const subs = subscribedRes.data.packs.filter(
         (pack) => !ownedRes.data.packs.some((ownedPack) => ownedPack.id === pack.id),
       );
 
       const merged = [...ownedRes.data.packs, ...subs];
-
-      if (packOrder.length > 0) {
+      const order = currentOrder ?? [];
+      if (order.length > 0) {
         merged.sort((a, b) => {
-          const indexA = packOrder.indexOf(a.id);
-          const indexB = packOrder.indexOf(b.id);
+          const indexA = order.indexOf(a.id);
+          const indexB = order.indexOf(b.id);
           if (indexA === -1 && indexB === -1) return 0;
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
@@ -96,11 +122,12 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
       }
 
       setAllPacks(merged);
+      setPackOrder(order);
     } catch (error) {
       console.error('Failed to load sticker packs', error);
       presentToast({ message: t`Failed to load sticker packs`, duration: 2000, position: 'bottom' });
     }
-  }, [presentToast, packOrder]);
+  }, [presentToast]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -117,6 +144,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
     const newOrder = newItems.map((p: StickerPackSummary) => p.id);
     setPackOrder(newOrder);
     void kvSet('stickerPackOrder', newOrder);
+    void usersApi.updateStickerPackOrder(newOrder).catch((e) => console.error('Failed to sync sticker pack order', e));
     window.dispatchEvent(new Event('stickerPackOrderChanged'));
   };
 
@@ -147,6 +175,9 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
                 const newOrder = newAll.map((p) => p.id);
                 setPackOrder(newOrder);
                 void kvSet('stickerPackOrder', newOrder);
+                void usersApi
+                  .updateStickerPackOrder(newOrder)
+                  .catch((e) => console.error('Failed to sync sticker pack order', e));
                 window.dispatchEvent(new Event('stickerPackOrderChanged'));
                 return newAll;
               });

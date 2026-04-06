@@ -16,6 +16,7 @@ import {
   reactionsUpdated,
 } from '@/store/messageEvents';
 import { getStoredJwtToken } from '@/utils/jwtToken';
+import { kvSet } from '@/utils/db';
 import { formatNotificationBody, getNotificationPreviewLabels } from '@/utils/messagePreview';
 import { buildNotificationNavigationData } from '@/utils/notificationNavigation';
 
@@ -422,6 +423,17 @@ async function connectWebSocket(): Promise<void> {
                 })
                 .catch((err) => console.error('Failed to refresh threads after new subscription', err));
             }
+          }
+        }
+
+        if (message.type === 'stickerPackOrderUpdated' && message.payload != null) {
+          const payload = message.payload as { order: string[] };
+          if (payload.order) {
+            kvSet('stickerPackOrder', payload.order)
+              .then(() => {
+                window.dispatchEvent(new Event('stickerPackOrderChanged'));
+              })
+              .catch((err) => console.error('Failed to update stickerPackOrder from ws', err));
           }
         }
       } catch {
