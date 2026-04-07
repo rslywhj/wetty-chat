@@ -60,20 +60,59 @@ class AttachmentItemDto {
 }
 
 @JsonSerializable(explicitToJson: true)
+class StickerSummaryDto {
+  const StickerSummaryDto({this.emoji});
+
+  final String? emoji;
+
+  factory StickerSummaryDto.fromJson(Map<String, dynamic> json) =>
+      _$StickerSummaryDtoFromJson(json);
+
+  Map<String, dynamic> toJson() => _$StickerSummaryDtoToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class MentionInfoDto {
+  const MentionInfoDto({required this.uid, this.username});
+
+  @FlexibleIntConverter()
+  final int uid;
+  final String? username;
+
+  factory MentionInfoDto.fromJson(Map<String, dynamic> json) =>
+      _$MentionInfoDtoFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MentionInfoDtoToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
 class ReplyToMessageDto {
   const ReplyToMessageDto({
     required this.id,
     this.message,
+    this.messageType = 'text',
+    this.sticker,
     required this.sender,
     this.isDeleted = false,
+    this.attachments = const <AttachmentItemDto>[],
+    this.firstAttachmentKind,
+    this.mentions = const <MentionInfoDto>[],
   });
 
   @FlexibleIntConverter()
   final int id;
   final String? message;
+  @JsonKey(defaultValue: 'text')
+  final String messageType;
+  final StickerSummaryDto? sticker;
   final SenderDto sender;
   @JsonKey(defaultValue: false)
   final bool isDeleted;
+  @JsonKey(defaultValue: <AttachmentItemDto>[])
+  final List<AttachmentItemDto> attachments;
+  final String? firstAttachmentKind;
+  @JsonKey(defaultValue: <MentionInfoDto>[])
+  final List<MentionInfoDto> mentions;
 
   factory ReplyToMessageDto.fromJson(Map<String, dynamic> json) =>
       _$ReplyToMessageDtoFromJson(json);
@@ -100,6 +139,7 @@ class MessageItemDto {
     required this.id,
     this.message,
     this.messageType = 'text',
+    this.sticker,
     required this.sender,
     required this.chatId,
     this.createdAt,
@@ -110,6 +150,7 @@ class MessageItemDto {
     this.hasAttachments = false,
     this.replyToMessage,
     this.attachments = const [],
+    this.mentions = const <MentionInfoDto>[],
     this.threadInfo,
   });
 
@@ -118,6 +159,7 @@ class MessageItemDto {
   final String? message;
   @JsonKey(defaultValue: 'text')
   final String messageType;
+  final StickerSummaryDto? sticker;
   final SenderDto sender;
   @FlexibleIntConverter()
   final int chatId;
@@ -136,6 +178,8 @@ class MessageItemDto {
   final ReplyToMessageDto? replyToMessage;
   @JsonKey(defaultValue: <AttachmentItemDto>[])
   final List<AttachmentItemDto> attachments;
+  @JsonKey(defaultValue: <MentionInfoDto>[])
+  final List<MentionInfoDto> mentions;
   final ThreadInfoDto? threadInfo;
 
   factory MessageItemDto.fromJson(Map<String, dynamic> json) =>

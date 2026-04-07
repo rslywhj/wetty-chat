@@ -20,12 +20,27 @@ extension AttachmentItemDtoMapper on AttachmentItemDto {
   );
 }
 
+extension StickerSummaryDtoMapper on StickerSummaryDto {
+  StickerSummary toDomain() => StickerSummary(emoji: emoji);
+}
+
+extension MentionInfoDtoMapper on MentionInfoDto {
+  MentionInfo toDomain() => MentionInfo(uid: uid, username: username);
+}
+
 extension ReplyToMessageDtoMapper on ReplyToMessageDto {
   ReplyToMessage toDomain() => ReplyToMessage(
     id: id,
     message: message,
+    messageType: messageType,
+    sticker: sticker?.toDomain(),
     sender: sender.toDomain(),
     isDeleted: isDeleted,
+    attachments: attachments
+        .map((attachment) => attachment.toDomain())
+        .toList(),
+    firstAttachmentKind: firstAttachmentKind,
+    mentions: mentions.map((mention) => mention.toDomain()).toList(),
   );
 }
 
@@ -38,6 +53,7 @@ extension MessageItemDtoMapper on MessageItemDto {
     id: id,
     message: message,
     messageType: messageType,
+    sticker: sticker?.toDomain(),
     sender: sender.toDomain(),
     chatId: chatId.toString(),
     createdAt: createdAt,
@@ -50,6 +66,7 @@ extension MessageItemDtoMapper on MessageItemDto {
     attachments: attachments
         .map((attachment) => attachment.toDomain())
         .toList(),
+    mentions: mentions.map((mention) => mention.toDomain()).toList(),
     threadInfo: threadInfo?.toDomain(),
   );
 
@@ -61,6 +78,7 @@ extension MessageItemDtoMapper on MessageItemDto {
         sender: sender.toDomain(),
         message: message,
         messageType: messageType,
+        sticker: sticker?.toDomain(),
         createdAt: createdAt,
         isEdited: isEdited,
         isDeleted: isDeleted,
@@ -70,6 +88,7 @@ extension MessageItemDtoMapper on MessageItemDto {
         attachments: attachments
             .map((attachment) => attachment.toDomain())
             .toList(),
+        mentions: mentions.map((mention) => mention.toDomain()).toList(),
         threadInfo: threadInfo?.toDomain(),
       );
 }

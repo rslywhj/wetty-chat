@@ -42,20 +42,60 @@ Map<String, dynamic> _$AttachmentItemDtoToJson(AttachmentItemDto instance) =>
       'height': instance.height,
     };
 
+StickerSummaryDto _$StickerSummaryDtoFromJson(Map<String, dynamic> json) =>
+    StickerSummaryDto(emoji: json['emoji'] as String?);
+
+Map<String, dynamic> _$StickerSummaryDtoToJson(StickerSummaryDto instance) =>
+    <String, dynamic>{'emoji': instance.emoji};
+
+MentionInfoDto _$MentionInfoDtoFromJson(Map<String, dynamic> json) =>
+    MentionInfoDto(
+      uid: const FlexibleIntConverter().fromJson(json['uid']),
+      username: json['username'] as String?,
+    );
+
+Map<String, dynamic> _$MentionInfoDtoToJson(MentionInfoDto instance) =>
+    <String, dynamic>{
+      'uid': const FlexibleIntConverter().toJson(instance.uid),
+      'username': instance.username,
+    };
+
 ReplyToMessageDto _$ReplyToMessageDtoFromJson(Map<String, dynamic> json) =>
     ReplyToMessageDto(
       id: const FlexibleIntConverter().fromJson(json['id']),
       message: json['message'] as String?,
+      messageType: json['messageType'] as String? ?? 'text',
+      sticker: json['sticker'] == null
+          ? null
+          : StickerSummaryDto.fromJson(json['sticker'] as Map<String, dynamic>),
       sender: SenderDto.fromJson(json['sender'] as Map<String, dynamic>),
       isDeleted: json['isDeleted'] as bool? ?? false,
+      attachments:
+          (json['attachments'] as List<dynamic>?)
+              ?.map(
+                (e) => AttachmentItemDto.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      firstAttachmentKind: json['firstAttachmentKind'] as String?,
+      mentions:
+          (json['mentions'] as List<dynamic>?)
+              ?.map((e) => MentionInfoDto.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
 
 Map<String, dynamic> _$ReplyToMessageDtoToJson(ReplyToMessageDto instance) =>
     <String, dynamic>{
       'id': const FlexibleIntConverter().toJson(instance.id),
       'message': instance.message,
+      'messageType': instance.messageType,
+      'sticker': instance.sticker?.toJson(),
       'sender': instance.sender.toJson(),
       'isDeleted': instance.isDeleted,
+      'attachments': instance.attachments.map((e) => e.toJson()).toList(),
+      'firstAttachmentKind': instance.firstAttachmentKind,
+      'mentions': instance.mentions.map((e) => e.toJson()).toList(),
     };
 
 ThreadInfoDto _$ThreadInfoDtoFromJson(Map<String, dynamic> json) =>
@@ -69,6 +109,9 @@ MessageItemDto _$MessageItemDtoFromJson(Map<String, dynamic> json) =>
       id: const FlexibleIntConverter().fromJson(json['id']),
       message: json['message'] as String?,
       messageType: json['messageType'] as String? ?? 'text',
+      sticker: json['sticker'] == null
+          ? null
+          : StickerSummaryDto.fromJson(json['sticker'] as Map<String, dynamic>),
       sender: SenderDto.fromJson(json['sender'] as Map<String, dynamic>),
       chatId: const FlexibleIntConverter().fromJson(json['chatId']),
       createdAt: const NullableDateTimeConverter().fromJson(json['createdAt']),
@@ -91,6 +134,11 @@ MessageItemDto _$MessageItemDtoFromJson(Map<String, dynamic> json) =>
               )
               .toList() ??
           [],
+      mentions:
+          (json['mentions'] as List<dynamic>?)
+              ?.map((e) => MentionInfoDto.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       threadInfo: json['threadInfo'] == null
           ? null
           : ThreadInfoDto.fromJson(json['threadInfo'] as Map<String, dynamic>),
@@ -101,6 +149,7 @@ Map<String, dynamic> _$MessageItemDtoToJson(MessageItemDto instance) =>
       'id': const FlexibleIntConverter().toJson(instance.id),
       'message': instance.message,
       'messageType': instance.messageType,
+      'sticker': instance.sticker?.toJson(),
       'sender': instance.sender.toJson(),
       'chatId': const FlexibleIntConverter().toJson(instance.chatId),
       'createdAt': const NullableDateTimeConverter().toJson(instance.createdAt),
@@ -113,6 +162,7 @@ Map<String, dynamic> _$MessageItemDtoToJson(MessageItemDto instance) =>
       'hasAttachments': instance.hasAttachments,
       'replyToMessage': instance.replyToMessage?.toJson(),
       'attachments': instance.attachments.map((e) => e.toJson()).toList(),
+      'mentions': instance.mentions.map((e) => e.toJson()).toList(),
       'threadInfo': instance.threadInfo?.toJson(),
     };
 

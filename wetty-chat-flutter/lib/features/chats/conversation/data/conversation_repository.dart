@@ -294,6 +294,7 @@ class ConversationRepository {
       sender: sender,
       message: text,
       messageType: 'text',
+      sticker: null,
       createdAt: DateTime.now().toUtc(),
       isEdited: false,
       isDeleted: false,
@@ -301,6 +302,7 @@ class ConversationRepository {
       hasAttachments: attachments.isNotEmpty,
       replyToMessage: _replyToMessageForId(replyToId),
       attachments: attachments,
+      mentions: const <MentionInfo>[],
       threadInfo: null,
       deliveryState: ConversationDeliveryState.sending,
     );
@@ -631,8 +633,15 @@ class ConversationRepository {
     return ReplyToMessage(
       id: replyToId,
       message: message.message,
+      messageType: message.messageType,
+      sticker: message.sticker,
       sender: message.sender,
       isDeleted: message.isDeleted,
+      attachments: message.attachments,
+      firstAttachmentKind: message.attachments.isEmpty
+          ? null
+          : message.attachments.first.kind,
+      mentions: message.mentions,
     );
   }
 

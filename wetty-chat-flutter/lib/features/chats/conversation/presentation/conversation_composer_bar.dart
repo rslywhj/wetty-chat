@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/style_config.dart';
 import '../../../../core/session/dev_session_store.dart';
+import '../../models/message_preview_formatter.dart';
 import '../../../../shared/presentation/app_divider.dart';
 import '../application/conversation_composer_view_model.dart';
 import '../data/attachment_service.dart';
@@ -215,22 +216,21 @@ class _ConversationComposerBarState
     final composer = ref.watch(
       conversationComposerViewModelProvider(widget.scope),
     );
+    final colors = context.appColors;
     final isEditing = composer.isEditing;
     final canAttach = !isEditing && !_isUploadingAttachment;
     final canSend =
         !_isUploadingAttachment &&
         (composer.draft.trim().isNotEmpty || composer.attachments.isNotEmpty);
-    final barBackground = CupertinoColors.secondarySystemGroupedBackground
-        .resolveFrom(context);
 
     return ColoredBox(
-      color: barBackground,
+      color: colors.backgroundSecondary,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const AppDivider(),
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -254,52 +254,52 @@ class _ConversationComposerBarState
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemBackground.resolveFrom(
-                        context,
-                      ),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: CupertinoColors.systemGrey4.resolveFrom(context),
-                      ),
+                      border: Border.all(color: colors.inputBorder),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildComposerPreview(composer),
-                        if (composer.attachments.isNotEmpty)
-                          _buildAttachmentPreview(composer),
-                        CupertinoScrollbar(
-                          controller: _inputScrollController,
-                          child: CupertinoTextField(
-                            controller: _textController,
-                            scrollController: _inputScrollController,
-                            onChanged: (value) {
-                              unawaited(
-                                ref
-                                    .read(
-                                      conversationComposerViewModelProvider(
-                                        widget.scope,
-                                      ).notifier,
-                                    )
-                                    .updateDraft(value),
-                              );
-                            },
-                            placeholder: 'Message',
-                            maxLines: 5,
-                            minLines: 1,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(19),
+                      child: ColoredBox(
+                        color: colors.backgroundSecondary,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildComposerPreview(composer),
+                            if (composer.attachments.isNotEmpty)
+                              _buildAttachmentPreview(composer),
+                            CupertinoScrollbar(
+                              controller: _inputScrollController,
+                              child: CupertinoTextField(
+                                controller: _textController,
+                                scrollController: _inputScrollController,
+                                onChanged: (value) {
+                                  unawaited(
+                                    ref
+                                        .read(
+                                          conversationComposerViewModelProvider(
+                                            widget.scope,
+                                          ).notifier,
+                                        )
+                                        .updateDraft(value),
+                                  );
+                                },
+                                placeholder: 'Message',
+                                maxLines: 5,
+                                minLines: 1,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: null,
+                              ),
                             ),
-                            decoration: null,
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 CupertinoButton(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(36, 36),
@@ -334,23 +334,44 @@ class _ConversationComposerBarState
       ComposerReplying(:final message) => _previewBar(
         title:
             'Replying to ${message.sender.name ?? 'User ${message.sender.uid}'}',
-        body: message.message ?? '',
+        body: formatMessagePreview(
+          message: message.message,
+          messageType: message.messageType,
+          sticker: message.sticker,
+          attachments: message.attachments,
+          firstAttachmentKind: message.attachments.isNotEmpty
+              ? message.attachments.first.kind
+              : null,
+          isDeleted: message.isDeleted,
+          mentions: message.mentions,
+        ),
       ),
       ComposerEditing(:final message) => _previewBar(
-        title: 'Edit Message',
-        body: message.message ?? '',
+        title: 'Edit message',
+        body: formatMessagePreview(
+          message: message.message,
+          messageType: message.messageType,
+          sticker: message.sticker,
+          attachments: message.attachments,
+          firstAttachmentKind: message.attachments.isNotEmpty
+              ? message.attachments.first.kind
+              : null,
+          isDeleted: message.isDeleted,
+          mentions: message.mentions,
+        ),
       ),
       ComposerIdle() => const SizedBox.shrink(),
     };
   }
 
   Widget _previewBar({required String title, required String body}) {
+    final colors = context.appColors;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+      padding: const EdgeInsets.fromLTRB(12, 6, 8, 4),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey5.resolveFrom(context),
-        border: const Border(
-          left: BorderSide(color: CupertinoColors.activeBlue, width: 3),
+        color: colors.composerReplyPreviewSurface,
+        border: Border(
+          bottom: BorderSide(color: colors.composerReplyPreviewDivider),
         ),
       ),
       child: Row(
@@ -367,18 +388,18 @@ class _ConversationComposerBarState
                   style: appTextStyle(
                     context,
                     fontWeight: FontWeight.w600,
-                    fontSize: AppFontSizes.bodySmall,
-                    color: CupertinoColors.activeBlue,
+                    fontSize: AppFontSizes.meta,
+                    color: colors.composerReplyPreviewTitle,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: appSecondaryTextStyle(
                     context,
-                    fontSize: AppFontSizes.bodySmall,
+                    fontSize: AppFontSizes.meta,
                   ),
                 ),
               ],
@@ -398,8 +419,8 @@ class _ConversationComposerBarState
             },
             child: Icon(
               CupertinoIcons.xmark_circle_fill,
-              size: 20,
-              color: CupertinoColors.systemGrey3.resolveFrom(context),
+              size: 18,
+              color: colors.inactive,
             ),
           ),
         ],

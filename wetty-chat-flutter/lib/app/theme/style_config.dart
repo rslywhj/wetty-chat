@@ -49,6 +49,9 @@ class AppColors {
     required this.avatarBackground,
     required this.inputSurface,
     required this.inputBorder,
+    required this.composerReplyPreviewSurface,
+    required this.composerReplyPreviewDivider,
+    required this.composerReplyPreviewTitle,
   });
 
   final Color backgroundPrimary;
@@ -76,6 +79,9 @@ class AppColors {
   final Color avatarBackground;
   final Color inputSurface;
   final Color inputBorder;
+  final Color composerReplyPreviewSurface;
+  final Color composerReplyPreviewDivider;
+  final Color composerReplyPreviewTitle;
 
   static const light = AppColors(
     backgroundPrimary: Color(0xFFF7F5F2),
@@ -108,6 +114,9 @@ class AppColors {
     avatarBackground: Color(0xFFD1D5DB),
     inputSurface: Color(0xFFF3F4F6),
     inputBorder: Color(0xFFD1D5DB),
+    composerReplyPreviewSurface: Color(0xFFF0F0F0),
+    composerReplyPreviewDivider: Color(0xFFE0E0E0),
+    composerReplyPreviewTitle: Color(0xFF2B7ACD),
   );
 
   static const dark = AppColors(
@@ -136,6 +145,9 @@ class AppColors {
     avatarBackground: Color(0xFF4B5563),
     inputSurface: Color(0xFF222327),
     inputBorder: Color(0xFF3A3A3C),
+    composerReplyPreviewSurface: Color(0xFF2A2B2F),
+    composerReplyPreviewDivider: Color(0xFF3A3A3C),
+    composerReplyPreviewTitle: Color(0xFF4087D2),
   );
 }
 

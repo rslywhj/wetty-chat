@@ -37,17 +37,40 @@ class AttachmentItem {
   bool get isVideo => kind.startsWith('video/');
 }
 
+class StickerSummary {
+  final String? emoji;
+
+  const StickerSummary({this.emoji});
+}
+
+class MentionInfo {
+  final int uid;
+  final String? username;
+
+  const MentionInfo({required this.uid, this.username});
+}
+
 class ReplyToMessage {
   final int id;
   final String? message;
+  final String messageType;
+  final StickerSummary? sticker;
   final Sender sender;
   final bool isDeleted;
+  final List<AttachmentItem> attachments;
+  final String? firstAttachmentKind;
+  final List<MentionInfo> mentions;
 
   const ReplyToMessage({
     required this.id,
     this.message,
+    this.messageType = 'text',
+    this.sticker,
     required this.sender,
     required this.isDeleted,
+    this.attachments = const [],
+    this.firstAttachmentKind,
+    this.mentions = const [],
   });
 }
 
@@ -61,6 +84,7 @@ class MessageItem {
   final int id;
   final String? message;
   final String messageType;
+  final StickerSummary? sticker;
   final Sender sender;
   final String chatId;
   final DateTime? createdAt;
@@ -71,12 +95,14 @@ class MessageItem {
   final bool hasAttachments;
   final ReplyToMessage? replyToMessage;
   final List<AttachmentItem> attachments;
+  final List<MentionInfo> mentions;
   final ThreadInfo? threadInfo;
 
   const MessageItem({
     required this.id,
     this.message,
     required this.messageType,
+    this.sticker,
     required this.sender,
     required this.chatId,
     required this.createdAt,
@@ -87,6 +113,7 @@ class MessageItem {
     required this.hasAttachments,
     this.replyToMessage,
     this.attachments = const [],
+    this.mentions = const [],
     this.threadInfo,
   });
 }

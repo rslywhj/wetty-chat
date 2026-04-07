@@ -12,6 +12,7 @@ class ConversationMessage {
     required this.sender,
     required this.message,
     required this.messageType,
+    this.sticker,
     required this.createdAt,
     required this.isEdited,
     required this.isDeleted,
@@ -19,6 +20,7 @@ class ConversationMessage {
     required this.hasAttachments,
     required this.replyToMessage,
     required this.attachments,
+    required this.mentions,
     required this.threadInfo,
     this.deliveryState = ConversationDeliveryState.sent,
   });
@@ -30,6 +32,7 @@ class ConversationMessage {
   final Sender sender;
   final String? message;
   final String messageType;
+  final StickerSummary? sticker;
   final DateTime? createdAt;
   final bool isEdited;
   final bool isDeleted;
@@ -37,6 +40,7 @@ class ConversationMessage {
   final bool hasAttachments;
   final ReplyToMessage? replyToMessage;
   final List<AttachmentItem> attachments;
+  final List<MentionInfo> mentions;
   final ThreadInfo? threadInfo;
   final ConversationDeliveryState deliveryState;
 
@@ -59,6 +63,7 @@ class ConversationMessage {
     Sender? sender,
     Object? message = _sentinel,
     String? messageType,
+    Object? sticker = _sentinel,
     Object? createdAt = _sentinel,
     bool? isEdited,
     bool? isDeleted,
@@ -66,6 +71,7 @@ class ConversationMessage {
     bool? hasAttachments,
     Object? replyToMessage = _sentinel,
     List<AttachmentItem>? attachments,
+    List<MentionInfo>? mentions,
     Object? threadInfo = _sentinel,
     ConversationDeliveryState? deliveryState,
   }) {
@@ -81,6 +87,7 @@ class ConversationMessage {
       sender: sender ?? this.sender,
       message: message == _sentinel ? this.message : message as String?,
       messageType: messageType ?? this.messageType,
+      sticker: sticker == _sentinel ? this.sticker : sticker as StickerSummary?,
       createdAt: createdAt == _sentinel
           ? this.createdAt
           : createdAt as DateTime?,
@@ -94,6 +101,7 @@ class ConversationMessage {
           ? this.replyToMessage
           : replyToMessage as ReplyToMessage?,
       attachments: attachments ?? this.attachments,
+      mentions: mentions ?? this.mentions,
       threadInfo: threadInfo == _sentinel
           ? this.threadInfo
           : threadInfo as ThreadInfo?,
