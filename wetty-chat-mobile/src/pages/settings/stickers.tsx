@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   IonBackButton,
   IonButtons,
@@ -23,6 +23,7 @@ import { useHistory } from 'react-router-dom';
 import { addOutline, cubeOutline } from 'ionicons/icons';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
+import { STICKER_AUTO_SORT_LIMIT } from '@/constants/stickers';
 import { BackButton } from '@/components/BackButton';
 import { StickerImage } from '@/components/shared/StickerImage';
 import {
@@ -46,6 +47,19 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const [presentToast] = useIonToast();
   const [ownedPacks, setOwnedPacks] = useState<StickerPackSummary[]>([]);
   const [allPacks, setAllPacks] = useState<StickerPackSummary[]>([]);
+  const [itemHeight, setItemHeight] = useState(0);
+  const listRef = useRef<HTMLIonReorderGroupElement>(null);
+
+  useEffect(() => {
+    if (listRef.current) {
+      setTimeout(() => {
+        const firstItem = listRef.current?.querySelector('ion-item');
+        if (firstItem) {
+          setItemHeight(firstItem.offsetHeight);
+        }
+      }, 100);
+    }
+  }, [allPacks.length]);
   const [autoSort, setAutoSort] = useState<boolean>(false);
   const [packOrder, setPackOrder] = useState<StickerPackOrderItem[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -282,48 +296,94 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
             </IonLabel>
           </IonItem>
 
-          <IonReorderGroup disabled={false} onIonItemReorder={handleReorder}>
-            {allPacks.map((pack) => {
-              const isOwned = ownedPacks.some((p) => p.id === pack.id);
-              return (
-                <IonItem key={pack.id} button detail={false} onClick={() => handleOpenPack(pack.id)}>
-                  <span
-                    slot="start"
-                    style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    {pack.previewSticker ? (
-                      <StickerImage
-                        src={pack.previewSticker.media.url}
-                        alt=""
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 4 }}
-                      />
-                    ) : (
-                      <IonIcon aria-hidden="true" icon={cubeOutline} color="medium" style={{ fontSize: 24 }} />
-                    )}
-                  </span>
-                  <IonLabel>
-                    <h2 style={{ display: 'flex', alignItems: 'center' }}>
-                      {isOwned && (
-                        <IonBadge
-                          color="primary"
-                          style={{ marginRight: 8, fontSize: '0.55rem', fontWeight: 'normal', flexShrink: 0 }}
-                        >
-                          <Trans>Owned</Trans>
-                        </IonBadge>
-                      )}
-                      <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {pack.name}
+          <div style={{ position: 'relative' }}>
+            <IonReorderGroup ref={listRef} disabled={false} onIonItemReorder={handleReorder}>
+              {allPacks.map((pack) => {
+                if (!pack) return null; // Safety check
+                const isOwned = ownedPacks.some((p) => p.id === pack.id);
+                return (
+                  <React.Fragment key={pack.id}>
+                    <IonItem button detail={false} onClick={() => handleOpenPack(pack.id)}>
+                      <span
+                        slot="start"
+                        style={{
+                          width: 32,
+                          height: 32,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {pack.previewSticker ? (
+                          <StickerImage
+                            src={pack.previewSticker.media.url}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 4 }}
+                          />
+                        ) : (
+                          <IonIcon aria-hidden="true" icon={cubeOutline} color="medium" style={{ fontSize: 24 }} />
+                        )}
                       </span>
-                    </h2>
-                    <p style={{ fontSize: '0.85em', color: 'var(--ion-color-medium)', marginTop: 2 }}>
-                      {pack.stickerCount} <Trans>stickers</Trans>
-                    </p>
-                  </IonLabel>
-                  <IonReorder slot="end" onClick={(e) => e.stopPropagation()} />
-                </IonItem>
-              );
-            })}
-          </IonReorderGroup>
+                      <IonLabel>
+                        <h2 style={{ display: 'flex', alignItems: 'center' }}>
+                          {isOwned && (
+                            <IonBadge
+                              color="primary"
+                              style={{ marginRight: 8, fontSize: '0.55rem', fontWeight: 'normal', flexShrink: 0 }}
+                            >
+                              <Trans>Owned</Trans>
+                            </IonBadge>
+                          )}
+                          <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {pack.name}
+                          </span>
+                        </h2>
+                        <p style={{ fontSize: '0.85em', color: 'var(--ion-color-medium)', marginTop: 2 }}>
+                          {pack.stickerCount} <Trans>stickers</Trans>
+                        </p>
+                      </IonLabel>
+                      <IonReorder slot="end" onClick={(e) => e.stopPropagation()} />
+                    </IonItem>
+                  </React.Fragment>
+                );
+              })}
+            </IonReorderGroup>
+
+            {autoSort && allPacks.length > STICKER_AUTO_SORT_LIMIT && itemHeight > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: STICKER_AUTO_SORT_LIMIT * itemHeight,
+                  left: 16,
+                  right: 16,
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  transform: 'translateY(-50%)',
+                  opacity: 0.8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div style={{ width: '100%', height: '1px', background: 'var(--ion-color-step-300)' }} />
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    margin: '4px 0',
+                    color: 'var(--ion-color-medium)',
+                    textAlign: 'center',
+                    background: 'var(--ion-item-background, var(--ion-background-color, #fff))',
+                    borderRadius: '12px',
+                  }}
+                >
+                  <Trans>Packs below this line are not auto-sorted</Trans>
+                </span>
+                <div style={{ width: '100%', height: '1px', background: 'var(--ion-color-step-300)' }} />
+              </div>
+            )}
+          </div>
         </IonList>
       </IonContent>
     </IonPage>

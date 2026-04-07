@@ -22,6 +22,7 @@ import {
   unfavoriteSticker,
 } from '@/api/stickers';
 import { useAddSticker } from '@/hooks/useAddSticker';
+import { STICKER_AUTO_SORT_LIMIT } from '@/constants/stickers';
 
 interface StickerPickerProps {
   isOpen: boolean;
@@ -175,6 +176,8 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
         try {
           const autoSort = (await kvGet<boolean>('autoSortStickerPacks')) ?? false;
           if (autoSort && activePack && activePack.id !== 'favorites') {
+            const packIndex = packs.findIndex((p) => p.id === activePack.id);
+            if (packIndex > STICKER_AUTO_SORT_LIMIT) return;
             let rawOrder = await kvGet<any[]>('stickerPackOrder');
             if (rawOrder === undefined) {
               rawOrder = [];
@@ -196,7 +199,7 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
                 filtered.unshift(targetObj);
 
                 await kvSet('stickerPackOrder', filtered);
-                void usersApi.updateStickerPackOrder([targetObj]).catch(console.error);
+                void usersApi.updateStickerPackOrder([{ ...targetObj, isAutoSort: true }]).catch(console.error);
                 window.dispatchEvent(new Event('stickerPackOrderChanged'));
               }
             }
@@ -208,7 +211,7 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
       void run();
       onStickerSelect(sticker);
     },
-    [activePack, onStickerSelect],
+    [activePack, onStickerSelect, packs],
   );
 
   const { addStickerFile, setAddStickerFile, fileInputRef, handleFileChange, handleAddSticker } = useAddSticker({

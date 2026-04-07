@@ -5,6 +5,12 @@ export interface StickerPackOrderItem {
   lastUsedOn: number;
 }
 
+export interface UpdateStickerPackOrderItem {
+  stickerPackId: string;
+  lastUsedOn: number;
+  isAutoSort?: boolean;
+}
+
 export interface User {
   uid: number;
   username: string;
@@ -19,7 +25,7 @@ export const usersApi = {
     return response.data;
   },
 
-  updateStickerPackOrder: async (order: StickerPackOrderItem[]): Promise<void> => {
+  updateStickerPackOrder: async (order: UpdateStickerPackOrderItem[]): Promise<void> => {
     await apiClient.put('/users/me/stickerpack-order', { order });
   },
 };

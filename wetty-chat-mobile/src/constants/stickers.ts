@@ -1,0 +1,1 @@
+export const STICKER_AUTO_SORT_LIMIT = 20;

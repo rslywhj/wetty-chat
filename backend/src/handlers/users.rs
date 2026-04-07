@@ -26,8 +26,16 @@ pub struct StickerPackOrderItem {
 
 #[derive(serde::Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateStickerPackOrderItem {
+    pub sticker_pack_id: String,
+    pub last_used_on: i64,
+    pub is_auto_sort: Option<bool>,
+}
+
+#[derive(serde::Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateStickerPackOrderRequest {
-    pub order: Vec<StickerPackOrderItem>,
+    pub order: Vec<UpdateStickerPackOrderItem>,
 }
 
 #[utoipa::path(
@@ -59,14 +67,37 @@ async fn put_stickerpack_order(
         })
         .unwrap_or_default();
 
+    // Sort descending by last_used_on to safely determine position
+    let mut sorted_order = current_order.clone();
+    sorted_order.sort_by_key(|o| -o.last_used_on);
+
+    use crate::MAX_AUTO_SORT_LIMIT;
+    let auto_sort_limit = MAX_AUTO_SORT_LIMIT;
+
     for inc in req.order {
+        if inc.is_auto_sort.unwrap_or(false) {
+            let current_pos = sorted_order
+                .iter()
+                .position(|o| o.sticker_pack_id == inc.sticker_pack_id);
+            if let Some(pos) = current_pos {
+                if pos >= auto_sort_limit {
+                    continue; // Skip this update if it's outside the auto-sort limit
+                }
+            } else {
+                continue; // Can't auto-sort a pack that doesn't exist
+            }
+        }
+
         if let Some(existing) = current_order
             .iter_mut()
             .find(|o| o.sticker_pack_id == inc.sticker_pack_id)
         {
             existing.last_used_on = inc.last_used_on;
         } else {
-            current_order.push(inc);
+            current_order.push(StickerPackOrderItem {
+                sticker_pack_id: inc.sticker_pack_id,
+                last_used_on: inc.last_used_on,
+            });
         }
     }
 
