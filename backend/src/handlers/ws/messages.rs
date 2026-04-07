@@ -107,8 +107,10 @@ mod tests {
     }
 }
 
+use crate::handlers::users::StickerPackOrderItem;
+
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StickerPackOrderUpdatePayload {
-    pub order: Vec<String>,
+    pub order: Vec<StickerPackOrderItem>,
 }

@@ -1,11 +1,16 @@
 import apiClient from './client';
 
+export interface StickerPackOrderItem {
+  stickerPackId: string;
+  lastUsedOn: number;
+}
+
 export interface User {
   uid: number;
   username: string;
   avatarUrl?: string | null;
   gender: number;
-  stickerPackOrder?: string[];
+  stickerPackOrder?: StickerPackOrderItem[];
 }
 
 export const usersApi = {
@@ -14,7 +19,7 @@ export const usersApi = {
     return response.data;
   },
 
-  updateStickerPackOrder: async (order: string[]): Promise<void> => {
+  updateStickerPackOrder: async (order: StickerPackOrderItem[]): Promise<void> => {
     await apiClient.put('/users/me/stickerpack-order', { order });
   },
 };

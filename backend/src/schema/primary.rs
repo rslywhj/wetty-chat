@@ -248,7 +248,7 @@ diesel::table! {
         uid -> Int4,
         first_seen_at -> Timestamp,
         last_seen_at -> Timestamp,
-        sticker_pack_order -> Array<Int8>,
+        sticker_pack_order -> Jsonb,
     }
 }
 

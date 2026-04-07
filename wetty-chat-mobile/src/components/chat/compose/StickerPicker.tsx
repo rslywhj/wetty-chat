@@ -99,9 +99,12 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
   useEffect(() => {
     const handleStorageChange = async () => {
       try {
-        const order = await kvGet<string[]>('stickerPackOrder');
+        let order = await kvGet<any[]>('stickerPackOrder');
         if (order !== undefined) {
-          setPackOrder(order);
+          if (order.length > 0 && typeof order[0] === 'string') {
+            order = order.map((id) => ({ stickerPackId: id, lastUsedOn: 0 }));
+          }
+          setPackOrder(order.map((o: any) => o.stickerPackId || o));
         } else {
           setPackOrder([]);
         }
@@ -173,16 +176,25 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
         try {
           const autoSort = (await kvGet<boolean>('autoSortStickerPacks')) ?? false;
           if (autoSort && activePack && activePack.id !== 'favorites') {
-            let newOrder = await kvGet<string[]>('stickerPackOrder');
-            if (newOrder === undefined) {
-              newOrder = [];
+            let rawOrder = await kvGet<any[]>('stickerPackOrder');
+            if (rawOrder === undefined) {
+              rawOrder = [];
             }
-            if (Array.isArray(newOrder)) {
-              if (newOrder[0] !== activePack.id) {
-                newOrder = newOrder.filter((id) => id !== activePack.id);
-                newOrder.unshift(activePack.id);
-                await kvSet('stickerPackOrder', newOrder);
-                void usersApi.updateStickerPackOrder(newOrder).catch(console.error);
+            if (Array.isArray(rawOrder)) {
+              if (rawOrder.length > 0 && typeof rawOrder[0] === 'string') {
+                rawOrder = rawOrder.map((id) => ({ stickerPackId: id, lastUsedOn: 0 }));
+              }
+              const newOrder: { stickerPackId: string; lastUsedOn: number }[] = rawOrder;
+              if (newOrder.length > 0 && newOrder[0].stickerPackId !== activePack.id) {
+                const targetObj = newOrder.find((o) => o.stickerPackId === activePack.id) || {
+                  stickerPackId: activePack.id,
+                  lastUsedOn: 0,
+                };
+                const filtered = newOrder.filter((o) => o.stickerPackId !== activePack.id);
+                targetObj.lastUsedOn = Date.now();
+                filtered.unshift(targetObj);
+                await kvSet('stickerPackOrder', filtered);
+                void usersApi.updateStickerPackOrder(filtered).catch(console.error);
                 window.dispatchEvent(new Event('stickerPackOrderChanged'));
               }
             }

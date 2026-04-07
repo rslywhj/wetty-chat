@@ -198,7 +198,7 @@ impl ClientTrackingService {
                 last_seen_at: now,
                 sticker_pack_order: existing_user
                     .as_ref()
-                    .map_or(vec![], |u| u.sticker_pack_order.clone()),
+                    .map_or(serde_json::json!([]), |u| u.sticker_pack_order.clone()),
             };
 
             diesel::insert_into(user_extra::table)

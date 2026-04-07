@@ -32,7 +32,7 @@ import {
   type StickerPackSummary,
 } from '@/api/stickers';
 import { kvGet, kvSet } from '@/utils/db';
-import { usersApi } from '@/api/users';
+import { usersApi, type StickerPackOrderItem } from '@/api/users';
 import type { BackAction } from '@/types/back-action';
 
 interface StickerSettingsCoreProps {
@@ -47,7 +47,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const [ownedPacks, setOwnedPacks] = useState<StickerPackSummary[]>([]);
   const [allPacks, setAllPacks] = useState<StickerPackSummary[]>([]);
   const [autoSort, setAutoSort] = useState<boolean>(false);
-  const [, setPackOrder] = useState<string[]>([]);
+  const [packOrder, setPackOrder] = useState<StickerPackOrderItem[]>([]);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
@@ -56,8 +56,13 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
         const storedAutoSort = await kvGet<boolean>('autoSortStickerPacks');
         setAutoSort(storedAutoSort ?? false);
 
-        const storedOrder = await kvGet<string[]>('stickerPackOrder');
-        setPackOrder(storedOrder ?? []);
+        const storedOrderRaw = await kvGet<any[]>('stickerPackOrder');
+        let storedOrder = storedOrderRaw ?? [];
+        if (storedOrder.length > 0 && typeof storedOrder[0] === 'string') {
+          storedOrder = storedOrder.map((id) => ({ stickerPackId: id, lastUsedOn: 0 }));
+          void kvSet('stickerPackOrder', storedOrder);
+        }
+        setPackOrder(storedOrder);
       } catch (error) {
         console.error('Failed to init sticker storage', error);
       } finally {
@@ -68,15 +73,18 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
 
     const handleOrderChange = async () => {
       try {
-        const _order = await kvGet<string[]>('stickerPackOrder');
-        const order = _order ?? [];
+        const _orderRaw = await kvGet<any[]>('stickerPackOrder');
+        let order = _orderRaw ?? [];
+        if (order.length > 0 && typeof order[0] === 'string') {
+          order = order.map((id) => ({ stickerPackId: id, lastUsedOn: 0 }));
+        }
         setPackOrder(order);
         setAllPacks((prev) => {
           const copy = [...prev];
           if (order.length > 0) {
             copy.sort((a, b) => {
-              const indexA = order.indexOf(a.id);
-              const indexB = order.indexOf(b.id);
+              const indexA = order.findIndex((o: StickerPackOrderItem) => o.stickerPackId === a.id);
+              const indexB = order.findIndex((o: StickerPackOrderItem) => o.stickerPackId === b.id);
               if (indexA === -1 && indexB === -1) return 0;
               if (indexA === -1) return 1;
               if (indexB === -1) return -1;
@@ -101,7 +109,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
       const [ownedRes, subscribedRes, currentOrder] = await Promise.all([
         getOwnedStickerPacks(),
         getSubscribedStickerPacks(),
-        kvGet<string[]>('stickerPackOrder'),
+        kvGet<any[]>('stickerPackOrder'),
       ]);
       setOwnedPacks(ownedRes.data.packs);
       const subs = subscribedRes.data.packs.filter(
@@ -109,11 +117,14 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
       );
 
       const merged = [...ownedRes.data.packs, ...subs];
-      const order = currentOrder ?? [];
+      let order = currentOrder ?? [];
+      if (order.length > 0 && typeof order[0] === 'string') {
+        order = order.map((id) => ({ stickerPackId: id, lastUsedOn: 0 }));
+      }
       if (order.length > 0) {
         merged.sort((a, b) => {
-          const indexA = order.indexOf(a.id);
-          const indexB = order.indexOf(b.id);
+          const indexA = order.findIndex((o: StickerPackOrderItem) => o.stickerPackId === a.id);
+          const indexB = order.findIndex((o: StickerPackOrderItem) => o.stickerPackId === b.id);
           if (indexA === -1 && indexB === -1) return 0;
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
@@ -141,10 +152,18 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const handleReorder = (event: CustomEvent<ItemReorderEventDetail>) => {
     const newItems = event.detail.complete(allPacks);
     setAllPacks(newItems);
-    const newOrder = newItems.map((p: StickerPackSummary) => p.id);
-    setPackOrder(newOrder);
-    void kvSet('stickerPackOrder', newOrder);
-    void usersApi.updateStickerPackOrder(newOrder).catch((e) => console.error('Failed to sync sticker pack order', e));
+    const newOrderObjects = newItems.map((p: StickerPackSummary) => {
+      const existing = packOrder.find((o) => o.stickerPackId === p.id);
+      return {
+        stickerPackId: p.id,
+        lastUsedOn: existing ? existing.lastUsedOn : 0,
+      };
+    });
+    setPackOrder(newOrderObjects);
+    void kvSet('stickerPackOrder', newOrderObjects);
+    void usersApi
+      .updateStickerPackOrder(newOrderObjects)
+      .catch((e) => console.error('Failed to sync sticker pack order', e));
     window.dispatchEvent(new Event('stickerPackOrderChanged'));
   };
 
@@ -172,11 +191,17 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
               setOwnedPacks((prev) => [res.data, ...prev]);
               setAllPacks((prev) => {
                 const newAll = [res.data, ...prev];
-                const newOrder = newAll.map((p) => p.id);
-                setPackOrder(newOrder);
-                void kvSet('stickerPackOrder', newOrder);
+                const newOrderObjects = newAll.map((p) => {
+                  const existing = packOrder.find((o) => o.stickerPackId === p.id);
+                  return {
+                    stickerPackId: p.id,
+                    lastUsedOn: existing ? existing.lastUsedOn : p.id === res.data.id ? Date.now() : 0,
+                  };
+                });
+                setPackOrder(newOrderObjects);
+                void kvSet('stickerPackOrder', newOrderObjects);
                 void usersApi
-                  .updateStickerPackOrder(newOrder)
+                  .updateStickerPackOrder(newOrderObjects)
                   .catch((e) => console.error('Failed to sync sticker pack order', e));
                 window.dispatchEvent(new Event('stickerPackOrderChanged'));
                 return newAll;

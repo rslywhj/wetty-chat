@@ -427,7 +427,7 @@ async function connectWebSocket(): Promise<void> {
         }
 
         if (message.type === 'stickerPackOrderUpdated' && message.payload != null) {
-          const payload = message.payload as { order: string[] };
+          const payload = message.payload as { order: { stickerPackId: string; lastUsedOn: number }[] };
           if (payload.order) {
             kvSet('stickerPackOrder', payload.order)
               .then(() => {

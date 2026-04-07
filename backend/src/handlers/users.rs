@@ -17,10 +17,17 @@ use crate::AppState;
 use diesel::prelude::*;
 use std::sync::Arc;
 
+#[derive(Debug, Clone, serde::Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct StickerPackOrderItem {
+    pub sticker_pack_id: String,
+    pub last_used_on: i64,
+}
+
 #[derive(serde::Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateStickerPackOrderRequest {
-    pub order: Vec<String>,
+    pub order: Vec<StickerPackOrderItem>,
 }
 
 #[utoipa::path(
@@ -40,17 +47,14 @@ async fn put_stickerpack_order(
     Json(req): Json<UpdateStickerPackOrderRequest>,
 ) -> Result<Json<()>, AppError> {
     let conn = &mut *conn;
-    let order_i64: Result<Vec<i64>, _> = req.order.iter().map(|s| s.parse::<i64>()).collect();
-    let order_i64 = order_i64.map_err(|_| AppError::BadRequest("Invalid pack ID"))?;
+    let order_json = serde_json::to_value(&req.order).unwrap_or(serde_json::json!([]));
 
     diesel::update(user_extra::table.filter(user_extra::uid.eq(uid)))
-        .set(user_extra::sticker_pack_order.eq(&order_i64))
+        .set(user_extra::sticker_pack_order.eq(&order_json))
         .execute(conn)?;
 
     let msg = Arc::new(ServerWsMessage::StickerPackOrderUpdated(
-        StickerPackOrderUpdatePayload {
-            order: req.order.clone(),
-        },
+        StickerPackOrderUpdatePayload { order: req.order },
     ));
     state.ws_registry.broadcast_to_uids(&[uid], msg);
 
@@ -64,7 +68,7 @@ pub struct MeResponse {
     pub username: String,
     pub avatar_url: Option<String>,
     pub gender: i16,
-    pub sticker_pack_order: Vec<String>,
+    pub sticker_pack_order: Vec<StickerPackOrderItem>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -105,11 +109,8 @@ async fn get_me(
         .optional()?;
 
     let sticker_pack_order = extra
-        .map(|e| {
-            e.sticker_pack_order
-                .into_iter()
-                .map(|id| id.to_string())
-                .collect()
+        .and_then(|e| {
+            serde_json::from_value::<Vec<StickerPackOrderItem>>(e.sticker_pack_order).ok()
         })
         .unwrap_or_default();
 
