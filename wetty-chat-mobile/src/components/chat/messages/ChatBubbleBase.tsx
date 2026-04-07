@@ -23,6 +23,8 @@ import { decodePermalink } from '@/utils/permalinkUrl';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
 import { InviteLinkInline } from './InviteLinkInline';
 import { PermalinkInline } from './PermalinkInline';
+import { SingleMediaAttachment } from './media/SingleMediaAttachment';
+import { JustifiedMediaGallery } from './media/JustifiedMediaGallery';
 
 const URL_REGEX = /(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]+)/g;
 const TRAILING_PUNCT = /[.,);!?]+$/;
@@ -249,7 +251,22 @@ export function ChatBubbleBase({
   const interactive = interactionMode === 'interactive';
   const imageAttachments =
     attachments?.filter((att) => att.kind.startsWith('image/') || att.kind.startsWith('video/')) ?? [];
+  const otherAttachments =
+    attachments?.filter((att) => !(att.kind.startsWith('image/') || att.kind.startsWith('video/'))) ?? [];
   const { className: bubbleClassName, style: bubbleStyle, ...bubbleRestProps } = bubbleProps ?? {};
+
+  const hasTopContent = showName || replyTo;
+  const hasBottomContent = message && message.trim() !== '';
+  const isMediaOnly = imageAttachments.length > 0 && !hasBottomContent && otherAttachments.length === 0;
+
+  const mediaContainerClasses = [
+    styles.attachmentsContainer,
+    (styles as any).edgeToEdgeHorizontal,
+    !hasTopContent ? (styles as any).edgeToEdgeTop : (styles as any).hasTopContent,
+    !hasBottomContent ? (styles as any).edgeToEdgeBottom : (styles as any).hasBottomContent,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   function logAttachmentLoad(
     kind: 'image' | 'video',
@@ -272,6 +289,30 @@ export function ChatBubbleBase({
       naturalHeight: 'naturalHeight' in element ? element.naturalHeight : element.videoHeight,
     });
   }
+
+  const renderMediaItem = (att: Attachment, style?: CSSProperties) => {
+    if (att.kind.startsWith('video/')) {
+      return (
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          src={att.url}
+          style={style}
+          onLoadedMetadata={(e) => logAttachmentLoad('video', att, e.currentTarget)}
+        />
+      );
+    }
+    return (
+      <img
+        src={att.url}
+        alt={t`Attachment`}
+        style={style}
+        onLoad={(e) => logAttachmentLoad('image', att, e.currentTarget)}
+      />
+    );
+  };
 
   function renderAttachment(att: Attachment) {
     if (att.kind.startsWith('image/')) {
@@ -439,24 +480,59 @@ export function ChatBubbleBase({
           </div>
         </div>
       )}
-      {attachments && attachments.length > 0 && (
-        <div className={styles.attachmentsContainer}>{attachments.map(renderAttachment)}</div>
+      {imageAttachments.length > 0 && (
+        <div className={mediaContainerClasses}>
+          {imageAttachments.length === 1 ? (
+            <SingleMediaAttachment
+              attachment={imageAttachments[0]}
+              interactive={interactive}
+              onView={() => setViewingAttachmentIndex(0)}
+              renderElement={(style) => renderMediaItem(imageAttachments[0], style)}
+            />
+          ) : (
+            <JustifiedMediaGallery
+              attachments={imageAttachments}
+              interactive={interactive}
+              onView={(id) => {
+                const index = imageAttachments.findIndex((a) => a.id === id);
+                setViewingAttachmentIndex(index >= 0 ? index : 0);
+              }}
+              renderElement={(id, style) => renderMediaItem(imageAttachments.find((a) => a.id === id)!, style)}
+            />
+          )}
+          {isMediaOnly && timestamp && (
+            <span className={(styles as any).mediaTimestamp}>
+              {formatTime(timestamp)}
+              {edited && ` (${t`Edited`})`}
+              {isSent && (
+                <IonIcon icon={isConfirmed ? checkmarkCircle : checkmarkCircleOutline} className={styles.statusIcon} />
+              )}
+            </span>
+          )}
+        </div>
       )}
-      <div className={styles.messageWrapper}>
-        <span className={styles.messageText}>
-          {renderMessageContent(message, mentions, currentUserUid, interactive ? onMentionClick : undefined)}
-        </span>
-        <span className={styles.timestampSpacer} />
-        {timestamp && (
-          <span className={styles.timestamp}>
-            {formatTime(timestamp)}
-            {edited && ` (${t`Edited`})`}
-            {isSent && (
-              <IonIcon icon={isConfirmed ? checkmarkCircle : checkmarkCircleOutline} className={styles.statusIcon} />
-            )}
-          </span>
-        )}
-      </div>
+      {otherAttachments.length > 0 && (
+        <div className={styles.attachmentsContainer}>{otherAttachments.map(renderAttachment)}</div>
+      )}
+      {(hasBottomContent || !isMediaOnly) && (
+        <div className={styles.messageWrapper}>
+          {hasBottomContent && (
+            <span className={styles.messageText}>
+              {renderMessageContent(message, mentions, currentUserUid, interactive ? onMentionClick : undefined)}
+            </span>
+          )}
+          <span className={styles.timestampSpacer} />
+          {timestamp && (
+            <span className={styles.timestamp}>
+              {formatTime(timestamp)}
+              {edited && ` (${t`Edited`})`}
+              {isSent && (
+                <IonIcon icon={isConfirmed ? checkmarkCircle : checkmarkCircleOutline} className={styles.statusIcon} />
+              )}
+            </span>
+          )}
+        </div>
+      )}
       {threadInfo && (
         <div className={styles.threadIndicator} onClick={interactive ? onThreadClick : undefined}>
           <IonIcon icon={chatbubbles} />
