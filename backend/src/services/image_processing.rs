@@ -1,3 +1,5 @@
+use image::AnimationDecoder;
+
 const MAX_STICKER_DIMENSION: u32 = 512;
 
 pub struct ProcessedMedia {
@@ -8,9 +10,19 @@ pub struct ProcessedMedia {
 }
 
 /// Process an image sticker: resize so the largest dimension is 512px and convert to webp.
+/// Animated GIF/WebP stickers are stored as-is to preserve animation.
 /// For video/webm, only extracts dimensions (no re-encoding).
 pub fn process_sticker(content_type: &str, data: &[u8]) -> ProcessedMedia {
     if content_type.starts_with("image/") {
+        if is_animated_image(content_type, data) {
+            tracing::debug!("animated sticker detected, storing original");
+            return ProcessedMedia {
+                data: data.to_vec(),
+                content_type: content_type.to_string(),
+                width: None,
+                height: None,
+            };
+        }
         if let Some(result) = process_image_sticker(data) {
             return result;
         }
@@ -30,6 +42,30 @@ pub fn process_sticker(content_type: &str, data: &[u8]) -> ProcessedMedia {
         width: None,
         height: None,
     }
+}
+
+fn is_animated_image(content_type: &str, data: &[u8]) -> bool {
+    match content_type {
+        "image/gif" => is_animated_gif(data),
+        "image/webp" => is_animated_webp(data),
+        _ => false,
+    }
+}
+
+fn is_animated_gif(data: &[u8]) -> bool {
+    let Ok(decoder) = image::codecs::gif::GifDecoder::new(std::io::Cursor::new(data)) else {
+        return false;
+    };
+    let mut frames = decoder.into_frames();
+    // If there's a first frame and a second frame, it's animated
+    frames.next().is_some() && frames.next().is_some()
+}
+
+fn is_animated_webp(data: &[u8]) -> bool {
+    let Ok(decoder) = image::codecs::webp::WebPDecoder::new(std::io::Cursor::new(data)) else {
+        return false;
+    };
+    decoder.has_animation()
 }
 
 fn process_image_sticker(data: &[u8]) -> Option<ProcessedMedia> {
