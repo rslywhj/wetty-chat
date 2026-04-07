@@ -21,11 +21,6 @@ void main() {
 
       expect(state.locatePlan?.target, ConversationLocateTarget.latest);
       expect(state.locatePlan?.placement, ConversationLocatePlacement.liveEdge);
-      expect(
-        state.locatePlan?.execution,
-        ConversationLocateExecution.preparedViewport,
-      );
-      expect(state.locatePlan?.viewportSessionId, 1);
     });
 
     test(
@@ -50,14 +45,6 @@ void main() {
           state.locatePlan?.placement,
           ConversationLocatePlacement.topPreferred,
         );
-        expect(
-          state.locatePlan?.execution,
-          ConversationLocateExecution.interactiveViewport,
-        );
-        expect(
-          state.locatePlan?.viewportSessionId,
-          initial.locatePlan?.viewportSessionId,
-        );
       },
     );
 
@@ -79,14 +66,7 @@ void main() {
         expect(state!.windowStableKeys, isNot(initial.windowStableKeys));
         expect(state.anchorMessageId, 10);
         expect(state.windowStableKeys, contains('server:10'));
-        expect(
-          state.locatePlan?.execution,
-          ConversationLocateExecution.preparedViewport,
-        );
-        expect(
-          state.locatePlan?.viewportSessionId,
-          greaterThan(initial.locatePlan?.viewportSessionId ?? 0),
-        );
+        expect(state.locatePlan?.target, ConversationLocateTarget.message);
       },
     );
 
@@ -107,10 +87,7 @@ void main() {
         expect(state, isNotNull);
         expect(state!.windowMode, ConversationWindowMode.liveLatest);
         expect(state.anchorMessageId, isNull);
-        expect(
-          state.locatePlan?.execution,
-          ConversationLocateExecution.interactiveViewport,
-        );
+        expect(state.locatePlan?.target, ConversationLocateTarget.latest);
       },
     );
 
@@ -131,14 +108,24 @@ void main() {
         expect(state, isNotNull);
         expect(state!.windowMode, ConversationWindowMode.liveLatest);
         expect(state.anchorMessageId, isNull);
-        expect(
-          state.locatePlan?.execution,
-          ConversationLocateExecution.preparedViewport,
-        );
+        expect(state.locatePlan?.target, ConversationLocateTarget.latest);
         expect(state.windowStableKeys.first, 'server:51');
         expect(state.windowStableKeys.last, 'server:150');
       },
     );
+
+    test('consumeLocatePlan clears locatePlan from state', () async {
+      final container = _createContainer();
+      addTearDown(container.dispose);
+      final provider = conversationTimelineViewModelProvider(_args());
+
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier);
+
+      expect(container.read(provider).valueOrNull?.locatePlan, isNotNull);
+      notifier.consumeLocatePlan();
+      expect(container.read(provider).valueOrNull?.locatePlan, isNull);
+    });
   });
 }
 

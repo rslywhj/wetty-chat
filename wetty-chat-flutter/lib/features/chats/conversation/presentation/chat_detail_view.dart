@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -51,8 +52,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
   bool _isUploadingAttachment = false;
   bool _isPopping = false;
   bool _isAtLiveEdge = true;
-  int _lastAppliedLocateRevision = 0;
-  int _currentViewportSessionId = 0;
+  int _viewportGeneration = 0;
   Key _timelineViewportKey = const ValueKey<int>(0);
 
   ConversationScope get scope => ConversationScope.chat(widget.chatId);
@@ -63,6 +63,13 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
   @override
   void initState() {
     super.initState();
+    developer.log(
+      'initState: chatId=${widget.chatId}, '
+      'launchRequest=${widget.launchRequest.intent}/'
+      '${widget.launchRequest.messageId}, '
+      'identity=${identityHashCode(this)}',
+      name: 'ChatDetailView',
+    );
     _attachmentService = AttachmentService(ref.read(devSessionProvider));
     _timelineScrollController.addListener(_onTimelineScroll);
     WidgetsBinding.instance.addObserver(this);
@@ -75,6 +82,10 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
 
   @override
   void dispose() {
+    developer.log(
+      'dispose: identity=${identityHashCode(this)}',
+      name: 'ChatDetailView',
+    );
     WidgetsBinding.instance.removeObserver(this);
     _timelineScrollController.removeListener(_onTimelineScroll);
     _timelineScrollController.dispose();
@@ -242,7 +253,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     // Live edge detection: in liveLatest mode, offset 0 = at anchor (bottom).
     // Small positive offsets mean content was appended below.
     final position = _timelineScrollController.position;
-    final isAtLiveEdge = !viewState.canLoadNewer &&
+    final isAtLiveEdge =
+        !viewState.canLoadNewer &&
         (position.maxScrollExtent - position.pixels) < _liveEdgeScrollThreshold;
     if (_isAtLiveEdge != isAtLiveEdge) {
       setState(() {
@@ -484,23 +496,39 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
 
     timelineAsync.whenData((state) {
       final locatePlan = state.locatePlan;
+      developer.log(
+        'whenData: locatePlan=${locatePlan?.placement}, '
+        'mode=${state.windowMode}, '
+        'anchorIdx=${state.anchorEntryIndex}/${state.entries.length}, '
+        'alignment=${state.anchorAlignment}, '
+        'canLoadNewer=${state.canLoadNewer}, '
+        'viewportKey=$_timelineViewportKey, '
+        'generation=$_viewportGeneration',
+        name: 'ChatDetailView',
+      );
       if (locatePlan != null) {
-        // Re-key the timeline view to force the CustomScrollView to
-        // rebuild with the new anchor position.
-        if (locatePlan.viewportSessionId != _currentViewportSessionId) {
-          _currentViewportSessionId = locatePlan.viewportSessionId;
-          _lastAppliedLocateRevision = locatePlan.revision;
-          _isAtLiveEdge =
-              locatePlan.placement == ConversationLocatePlacement.liveEdge;
-          _resetViewportSession(locatePlan.viewportSessionId);
-        }
-        if (locatePlan.revision > _lastAppliedLocateRevision) {
-          _lastAppliedLocateRevision = locatePlan.revision;
-          _currentViewportSessionId += 1;
-          _isAtLiveEdge =
-              locatePlan.placement == ConversationLocatePlacement.liveEdge;
-          _resetViewportSession(_currentViewportSessionId);
-        }
+        // Consume the locate plan: re-key the timeline view to force
+        // CustomScrollView to rebuild with the new anchor position,
+        // then clear it so it isn't re-applied on unrelated rebuilds.
+        _viewportGeneration += 1;
+        _isAtLiveEdge =
+            locatePlan.placement == ConversationLocatePlacement.liveEdge;
+        _resetViewportSession(_viewportGeneration);
+        developer.log(
+          'applied locatePlan: placement=${locatePlan.placement}, '
+          'isAtLiveEdge=$_isAtLiveEdge, '
+          'newKey=$_timelineViewportKey, '
+          'newGeneration=$_viewportGeneration',
+          name: 'ChatDetailView',
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref
+              .read(
+                conversationTimelineViewModelProvider(_timelineArgs).notifier,
+              )
+              .consumeLocatePlan();
+        });
       }
       if (state.infoMessage != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -547,9 +575,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                     child: Stack(
                       children: [
                         timelineAsync.when(
-                          loading: () => const Center(
-                            child: CupertinoActivityIndicator(),
-                          ),
+                          loading: () =>
+                              const Center(child: CupertinoActivityIndicator()),
                           error: (error, _) => Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24),
@@ -590,10 +617,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                                   vertical: 10,
                                 ),
                                 decoration: BoxDecoration(
-                                  color:
-                                      CupertinoColors.systemGrey5.resolveFrom(
-                                    context,
-                                  ),
+                                  color: CupertinoColors.systemGrey5
+                                      .resolveFrom(context),
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                                 child: Row(
@@ -606,8 +631,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                                             0) >
                                         0)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsets.only(left: 6),
                                         child: Text(
                                           '${timelineAsync.valueOrNull!.pendingLiveCount}',
                                           style: appTextStyle(
@@ -652,6 +676,13 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     if (viewState.entries.isEmpty) {
       return const Center(child: Text('No messages yet'));
     }
+    developer.log(
+      '_buildTimeline: key=$_timelineViewportKey, '
+      'anchorIdx=${viewState.anchorEntryIndex}/${viewState.entries.length}, '
+      'alignment=${viewState.anchorAlignment}, '
+      'mode=${viewState.windowMode}',
+      name: 'ChatDetailView',
+    );
     return AnchoredTimelineView(
       key: _timelineViewportKey,
       entries: viewState.entries,

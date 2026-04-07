@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/models/messages_api_models.dart';
@@ -63,18 +65,36 @@ class ConversationRepository {
     int before = defaultWindowSize ~/ 2,
     int after = defaultWindowSize ~/ 2,
   }) async {
-    if (!_containsServerMessage(messageId)) {
+    final alreadyCached = _containsServerMessage(messageId);
+    developer.log(
+      'loadAroundMessage: msgId=$messageId, '
+      'alreadyCached=$alreadyCached, '
+      'stableKey=${_stableKeyByServerId[messageId]}',
+      name: 'ConvRepo',
+    );
+    if (!alreadyCached) {
       final response = await _service.fetchConversationMessages(
         scope,
         around: messageId,
         max: before + after + 1,
       );
       _mergeDtos(response.messages);
+      developer.log(
+        'loadAroundMessage: fetched ${response.messages.length} msgs, '
+        'stableKey after merge=${_stableKeyByServerId[messageId]}, '
+        'containsNow=${_containsServerMessage(messageId)}',
+        name: 'ConvRepo',
+      );
     }
     final keys = _windowKeysAroundServerMessage(
       messageId,
       before: before,
       after: after,
+    );
+    developer.log(
+      'loadAroundMessage: produced ${keys.length} window keys '
+      '(first=${keys.firstOrNull}, last=${keys.lastOrNull})',
+      name: 'ConvRepo',
     );
     return _messagesForWindow(keys);
   }
@@ -168,19 +188,42 @@ class ConversationRepository {
     int maxEntries = maxRenderEntries,
   }) {
     if (stableKeys.length <= maxEntries) {
+      developer.log(
+        'trimWindow: no trim needed '
+        '(${stableKeys.length} <= $maxEntries), '
+        'anchorMsgId=$anchorMessageId',
+        name: 'ConvRepo',
+      );
       return stableKeys;
     }
     if (anchorMessageId == null) {
+      developer.log(
+        'trimWindow: no anchor, taking last $maxEntries '
+        'of ${stableKeys.length}',
+        name: 'ConvRepo',
+      );
       return stableKeys.sublist(stableKeys.length - maxEntries);
     }
 
     final anchorKey = _stableKeyByServerId[anchorMessageId];
     if (anchorKey == null) {
+      developer.log(
+        'trimWindow: anchorMsgId=$anchorMessageId NOT in '
+        '_stableKeyByServerId (${_stableKeyByServerId.length} entries), '
+        'taking last $maxEntries of ${stableKeys.length}',
+        name: 'ConvRepo',
+      );
       return stableKeys.sublist(stableKeys.length - maxEntries);
     }
 
     final anchorIndex = stableKeys.indexOf(anchorKey);
     if (anchorIndex < 0) {
+      developer.log(
+        'trimWindow: anchorKey=$anchorKey found in map but NOT '
+        'in stableKeys list (${stableKeys.length} keys), '
+        'taking last $maxEntries',
+        name: 'ConvRepo',
+      );
       return stableKeys.sublist(stableKeys.length - maxEntries);
     }
 
@@ -188,6 +231,12 @@ class ConversationRepository {
     final start = (anchorIndex - before).clamp(0, stableKeys.length);
     final end = (start + maxEntries).clamp(0, stableKeys.length);
     final adjustedStart = (end - maxEntries).clamp(0, stableKeys.length);
+    developer.log(
+      'trimWindow: anchorMsgId=$anchorMessageId → '
+      'key=$anchorKey at index $anchorIndex, '
+      'result=[$adjustedStart..$end) of ${stableKeys.length}',
+      name: 'ConvRepo',
+    );
     return stableKeys.sublist(adjustedStart, end);
   }
 
@@ -223,7 +272,8 @@ class ConversationRepository {
     if (stableKey == null) {
       return null;
     }
-    return windowStableKeys.indexOf(stableKey);
+    final index = windowStableKeys.indexOf(stableKey);
+    return index >= 0 ? index : null;
   }
 
   Future<void> markAsRead(int messageId) {

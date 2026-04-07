@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,51 +22,28 @@ enum ConversationLocateTarget { latest, message }
 
 enum ConversationLocatePlacement { liveEdge, topPreferred }
 
-enum ConversationLocateExecution { preparedViewport, interactiveViewport }
-
 class ConversationLocatePlan {
   const ConversationLocatePlan._({
     required this.target,
     required this.placement,
-    required this.execution,
-    required this.revision,
-    required this.viewportSessionId,
     this.messageId,
   });
 
   const ConversationLocatePlan.latest({
     required ConversationLocatePlacement placement,
-    required ConversationLocateExecution execution,
-    required int revision,
-    required int viewportSessionId,
-  }) : this._(
-         target: ConversationLocateTarget.latest,
-         placement: placement,
-         execution: execution,
-         revision: revision,
-         viewportSessionId: viewportSessionId,
-       );
+  }) : this._(target: ConversationLocateTarget.latest, placement: placement);
 
   const ConversationLocatePlan.message({
     required int messageId,
     required ConversationLocatePlacement placement,
-    required ConversationLocateExecution execution,
-    required int revision,
-    required int viewportSessionId,
   }) : this._(
          target: ConversationLocateTarget.message,
          placement: placement,
-         execution: execution,
-         revision: revision,
-         viewportSessionId: viewportSessionId,
          messageId: messageId,
        );
 
   final ConversationLocateTarget target;
   final ConversationLocatePlacement placement;
-  final ConversationLocateExecution execution;
-  final int revision;
-  final int viewportSessionId;
   final int? messageId;
 }
 
@@ -174,12 +152,16 @@ class ConversationTimelineViewModel
   Timer? _highlightTimer;
   int? _currentReadId;
   int? _lastSyncedReadId;
-  int _locateRevision = 0;
-  int _viewportSessionId = 0;
   bool _isDisposed = false;
 
   @override
   Future<ConversationTimelineState> build(ConversationTimelineArgs arg) async {
+    developer.log(
+      'build() called — scope=${arg.scope}, '
+      'launchIntent=${arg.launchRequest.intent}, '
+      'messageId=${arg.launchRequest.messageId}',
+      name: 'TimelineVM',
+    );
     _repository = ref.read(conversationRepositoryProvider(arg.scope));
 
     ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
@@ -190,6 +172,7 @@ class ConversationTimelineViewModel
     });
 
     ref.onDispose(() {
+      developer.log('disposed', name: 'TimelineVM');
       _isDisposed = true;
       _readSyncDebounceTimer?.cancel();
       _highlightTimer?.cancel();
@@ -207,9 +190,7 @@ class ConversationTimelineViewModel
         return _buildState(
           windowStableKeys: messages.map((item) => item.stableKey).toList(),
           windowMode: ConversationWindowMode.liveLatest,
-          locatePlan: _nextLatestLocatePlan(
-            execution: ConversationLocateExecution.preparedViewport,
-          ),
+          locatePlan: _latestLocatePlan(),
         );
       case LaunchRequestIntent.unread:
       case LaunchRequestIntent.message:
@@ -225,9 +206,7 @@ class ConversationTimelineViewModel
             windowStableKeys: latest.map((item) => item.stableKey).toList(),
             windowMode: ConversationWindowMode.liveLatest,
             infoMessage: 'Message unavailable',
-            locatePlan: _nextLatestLocatePlan(
-              execution: ConversationLocateExecution.preparedViewport,
-            ),
+            locatePlan: _latestLocatePlan(),
           );
         }
         final nextState = _buildState(
@@ -240,10 +219,7 @@ class ConversationTimelineViewModel
                   launchRequest.highlight
               ? anchorId
               : null,
-          locatePlan: _nextMessageLocatePlan(
-            anchorId,
-            execution: ConversationLocateExecution.preparedViewport,
-          ),
+          locatePlan: _messageLocatePlan(anchorId),
         );
         if (launchRequest.highlight) {
           _scheduleHighlightClear();
@@ -262,7 +238,6 @@ class ConversationTimelineViewModel
     bool shouldRefreshChats = false,
     int pendingLiveCount = 0,
     ConversationLocatePlan? locatePlan,
-    double? anchorAlignmentOverride,
   }) {
     final trimmed = _repository.trimWindowAroundAnchor(
       windowStableKeys,
@@ -274,15 +249,26 @@ class ConversationTimelineViewModel
     );
 
     // Compute anchor entry index and alignment for the view layer.
+    // Alignment is derived purely from windowMode to prevent stale values
+    // leaking across mode transitions (e.g. message-jump 0.0 persisting
+    // into liveLatest).
     final anchorEntryIndex = _resolveAnchorEntryIndex(entries, anchorMessageId);
-    final double anchorAlignment;
-    if (anchorAlignmentOverride != null) {
-      anchorAlignment = anchorAlignmentOverride;
-    } else if (locatePlan?.placement == ConversationLocatePlacement.topPreferred) {
-      anchorAlignment = 0.0;
-    } else {
-      anchorAlignment = 1.0;
-    }
+    final double anchorAlignment = switch (windowMode) {
+      ConversationWindowMode.liveLatest => 1.0,
+      ConversationWindowMode.anchoredTarget => 0.0,
+      ConversationWindowMode.historyBrowsing => 0.0,
+    };
+
+    developer.log(
+      '_buildState: mode=$windowMode, '
+      'anchorMsgId=$anchorMessageId, '
+      'anchorIdx=$anchorEntryIndex/${entries.length}, '
+      'alignment=$anchorAlignment, '
+      'locatePlan=${locatePlan?.placement}, '
+      'window=${trimmed.length} keys '
+      '(first=${trimmed.firstOrNull}, last=${trimmed.lastOrNull})',
+      name: 'TimelineVM',
+    );
 
     return ConversationTimelineState(
       entries: entries,
@@ -384,7 +370,6 @@ class ConversationTimelineViewModel
           highlightedMessageId: current.highlightedMessageId,
           shouldRefreshChats: true,
           pendingLiveCount: current.pendingLiveCount + 1,
-          anchorAlignmentOverride: current.anchorAlignment,
         ),
       ),
     );
@@ -423,7 +408,6 @@ class ConversationTimelineViewModel
             highlightedMessageId: current.highlightedMessageId,
             pendingLiveCount: current.pendingLiveCount,
             shouldRefreshChats: current.shouldRefreshChats,
-            anchorAlignmentOverride: current.anchorAlignment,
           ),
         ),
       );
@@ -470,7 +454,6 @@ class ConversationTimelineViewModel
             highlightedMessageId: current.highlightedMessageId,
             pendingLiveCount: reachedLiveEdge ? 0 : current.pendingLiveCount,
             shouldRefreshChats: current.shouldRefreshChats,
-            anchorAlignmentOverride: current.anchorAlignment,
           ),
         ),
       );
@@ -495,9 +478,7 @@ class ConversationTimelineViewModel
             windowStableKeys: current.windowStableKeys,
             windowMode: ConversationWindowMode.liveLatest,
             shouldRefreshChats: current.shouldRefreshChats,
-            locatePlan: _nextLatestLocatePlan(
-              execution: ConversationLocateExecution.interactiveViewport,
-            ),
+            locatePlan: _latestLocatePlan(),
           ),
         ),
       );
@@ -509,9 +490,7 @@ class ConversationTimelineViewModel
         _buildState(
           windowStableKeys: latest.map((item) => item.stableKey).toList(),
           windowMode: ConversationWindowMode.liveLatest,
-          locatePlan: _nextLatestLocatePlan(
-            execution: ConversationLocateExecution.preparedViewport,
-          ),
+          locatePlan: _latestLocatePlan(),
         ),
       ),
     );
@@ -536,10 +515,7 @@ class ConversationTimelineViewModel
             highlightedMessageId: highlight ? messageId : null,
             shouldRefreshChats: current.shouldRefreshChats,
             pendingLiveCount: current.pendingLiveCount,
-            locatePlan: _nextMessageLocatePlan(
-              messageId,
-              execution: ConversationLocateExecution.interactiveViewport,
-            ),
+            locatePlan: _messageLocatePlan(messageId),
           ),
         ),
       );
@@ -567,10 +543,7 @@ class ConversationTimelineViewModel
           anchorMessageId: messageId,
           highlightedMessageId: highlight ? messageId : null,
           shouldRefreshChats: current.shouldRefreshChats,
-          locatePlan: _nextMessageLocatePlan(
-            messageId,
-            execution: ConversationLocateExecution.preparedViewport,
-          ),
+          locatePlan: _messageLocatePlan(messageId),
         ),
       ),
     );
@@ -627,6 +600,26 @@ class ConversationTimelineViewModel
     _setStateIfActive(AsyncData(current.copyWith(infoMessage: null)));
   }
 
+  /// Mark the current [locatePlan] as consumed so it is not re-applied
+  /// when the widget rebuilds for unrelated state changes.
+  void consumeLocatePlan() {
+    final current = state.valueOrNull;
+    if (current == null || current.locatePlan == null) {
+      developer.log(
+        'consumeLocatePlan: nothing to consume '
+        '(state=${current != null ? "present" : "null"}, '
+        'plan=${current?.locatePlan})',
+        name: 'TimelineVM',
+      );
+      return;
+    }
+    developer.log(
+      'consumeLocatePlan: clearing ${current.locatePlan!.placement}',
+      name: 'TimelineVM',
+    );
+    _setStateIfActive(AsyncData(current.copyWith(locatePlan: null)));
+  }
+
   void _scheduleHighlightClear() {
     _highlightTimer?.cancel();
     _highlightTimer = Timer(const Duration(seconds: 2), () {
@@ -646,38 +639,22 @@ class ConversationTimelineViewModel
     state = nextState;
   }
 
-  ConversationLocatePlan _nextLatestLocatePlan({
-    required ConversationLocateExecution execution,
-  }) => ConversationLocatePlan.latest(
-    placement: ConversationLocatePlacement.liveEdge,
-    execution: execution,
-    revision: ++_locateRevision,
-    viewportSessionId: _nextViewportSessionId(execution),
-  );
+  ConversationLocatePlan _latestLocatePlan() =>
+      const ConversationLocatePlan.latest(
+        placement: ConversationLocatePlacement.liveEdge,
+      );
 
-  ConversationLocatePlan _nextMessageLocatePlan(
-    int messageId, {
-    required ConversationLocateExecution execution,
-  }) => ConversationLocatePlan.message(
-    messageId: messageId,
-    placement: ConversationLocatePlacement.topPreferred,
-    execution: execution,
-    revision: ++_locateRevision,
-    viewportSessionId: _nextViewportSessionId(execution),
-  );
-
-  int _nextViewportSessionId(ConversationLocateExecution execution) {
-    if (execution == ConversationLocateExecution.preparedViewport) {
-      _viewportSessionId += 1;
-    }
-    return _viewportSessionId;
-  }
+  ConversationLocatePlan _messageLocatePlan(int messageId) =>
+      ConversationLocatePlan.message(
+        messageId: messageId,
+        placement: ConversationLocatePlacement.topPreferred,
+      );
 }
 
 const _sentinel = Object();
 
-final conversationTimelineViewModelProvider =
-    AsyncNotifierProvider.autoDispose.family<
+final conversationTimelineViewModelProvider = AsyncNotifierProvider.autoDispose
+    .family<
       ConversationTimelineViewModel,
       ConversationTimelineState,
       ConversationTimelineArgs
