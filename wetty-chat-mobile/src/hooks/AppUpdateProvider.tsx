@@ -83,6 +83,17 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     needRefreshRef.current = needRefresh;
   }, [needRefresh]);
 
+  // Auto-apply pending update when the app returns to the foreground
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && needRefreshRef.current) {
+        updateServiceWorker(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [updateServiceWorker]);
+
   const checkForUpdate = async (): Promise<CheckForUpdateResult> => {
     setCheckingForUpdate(true);
 
