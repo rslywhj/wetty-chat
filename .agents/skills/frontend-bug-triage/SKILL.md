@@ -1,7 +1,8 @@
 ---
 name: frontend-bug-triage
 description: >
-  Triage frontend bugs in the wetty-chat application. Use this skill whenever the user reports a bug,
+  Triage frontend bugs in the wetty-chat-mobile React application.
+  Use this skill whenever the user reports a bug,
   describes unexpected UI behavior, mentions something broken or not working, or asks to investigate
   a frontend issue. This includes visual glitches, state management problems, WebSocket/real-time
   issues, API errors surfacing in the UI, broken navigation, notification bugs, and performance
