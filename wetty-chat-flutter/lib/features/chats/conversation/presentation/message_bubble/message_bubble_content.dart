@@ -292,13 +292,13 @@ class MessageBubbleContent extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: attachments.map((attachment) {
-        if (attachment.isVideo) {
+        if (attachment.isVideo && attachment.url.isNotEmpty) {
           return VideoAttachmentPreview(
             attachment: attachment,
             onTap: () => onOpenAttachment?.call(attachment),
           );
         }
-        if (attachment.isImage) {
+        if (attachment.isImage && attachment.url.isNotEmpty) {
           return MessageImageAttachmentPreview(
             attachment: attachment,
             onTap: () => onOpenAttachment?.call(attachment),

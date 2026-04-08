@@ -1,18 +1,13 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui' as ui;
 
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/style_config.dart';
-import '../../../../core/session/dev_session_store.dart';
-import '../../models/message_preview_formatter.dart';
 import '../../../../shared/presentation/app_divider.dart';
+import '../../models/message_preview_formatter.dart';
 import '../application/conversation_composer_view_model.dart';
-import '../data/attachment_service.dart';
+import '../data/attachment_picker_service.dart';
 import '../domain/conversation_scope.dart';
 
 class ConversationComposerBar extends ConsumerStatefulWidget {
@@ -35,15 +30,11 @@ class _ConversationComposerBarState
   final ScrollController _inputScrollController = ScrollController();
   final TextEditingController _textController = TextEditingController();
 
-  late final AttachmentService _attachmentService;
   ProviderSubscription<ConversationComposerState>? _composerSubscription;
-  bool _isUploadingAttachment = false;
 
   @override
   void initState() {
     super.initState();
-    _attachmentService = AttachmentService(ref.read(devSessionProvider));
-
     _composerSubscription = ref.listenManual<ConversationComposerState>(
       conversationComposerViewModelProvider(widget.scope),
       (_, next) => _syncControllerText(next.draft),
@@ -76,15 +67,12 @@ class _ConversationComposerBarState
     final composerNotifier = ref.read(
       conversationComposerViewModelProvider(widget.scope).notifier,
     );
-    if (_isUploadingAttachment) {
-      _showErrorDialog('File upload is still in progress.');
-      return;
-    }
     if (composer.isEditing && composer.attachments.isNotEmpty) {
       _showErrorDialog('Editing does not support attachments yet.');
       return;
     }
-    if (_textController.text.trim().isEmpty && composer.attachments.isEmpty) {
+    if (_textController.text.trim().isEmpty &&
+        !composer.hasUploadedAttachments) {
       return;
     }
     try {
@@ -98,101 +86,69 @@ class _ConversationComposerBarState
     }
   }
 
-  Future<(int?, int?)> _decodeImageSize(Uint8List bytes) async {
+  Future<void> _pickAttachments(ComposerAttachmentSource source) async {
     try {
-      final completer = Completer<ui.Image>();
-      ui.decodeImageFromList(bytes, completer.complete);
-      final image = await completer.future.timeout(const Duration(seconds: 2));
-      final size = (image.width, image.height);
-      image.dispose();
-      return size;
-    } catch (_) {
-      return (null, null);
-    }
-  }
-
-  String _guessContentType(String filename) {
-    final lower = filename.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.bmp')) return 'image/bmp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    if (lower.endsWith('.pdf')) return 'application/pdf';
-    if (lower.endsWith('.txt')) return 'text/plain';
-    if (lower.endsWith('.json')) return 'application/json';
-    if (lower.endsWith('.zip')) return 'application/zip';
-    return 'application/octet-stream';
-  }
-
-  Future<void> _pickAttachment() async {
-    if (kIsWeb || !Platform.isWindows) {
-      _showErrorDialog(
-        'Attachment upload is currently only implemented on Windows.',
-      );
-      return;
-    }
-    if (_isUploadingAttachment) {
-      return;
-    }
-    final file = await openFile();
-    if (file == null) {
-      return;
-    }
-    setState(() {
-      _isUploadingAttachment = true;
-    });
-    try {
-      final filename = file.name;
-      final contentType = _guessContentType(filename);
-      final size = await file.length();
-      Uint8List? previewBytes;
-      int? width;
-      int? height;
-      if (contentType.startsWith('image/') && size <= 8 * 1024 * 1024) {
-        previewBytes = await file.readAsBytes();
-        final dimensions = await _decodeImageSize(previewBytes);
-        width = dimensions.$1;
-        height = dimensions.$2;
-      }
-
-      final uploadInfo = await _attachmentService.requestUploadUrl(
-        filename: filename,
-        contentType: contentType,
-        size: size,
-        width: width,
-        height: height,
-      );
-      await _attachmentService.uploadFileToS3(
-        uploadUrl: uploadInfo.uploadUrl,
-        file: File(file.path),
-        contentType: contentType,
-      );
-      if (!mounted) {
+      final message = await ref
+          .read(conversationComposerViewModelProvider(widget.scope).notifier)
+          .pickAttachments(source);
+      if (!mounted || message == null) {
         return;
       }
-      ref
-          .read(conversationComposerViewModelProvider(widget.scope).notifier)
-          .addUploadedAttachment(
-            ComposerAttachment(
-              id: uploadInfo.attachmentId,
-              name: filename,
-              mimeType: contentType,
-              previewBytes: previewBytes,
-            ),
-          );
+      _showErrorDialog(message);
     } catch (error) {
       if (mounted) {
-        _showErrorDialog('Upload failed: $error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachment = false;
-        });
+        _showErrorDialog('$error');
       }
     }
+  }
+
+  Future<void> _showAttachmentSourcePicker() async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (popupContext) => CupertinoActionSheet(
+        title: const Text('Add Attachment'),
+        actions: [
+          _sourceAction(
+            popupContext,
+            label: 'Photos',
+            source: ComposerAttachmentSource.photos,
+          ),
+          _sourceAction(
+            popupContext,
+            label: 'GIFs',
+            source: ComposerAttachmentSource.gifs,
+          ),
+          _sourceAction(
+            popupContext,
+            label: 'Videos',
+            source: ComposerAttachmentSource.videos,
+          ),
+          _sourceAction(
+            popupContext,
+            label: 'Files',
+            source: ComposerAttachmentSource.files,
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(popupContext).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  CupertinoActionSheetAction _sourceAction(
+    BuildContext popupContext, {
+    required String label,
+    required ComposerAttachmentSource source,
+  }) {
+    return CupertinoActionSheetAction(
+      onPressed: () {
+        Navigator.of(popupContext).pop();
+        unawaited(_pickAttachments(source));
+      },
+      child: Text(label),
+    );
   }
 
   void _showErrorDialog(String message) {
@@ -217,11 +173,7 @@ class _ConversationComposerBarState
       conversationComposerViewModelProvider(widget.scope),
     );
     final colors = context.appColors;
-    final isEditing = composer.isEditing;
-    final canAttach = !isEditing && !_isUploadingAttachment;
-    final canSend =
-        !_isUploadingAttachment &&
-        (composer.draft.trim().isNotEmpty || composer.attachments.isNotEmpty);
+    final canAttach = !composer.isEditing;
 
     return ColoredBox(
       color: colors.backgroundSecondary,
@@ -240,7 +192,7 @@ class _ConversationComposerBarState
                   child: CupertinoButton(
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(36, 36),
-                    onPressed: canAttach ? _pickAttachment : null,
+                    onPressed: canAttach ? _showAttachmentSourcePicker : null,
                     child: Icon(
                       CupertinoIcons.add_circled,
                       color: canAttach
@@ -250,7 +202,7 @@ class _ConversationComposerBarState
                     ),
                   ),
                 ),
-                if (_isUploadingAttachment)
+                if (composer.hasUploadingAttachments)
                   const Padding(
                     padding: EdgeInsets.only(left: 4, bottom: 2),
                     child: CupertinoActivityIndicator(radius: 8),
@@ -312,12 +264,12 @@ class _ConversationComposerBarState
                     child: CupertinoButton(
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(36, 36),
-                      onPressed: canSend ? _sendMessage : null,
+                      onPressed: composer.canSend ? _sendMessage : null,
                       child: Container(
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: canSend
+                          color: composer.canSend
                               ? CupertinoColors.activeBlue.resolveFrom(context)
                               : CupertinoColors.systemGrey3.resolveFrom(
                                   context,
@@ -443,77 +395,163 @@ class _ConversationComposerBarState
 
   Widget _buildAttachmentPreview(ConversationComposerState composer) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (int index = 0; index < composer.attachments.length; index++)
-            _attachmentChip(composer.attachments[index], index),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '${composer.attachments.length}/$composerMaxAttachments attachments',
+              style: appSecondaryTextStyle(
+                context,
+                fontSize: AppFontSizes.meta,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final attachment in composer.attachments)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _attachmentCard(attachment),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _attachmentChip(ComposerAttachment attachment, int index) {
+  Widget _attachmentCard(ComposerAttachment attachment) {
     final borderColor = CupertinoColors.systemGrey4.resolveFrom(context);
     final background = CupertinoColors.systemGrey5.resolveFrom(context);
-    final thumb = attachment.isImage
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Image.memory(
-              attachment.previewBytes!,
-              width: 36,
-              height: 36,
-              fit: BoxFit.cover,
-            ),
-          )
-        : Icon(
-            CupertinoIcons.doc,
-            size: 28,
-            color: CupertinoColors.activeBlue.resolveFrom(context),
-          );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      width: 136,
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          thumb,
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 140),
-            child: Text(
-              attachment.name,
-              overflow: TextOverflow.ellipsis,
-              style: appTextStyle(context, fontSize: AppFontSizes.meta),
-            ),
+          _attachmentPreviewThumb(attachment),
+          const SizedBox(height: 8),
+          Text(
+            attachment.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: appTextStyle(context, fontSize: AppFontSizes.meta),
           ),
-          const SizedBox(width: 6),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(20, 20),
-            onPressed: () {
-              ref
-                  .read(
-                    conversationComposerViewModelProvider(
-                      widget.scope,
-                    ).notifier,
-                  )
-                  .removeAttachmentAt(index);
-            },
-            child: Icon(
-              CupertinoIcons.xmark_circle_fill,
-              size: 18,
-              color: CupertinoColors.systemGrey2.resolveFrom(context),
-            ),
+          const SizedBox(height: 4),
+          Text(
+            _attachmentStatusLabel(attachment),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: appSecondaryTextStyle(context, fontSize: AppFontSizes.meta),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (attachment.isFailed)
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(24, 24),
+                  onPressed: () {
+                    unawaited(
+                      ref
+                          .read(
+                            conversationComposerViewModelProvider(
+                              widget.scope,
+                            ).notifier,
+                          )
+                          .retryAttachment(attachment.localId),
+                    );
+                  },
+                  child: Text(
+                    'Retry',
+                    style: appTextStyle(
+                      context,
+                      fontSize: AppFontSizes.meta,
+                      color: CupertinoColors.activeBlue.resolveFrom(context),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 24),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(24, 24),
+                onPressed: () {
+                  ref
+                      .read(
+                        conversationComposerViewModelProvider(
+                          widget.scope,
+                        ).notifier,
+                      )
+                      .removeAttachment(attachment.localId);
+                },
+                child: Icon(
+                  CupertinoIcons.xmark_circle_fill,
+                  size: 18,
+                  color: CupertinoColors.systemGrey2.resolveFrom(context),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _attachmentPreviewThumb(ComposerAttachment attachment) {
+    final background = CupertinoColors.systemGrey4.resolveFrom(context);
+    final icon = switch (attachment.kind) {
+      ComposerAttachmentKind.video => CupertinoIcons.play_rectangle_fill,
+      ComposerAttachmentKind.file => CupertinoIcons.doc_fill,
+      _ => CupertinoIcons.photo_fill,
+    };
+    if (attachment.isImageLike) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.memory(
+          attachment.previewBytes!,
+          width: 120,
+          height: 88,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return Container(
+      width: 120,
+      height: 88,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        icon,
+        size: 34,
+        color: CupertinoColors.activeBlue.resolveFrom(context),
+      ),
+    );
+  }
+
+  String _attachmentStatusLabel(ComposerAttachment attachment) {
+    return switch (attachment.status) {
+      ComposerAttachmentUploadStatus.queued => 'Queued',
+      ComposerAttachmentUploadStatus.uploading => 'Uploading...',
+      ComposerAttachmentUploadStatus.uploaded => 'Ready',
+      ComposerAttachmentUploadStatus.failed =>
+        attachment.errorMessage ?? 'Upload failed',
+    };
   }
 }
