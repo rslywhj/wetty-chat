@@ -22,6 +22,7 @@ export function useAddSticker({ packId, onSuccess }: UseAddStickerOptions) {
         message: t`File is too large. Maximum sticker size is 10 MB.`,
         duration: 3000,
         position: 'bottom',
+        cssClass: 'toast-center',
       });
       return;
     }

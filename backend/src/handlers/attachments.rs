@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -27,6 +27,7 @@ pub struct UploadUrlRequest {
     size: i64,
     width: Option<i32>,
     height: Option<i32>,
+    client_queued_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -112,6 +113,7 @@ async fn post_upload_url(
         deleted_at: None,
         width: payload.width,
         height: payload.height,
+        client_queued_at: payload.client_queued_at.unwrap_or_else(Utc::now),
     };
 
     diesel::insert_into(attachments::table)

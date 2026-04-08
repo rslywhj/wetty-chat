@@ -5,6 +5,8 @@ import type { Attachment } from '@/api/messages';
 import type { UploadPreviewItem } from '../UploadPreview';
 import type { ComposeUploadInput, ComposeUploadResult, DraftUploadRecord } from './types';
 
+import { MAX_ATTACHMENTS_PER_MESSAGE } from '../messages/media/mediaConstants';
+
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
 
 const createDraftId = () => {
@@ -54,12 +56,16 @@ interface UseComposeAttachmentsArgs {
   uploadAttachment: (input: ComposeUploadInput) => Promise<ComposeUploadResult>;
   initialExistingAttachments?: Attachment[];
   containerRef?: React.RefObject<HTMLElement | null>;
+  onError?: (message: string) => void;
+  maxAttachments?: number;
 }
 
 export function useComposeAttachments({
   uploadAttachment,
   initialExistingAttachments = [],
   containerRef,
+  onError,
+  maxAttachments = MAX_ATTACHMENTS_PER_MESSAGE,
 }: UseComposeAttachmentsArgs) {
   const [drafts, setDrafts] = useState<DraftUploadRecord[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>(initialExistingAttachments);
@@ -113,6 +119,8 @@ export function useComposeAttachments({
 
       try {
         const dimensions = await getMediaDimensions(file);
+        const currentDraft = draftsRef.current.find((r) => r.draft.localId === localId)?.draft;
+
         setDrafts((prev) =>
           prev.map((draftRecord) =>
             draftRecord.draft.localId === localId
@@ -131,6 +139,7 @@ export function useComposeAttachments({
         const result = await uploadAttachment({
           file,
           dimensions,
+          clientQueuedAt: currentDraft?.clientQueuedAt,
           signal: abortController.signal,
           onProgress: (progress) => {
             setDrafts((prev) =>
@@ -199,7 +208,19 @@ export function useComposeAttachments({
       const mediaFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'));
       if (mediaFiles.length === 0) return;
 
-      const queuedDrafts: DraftUploadRecord[] = mediaFiles.map((file) => ({
+      let allowedFiles = mediaFiles;
+      const currentCount = existingAttachments.length + draftsRef.current.length;
+      if (currentCount + mediaFiles.length > maxAttachments) {
+        const available = Math.max(0, maxAttachments - currentCount);
+        if (onError) {
+          onError(t`You can only upload up to ${maxAttachments} media files at once.`);
+        }
+        if (available === 0) return;
+        allowedFiles = mediaFiles.slice(0, available);
+      }
+
+      const queueBaseTime = Date.now();
+      const queuedDrafts: DraftUploadRecord[] = allowedFiles.map((file, index) => ({
         file,
         draft: {
           localId: createDraftId(),
@@ -208,6 +229,7 @@ export function useComposeAttachments({
           previewUrl: URL.createObjectURL(file),
           mimeType: file.type || 'application/octet-stream',
           size: file.size,
+          clientQueuedAt: new Date(queueBaseTime + index),
           progress: 0,
           status: 'uploading' as const,
         },
@@ -218,7 +240,7 @@ export function useComposeAttachments({
         void startUpload(draft.localId, file);
       });
     },
-    [startUpload],
+    [startUpload, existingAttachments, maxAttachments, onError],
   );
 
   useEffect(() => {

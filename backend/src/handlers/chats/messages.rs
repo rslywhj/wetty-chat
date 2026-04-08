@@ -105,12 +105,21 @@ fn validate_client_message_type(message_type: &MessageType) -> Result<(), AppErr
     Ok(())
 }
 
+const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
+
 fn validate_message_payload(
     conn: &mut PgConnection,
     uid: i32,
     body: &CreateMessageBody,
     attachment_ids: &[i64],
 ) -> Result<(), AppError> {
+    if attachment_ids.len() > MAX_ATTACHMENTS_PER_MESSAGE {
+        return Err(AppError::BadRequest(format!(
+            "Too many attachments (maximum of {} allowed)",
+            MAX_ATTACHMENTS_PER_MESSAGE
+        )));
+    }
+
     if matches!(body.message_type, MessageType::Sticker) {
         let sticker_id = body
             .sticker_id
@@ -647,6 +656,12 @@ async fn patch_message(
         .iter()
         .filter_map(|s| s.parse().ok())
         .collect();
+
+    if attachment_ids.len() > MAX_ATTACHMENTS_PER_MESSAGE {
+        return Err(AppError::BadRequest(
+            "Too many attachments (maximum of 20 allowed)",
+        ));
+    }
 
     use crate::schema::attachments::dsl as a_dsl;
     diesel::update(attachments::table.filter(a_dsl::message_id.eq(message_id)))

@@ -41,3 +41,8 @@ textarea {
   display: flex;
   flex-direction: column;
 }
+
+.toast-center::part(message) {
+  text-align: center;
+  width: 100%;
+}

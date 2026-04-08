@@ -445,6 +445,7 @@ pub struct Attachment {
     pub deleted_at: Option<DateTime<Utc>>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    pub client_queued_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
@@ -474,6 +475,7 @@ pub struct NewAttachment {
     pub deleted_at: Option<DateTime<Utc>>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    pub client_queued_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, AsChangeset)]

@@ -1,13 +1,11 @@
 import React, { useMemo } from 'react';
 import type { Attachment } from '@/api/messages';
 import { SingleMediaAttachment } from './SingleMediaAttachment';
-import { getSingleMediaBounds } from './mediaConstants';
+import { getSingleMediaBounds, MEDIA_CONSTANTS, MAX_ATTACHMENT_PREVIEWS } from './mediaConstants';
 import styles from './JustifiedMediaGallery.module.scss';
 import type { ReactNode, CSSProperties } from 'react';
 
-// 最大显示图片数量
-const MAX_PREVIEW_ITEMS = 9;
-const GAP = 2; // px
+const GAP = MEDIA_CONSTANTS.GAP; // px
 
 interface JustifiedMediaGalleryProps {
   attachments: Attachment[];
@@ -23,7 +21,7 @@ interface JustifiedMediaGalleryProps {
  * 3. 严格遵从最高 maxHeight / 宽度 maxWidth 的阈值设定，不留缝隙
  */
 function calculateJustifiedRows(attachments: Attachment[], maxWidth: number, maxHeight: number) {
-  const items = attachments.slice(0, MAX_PREVIEW_ITEMS);
+  const items = attachments.slice(0, MAX_ATTACHMENT_PREVIEWS);
   const count = items.length;
 
   // 保底原图比例，并限制单极值避免过宽或过窄导致用户看不清
@@ -192,7 +190,9 @@ export const JustifiedMediaGallery: React.FC<JustifiedMediaGalleryProps> = ({
     );
   }
 
-  const extraCount = attachments.length - MAX_PREVIEW_ITEMS;
+  // 超过最大预览数时，最后一张图高斯模糊计算超出数量（包含遮罩自身隐藏的那张图）
+  const extraCount =
+    attachments.length > MAX_ATTACHMENT_PREVIEWS ? attachments.length - MAX_ATTACHMENT_PREVIEWS + 1 : 0;
 
   return (
     <div

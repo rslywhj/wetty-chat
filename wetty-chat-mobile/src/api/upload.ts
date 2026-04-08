@@ -7,6 +7,7 @@ export interface UploadUrlRequest {
   size: number;
   width?: number;
   height?: number;
+  clientQueuedAt?: Date | string;
 }
 
 export interface UploadUrlResponse {

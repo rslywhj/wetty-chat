@@ -24,3 +24,5 @@ export const getSingleMediaBounds = () => {
     MIN_HEIGHT: 80, // 宽扁图的最小高度保障
   };
 };
+export const MAX_ATTACHMENTS_PER_MESSAGE = 20; // 单条消息最多可发图数
+export const MAX_ATTACHMENT_PREVIEWS = 6; // 多图网格最高预览数量

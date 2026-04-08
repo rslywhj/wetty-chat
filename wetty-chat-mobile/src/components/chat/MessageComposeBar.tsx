@@ -135,6 +135,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
       uploadAttachment,
       initialExistingAttachments: editing?.attachments ?? [],
       containerRef,
+      onError,
     });
 
     useLayoutEffect(() => {

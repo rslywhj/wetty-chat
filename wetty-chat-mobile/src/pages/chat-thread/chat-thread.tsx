@@ -430,6 +430,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         duration,
         position: 'bottom',
         positionAnchor: options?.positionAnchor,
+        cssClass: 'toast-center',
       });
     },
     [presentToast],
@@ -863,19 +864,23 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const nextCursor = useSelector((state: RootState) => selectNextCursorForChat(state, storeChatId));
   const prevCursor = useSelector((state: RootState) => selectPrevCursorForChat(state, storeChatId));
 
-  const uploadAttachment = useCallback(async ({ file, dimensions, onProgress, signal }: ComposeUploadInput) => {
-    const res = await requestUploadUrl({
-      filename: file.name,
-      contentType: file.type || 'application/octet-stream',
-      size: file.size,
-      ...dimensions,
-    });
+  const uploadAttachment = useCallback(
+    async ({ file, dimensions, onProgress, signal, clientQueuedAt }: ComposeUploadInput) => {
+      const res = await requestUploadUrl({
+        filename: file.name,
+        contentType: file.type || 'application/octet-stream',
+        size: file.size,
+        clientQueuedAt,
+        ...dimensions,
+      });
 
-    const { uploadUrl, attachmentId, uploadHeaders } = res.data;
-    await uploadFileToS3(uploadUrl, file, uploadHeaders, { onProgress, signal });
+      const { uploadUrl, attachmentId, uploadHeaders } = res.data;
+      await uploadFileToS3(uploadUrl, file, uploadHeaders, { onProgress, signal });
 
-    return { attachmentId };
-  }, []);
+      return { attachmentId };
+    },
+    [],
+  );
 
   const revealLatestAfterSend = useCallback(() => {
     if (prevCursor != null) {
@@ -1586,7 +1591,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
             chatId={chatId}
             onSend={handleSend}
             uploadAttachment={uploadAttachment}
-            onError={(message) => showToast(message, 2200, { positionAnchor: 'message-compose-bar' })}
+            onError={(message) => showToast(message, 3000)}
             onFocusChange={handleComposeFocusChange}
             replyTo={
               replyingTo
