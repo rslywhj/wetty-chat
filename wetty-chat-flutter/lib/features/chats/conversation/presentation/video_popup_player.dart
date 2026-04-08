@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -9,7 +8,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../app/theme/style_config.dart';
 import '../../models/message_models.dart';
-import '../data/media_preview_cache.dart';
 
 Future<void> showVideoPlayerPopup(
   BuildContext context,
@@ -53,52 +51,14 @@ class VideoAttachmentPreview extends StatefulWidget {
 }
 
 class _VideoAttachmentPreviewState extends State<VideoAttachmentPreview> {
-  static const int _maxDecodeRetries = 1;
-
-  late Future<File?> _thumbnailFuture;
-  int _decodeRetryCount = 0;
-  bool _disableCachePreview = false;
+  late Future<Uint8List?> _thumbnailFuture;
 
   @override
   void initState() {
     super.initState();
-    _thumbnailFuture = _loadThumbnail();
-  }
-
-  Future<File?> _loadThumbnail() {
-    return MediaPreviewCache.instance.loadVideoPreview(
+    _thumbnailFuture = _VideoThumbnailCache.instance.load(
       widget.attachment.url,
-      () => _VideoThumbnailCache.instance.load(widget.attachment.url),
     );
-  }
-
-  void _handleDecodeError(File file) {
-    if (_decodeRetryCount >= _maxDecodeRetries) {
-      unawaited(
-        MediaPreviewCache.instance.invalidateVideoPreview(
-          widget.attachment.url,
-          markFailure: true,
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _disableCachePreview = true;
-      });
-      return;
-    }
-
-    _decodeRetryCount += 1;
-    unawaited(
-      MediaPreviewCache.instance.invalidateVideoPreview(widget.attachment.url),
-    );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _thumbnailFuture = _loadThumbnail();
-    });
   }
 
   @override
@@ -117,22 +77,17 @@ class _VideoAttachmentPreviewState extends State<VideoAttachmentPreview> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              FutureBuilder<File?>(
+              FutureBuilder<Uint8List?>(
                 future: _thumbnailFuture,
                 builder: (context, snapshot) {
-                  if (_disableCachePreview) {
-                    return _VideoPlaceholder(attachment: widget.attachment);
-                  }
-                  final file = snapshot.data;
-                  if (file != null) {
-                    return Image.file(
-                      file,
+                  final bytes = snapshot.data;
+                  if (bytes != null) {
+                    return Image.memory(
+                      bytes,
                       fit: BoxFit.cover,
                       gaplessPlayback: true,
-                      errorBuilder: (_, _, _) {
-                        _handleDecodeError(file);
-                        return _VideoPlaceholder(attachment: widget.attachment);
-                      },
+                      errorBuilder: (_, _, _) =>
+                          _VideoPlaceholder(attachment: widget.attachment),
                     );
                   }
                   return _VideoPlaceholder(attachment: widget.attachment);
@@ -221,12 +176,7 @@ class _VideoPopupPlayerDialogState extends State<_VideoPopupPlayerDialog> {
   Future<void> _open() async {
     try {
       await _player.setVolume(100);
-      await _player.open(
-        Media(
-          widget.attachment.url,
-          httpHeaders: attachmentRequestHeadersForUrl(widget.attachment.url),
-        ),
-      );
+      await _player.open(Media(widget.attachment.url));
     } catch (error) {
       _log('open failed: $error');
       if (!mounted) {
@@ -583,9 +533,7 @@ class _VideoThumbnailCache {
     );
     try {
       await player.setVolume(0);
-      await player.open(
-        Media(url, httpHeaders: attachmentRequestHeadersForUrl(url)),
-      );
+      await player.open(Media(url));
       await Future.any<Object?>(<Future<Object?>>[
         player.stream.width.firstWhere((value) => (value ?? 0) > 0),
         Future<Object?>.delayed(const Duration(seconds: 2)),

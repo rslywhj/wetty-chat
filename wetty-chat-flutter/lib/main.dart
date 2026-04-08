@@ -6,12 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app.dart';
 import 'core/network/api_config.dart';
 import 'core/providers/shared_preferences_provider.dart';
-import 'features/chats/chats.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  MediaPreviewCache.instance.initialize();
 
   final prefs = await SharedPreferences.getInstance();
 

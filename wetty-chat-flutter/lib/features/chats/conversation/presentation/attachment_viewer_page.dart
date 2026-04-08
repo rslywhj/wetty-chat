@@ -1,49 +1,29 @@
-import 'dart:io';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/message_models.dart';
-import '../data/media_preview_cache.dart';
 
-class AttachmentViewerPage extends StatefulWidget {
+class AttachmentViewerPage extends StatelessWidget {
   const AttachmentViewerPage({super.key, required this.attachment});
 
   final AttachmentItem attachment;
 
-  @override
-  State<AttachmentViewerPage> createState() => _AttachmentViewerPageState();
-}
-
-class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
-  late final Future<File?> _previewFuture;
-
-  AttachmentItem get _attachment => widget.attachment;
-
-  @override
-  void initState() {
-    super.initState();
-    _previewFuture = MediaPreviewCache.instance.loadImagePreview(
-      _attachment.url,
-      maxDimension: MediaPreviewCache.imageViewerMaxDimension,
-    );
-  }
-
   Future<void> _openExternally() async {
-    if (_attachment.url.isEmpty) {
+    if (attachment.url.isEmpty) {
       return;
     }
     await launchUrl(
-      Uri.parse(_attachment.url),
+      Uri.parse(attachment.url),
       mode: LaunchMode.externalApplication,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _attachment.fileName.isEmpty
+    final title = attachment.fileName.isEmpty
         ? 'Attachment'
-        : _attachment.fileName;
+        : attachment.fileName;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -57,78 +37,27 @@ class _AttachmentViewerPageState extends State<AttachmentViewerPage> {
       backgroundColor: CupertinoColors.black,
       child: SafeArea(
         child: Center(
-          child: _attachment.isImage
-              ? FutureBuilder<File?>(
-                  future: _previewFuture,
-                  builder: (context, snapshot) {
-                    final file = snapshot.data;
-                    if (file != null) {
-                      return _ZoomableImageViewport(
-                        imageWidth: _attachment.width?.toDouble(),
-                        imageHeight: _attachment.height?.toDouble(),
-                        child: Image.file(
-                          file,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.medium,
-                          errorBuilder: (_, _, _) => _RawAttachmentViewerImage(
-                            attachment: _attachment,
-                            onOpenExternally: _openExternally,
-                          ),
-                        ),
-                      );
-                    }
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const CupertinoActivityIndicator();
-                    }
-                    return _RawAttachmentViewerImage(
-                      attachment: _attachment,
+          child: attachment.isImage
+              ? _ZoomableImageViewport(
+                  imageWidth: attachment.width?.toDouble(),
+                  imageHeight: attachment.height?.toDouble(),
+                  child: CachedNetworkImage(
+                    imageUrl: attachment.url,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    placeholder: (context, url) =>
+                        const CupertinoActivityIndicator(),
+                    errorWidget: (context, url, error) => _ErrorState(
+                      title: 'Failed to load image',
                       onOpenExternally: _openExternally,
-                    );
-                  },
+                    ),
+                  ),
                 )
               : _ErrorState(
                   title: 'Preview is not available',
                   onOpenExternally: _openExternally,
                 ),
         ),
-      ),
-    );
-  }
-}
-
-class _RawAttachmentViewerImage extends StatelessWidget {
-  const _RawAttachmentViewerImage({
-    required this.attachment,
-    required this.onOpenExternally,
-  });
-
-  final AttachmentItem attachment;
-  final Future<void> Function() onOpenExternally;
-
-  @override
-  Widget build(BuildContext context) {
-    if (MediaPreviewCache.instance.isKnownInvalidImageUrl(attachment.url)) {
-      return _ErrorState(
-        title: 'Failed to load image',
-        onOpenExternally: onOpenExternally,
-      );
-    }
-
-    return _ZoomableImageViewport(
-      imageWidth: attachment.width?.toDouble(),
-      imageHeight: attachment.height?.toDouble(),
-      child: Image.network(
-        attachment.url,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        headers: attachmentRequestHeadersForUrl(attachment.url),
-        errorBuilder: (_, _, _) {
-          MediaPreviewCache.instance.markInvalidImageUrl(attachment.url);
-          return _ErrorState(
-            title: 'Failed to load image',
-            onOpenExternally: onOpenExternally,
-          );
-        },
       ),
     );
   }
