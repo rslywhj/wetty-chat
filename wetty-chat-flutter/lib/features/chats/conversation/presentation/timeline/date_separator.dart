@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../../app/theme/style_config.dart';
+import '../../../chat_timestamp_formatter.dart';
 
 class DateSeparator extends StatelessWidget {
   const DateSeparator({super.key, required this.day});
@@ -19,7 +20,7 @@ class DateSeparator extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+            formatDateSeparator(context, day),
             style: appOnDarkTextStyle(context, fontSize: AppFontSizes.meta),
           ),
         ),

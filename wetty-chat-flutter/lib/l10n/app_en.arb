@@ -164,5 +164,23 @@
   "@sampleUser": { "description": "Example user name in font size preview" },
 
   "fontSizePreviewMessage": "This is how your messages will look in chat.",
-  "@fontSizePreviewMessage": { "description": "Font size preview sample message" }
+  "@fontSizePreviewMessage": { "description": "Font size preview sample message" },
+
+  "dateToday": "Today",
+  "@dateToday": { "description": "Date separator label for today" },
+
+  "dateYesterday": "Yesterday",
+  "@dateYesterday": { "description": "Date separator label for yesterday" },
+
+  "relativeMinutes": "{count, plural, =1{1 minute ago} other{{count} minutes ago}}",
+  "@relativeMinutes": {
+    "description": "Relative time in minutes (e.g. 5 minutes ago)",
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "relativeHours": "{count, plural, =1{1 hour ago} other{{count} hours ago}}",
+  "@relativeHours": {
+    "description": "Relative time in hours (e.g. 3 hours ago)",
+    "placeholders": { "count": { "type": "int" } }
+  }
 }

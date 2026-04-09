@@ -172,6 +172,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fontSizePreviewMessage => '这是您的消息在聊天中的显示效果。';
+
+  @override
+  String get dateToday => '今天';
+
+  @override
+  String get dateYesterday => '昨天';
+
+  @override
+  String relativeMinutes(int count) {
+    return '$count分钟前';
+  }
+
+  @override
+  String relativeHours(int count) {
+    return '$count小时前';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -342,4 +358,20 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get fontSizePreviewMessage => '這是您的訊息在聊天中的顯示效果。';
+
+  @override
+  String get dateToday => '今天';
+
+  @override
+  String get dateYesterday => '昨天';
+
+  @override
+  String relativeMinutes(int count) {
+    return '$count分鐘前';
+  }
+
+  @override
+  String relativeHours(int count) {
+    return '$count小時前';
+  }
 }

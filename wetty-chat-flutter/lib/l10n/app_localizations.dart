@@ -428,6 +428,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This is how your messages will look in chat.'**
   String get fontSizePreviewMessage;
+
+  /// Date separator label for today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get dateToday;
+
+  /// Date separator label for yesterday
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get dateYesterday;
+
+  /// Relative time in minutes (e.g. 5 minutes ago)
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute ago} other{{count} minutes ago}}'**
+  String relativeMinutes(int count);
+
+  /// Relative time in hours (e.g. 3 hours ago)
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour ago} other{{count} hours ago}}'**
+  String relativeHours(int count);
 }
 
 class _AppLocalizationsDelegate

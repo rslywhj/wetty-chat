@@ -287,12 +287,13 @@ class ConversationTimelineViewModel
     final entries = <TimelineEntry>[];
     DateTime? currentDay;
     for (final message in messages) {
-      final day = message.createdAt == null
+      final localCreatedAt = message.createdAt?.toLocal();
+      final day = localCreatedAt == null
           ? null
           : DateTime(
-              message.createdAt!.year,
-              message.createdAt!.month,
-              message.createdAt!.day,
+              localCreatedAt.year,
+              localCreatedAt.month,
+              localCreatedAt.day,
             );
       if (day != null && day != currentDay) {
         currentDay = day;

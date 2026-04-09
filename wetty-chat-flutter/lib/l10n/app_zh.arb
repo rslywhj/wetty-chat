@@ -61,5 +61,10 @@
   "fontSize": "字体大小",
   "messagesFontSize": "消息字体大小",
   "sampleUser": "示例用户",
-  "fontSizePreviewMessage": "这是您的消息在聊天中的显示效果。"
+  "fontSizePreviewMessage": "这是您的消息在聊天中的显示效果。",
+
+  "dateToday": "今天",
+  "dateYesterday": "昨天",
+  "relativeMinutes": "{count}分钟前",
+  "relativeHours": "{count}小时前"
 }
