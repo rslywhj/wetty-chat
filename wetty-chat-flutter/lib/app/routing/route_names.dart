@@ -6,6 +6,8 @@ abstract final class AppRoutes {
   static String chatDetail(String chatId) => '/chats/$chatId';
   static String chatMembers(String chatId) => '/chats/$chatId/members';
   static String chatSettings(String chatId) => '/chats/$chatId/settings';
+  static String threadDetail(String chatId, String threadRootId) =>
+      '/chats/$chatId/thread/$threadRootId';
   static const settings = '/settings';
   static const language = '/settings/language';
   static const fontSize = '/settings/font-size';

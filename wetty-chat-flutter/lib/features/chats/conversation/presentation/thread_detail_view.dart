@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../app/routing/route_names.dart';
+
 import '../../../../app/theme/style_config.dart';
 import '../../../../core/session/dev_session_store.dart';
 import '../../../../core/settings/app_settings_store.dart';
-import '../../../groups/metadata/application/group_metadata_view_model.dart';
-import '../../../groups/metadata/data/group_metadata_models.dart';
 import '../../../../shared/presentation/app_divider.dart';
+import '../../../groups/metadata/application/group_metadata_view_model.dart';
 import '../application/conversation_composer_view_model.dart';
 import '../application/conversation_timeline_view_model.dart';
 import '../domain/conversation_message.dart';
@@ -18,53 +17,33 @@ import '../domain/launch_request.dart';
 import '../domain/timeline_entry.dart';
 import '../domain/viewport_placement.dart';
 import 'anchored_timeline_view.dart';
+import 'chat_detail_view.dart' show shouldShowJumpToLatestFab;
 import 'conversation_composer_bar.dart';
 import 'message_overlay.dart';
 import 'message_row.dart';
 
-class _ActiveMessageOverlay {
-  const _ActiveMessageOverlay(this.details);
-
-  final MessageLongPressDetails details;
-}
-
-bool shouldShowJumpToLatestFab({
-  required ConversationTimelineState state,
-  required bool isAtLiveEdge,
-}) {
-  if (state.pendingLiveCount > 0) {
-    return true;
-  }
-  if (state.canLoadNewer) {
-    return true;
-  }
-  return !isAtLiveEdge;
-}
-
-class ChatDetailPage extends ConsumerStatefulWidget {
-  const ChatDetailPage({
+class ThreadDetailPage extends ConsumerStatefulWidget {
+  const ThreadDetailPage({
     super.key,
     required this.chatId,
-    this.launchRequest = const LaunchRequest.latest(),
+    required this.threadRootId,
   });
 
   final String chatId;
-  final LaunchRequest launchRequest;
+  final String threadRootId;
 
   @override
-  ConsumerState<ChatDetailPage> createState() => _ChatDetailPageState();
+  ConsumerState<ThreadDetailPage> createState() => _ThreadDetailPageState();
 }
 
-class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
+class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage>
     with WidgetsBindingObserver {
   static const double _liveEdgeScrollThreshold = 50;
   static const double _timelineEndPadding = 12;
   static const Duration _overlayAnimationDuration = Duration(milliseconds: 150);
 
   final ScrollController _timelineScrollController = ScrollController();
-  final GlobalKey _overlayViewportKey = GlobalKey();
 
-  bool _isPopping = false;
   bool _isAtLiveEdge = true;
   bool _isOverlayVisible = false;
   int _viewportGeneration = 0;
@@ -81,20 +60,20 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     '🎉',
   ];
 
-  ConversationScope get scope => ConversationScope.chat(widget.chatId);
+  ConversationScope get scope =>
+      ConversationScope.thread(widget.chatId, widget.threadRootId);
 
   ConversationTimelineArgs get _timelineArgs =>
-      (scope: scope, launchRequest: widget.launchRequest);
+      (scope: scope, launchRequest: const LaunchRequest.latest());
 
   @override
   void initState() {
     super.initState();
     developer.log(
       'initState: chatId=${widget.chatId}, '
-      'launchRequest=${widget.launchRequest.intent}/'
-      '${widget.launchRequest.messageId}, '
+      'threadRootId=${widget.threadRootId}, '
       'identity=${identityHashCode(this)}',
-      name: 'ChatDetailView',
+      name: 'ThreadDetailView',
     );
     _timelineScrollController.addListener(_onTimelineScroll);
     WidgetsBinding.instance.addObserver(this);
@@ -104,7 +83,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
   void dispose() {
     developer.log(
       'dispose: identity=${identityHashCode(this)}',
-      name: 'ChatDetailView',
+      name: 'ThreadDetailView',
     );
     WidgetsBinding.instance.removeObserver(this);
     _timelineScrollController.removeListener(_onTimelineScroll);
@@ -118,8 +97,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      // Best-effort flush — provider may already be disposed if the
-      // app is being terminated, so guard with try/catch.
       try {
         unawaited(
           ref
@@ -132,71 +109,24 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     }
   }
 
-  Future<void> _popWithResult() async {
-    if (_isPopping) {
-      return;
-    }
-    _isPopping = true;
-    final notifier = ref.read(
-      conversationTimelineViewModelProvider(_timelineArgs).notifier,
-    );
-    final didSync = await notifier.flushReadStatus();
-    if (!mounted) {
-      return;
-    }
-    context.pop(
-      didSync ||
-          ref
-                  .read(conversationTimelineViewModelProvider(_timelineArgs))
-                  .valueOrNull
-                  ?.shouldRefreshChats ==
-              true,
-    );
-  }
-
   void _openMessageOverlay(MessageLongPressDetails details) {
-    if (details.message.isDeleted) {
-      return;
-    }
-    final viewportContext = _overlayViewportKey.currentContext;
-    final viewportRenderBox = viewportContext?.findRenderObject() as RenderBox?;
-    if (viewportRenderBox == null || !viewportRenderBox.attached) {
-      return;
-    }
-    final bubbleTopLeft = viewportRenderBox.globalToLocal(
-      details.bubbleRect.topLeft,
-    );
-    final bubbleBottomRight = viewportRenderBox.globalToLocal(
-      details.bubbleRect.bottomRight,
-    );
-    final bubbleRect = Rect.fromPoints(bubbleTopLeft, bubbleBottomRight);
-    final viewportRect = Offset.zero & viewportRenderBox.size;
-    final visibleRect = bubbleRect.intersect(viewportRect);
-    if (visibleRect.isEmpty) {
-      return;
-    }
+    if (details.message.isDeleted) return;
     FocusScope.of(context).unfocus();
     _overlayDismissTimer?.cancel();
     setState(() {
-      _activeOverlay = _ActiveMessageOverlay(
-        details.copyWith(bubbleRect: bubbleRect, visibleRect: visibleRect),
-      );
+      _activeOverlay = _ActiveMessageOverlay(details);
       _isOverlayVisible = true;
     });
   }
 
   void _dismissMessageOverlay() {
-    if (_activeOverlay == null) {
-      return;
-    }
+    if (_activeOverlay == null) return;
     _overlayDismissTimer?.cancel();
     setState(() {
       _isOverlayVisible = false;
     });
     _overlayDismissTimer = Timer(_overlayAnimationDuration, () {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         if (!_isOverlayVisible) {
           _activeOverlay = null;
@@ -214,9 +144,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
           .read(conversationTimelineViewModelProvider(_timelineArgs).notifier)
           .toggleReaction(message, emoji);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _showErrorDialog('$error');
     }
   }
@@ -280,9 +208,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                     .read(conversationComposerViewModelProvider(scope).notifier)
                     .delete(message);
               } catch (error) {
-                if (mounted) {
-                  _showErrorDialog('$error');
-                }
+                if (mounted) _showErrorDialog('$error');
               }
             },
             child: const Text('Delete'),
@@ -299,8 +225,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
         .valueOrNull;
     if (viewState == null) return;
 
-    // Live edge detection: in liveLatest mode, offset 0 = at anchor (bottom).
-    // Small positive offsets mean content was appended below.
     final position = _timelineScrollController.position;
     final isAtLiveEdge =
         !viewState.canLoadNewer &&
@@ -323,7 +247,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
         viewState.isLoadingOlder) {
       return;
     }
-    // No position preservation needed — the center key keeps the anchor stable.
     unawaited(
       ref
           .read(conversationTimelineViewModelProvider(_timelineArgs).notifier)
@@ -347,10 +270,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     );
   }
 
-  /// Report visible messages for read-status tracking.
-  /// In the center-key model we don't have precise per-item visibility,
-  /// so we report all messages in the current window. This is safe because
-  /// [onMessageVisible] only tracks the max seen message ID and debounces.
   void _reportVisibleMessages(ConversationTimelineState viewState) {
     final notifier = ref.read(
       conversationTimelineViewModelProvider(_timelineArgs).notifier,
@@ -369,10 +288,9 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
   }
 
   Future<void> _jumpToMessage(int messageId) async {
-    final notifier = ref.read(
-      conversationTimelineViewModelProvider(_timelineArgs).notifier,
-    );
-    await notifier.jumpToMessage(messageId);
+    await ref
+        .read(conversationTimelineViewModelProvider(_timelineArgs).notifier)
+        .jumpToMessage(messageId);
   }
 
   void _resetViewportSession(int sessionId) {
@@ -395,57 +313,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     );
   }
 
-  String _resolveChatTitle(AsyncValue<ChatMetadata> metadataAsync) {
-    final resolvedName = metadataAsync.valueOrNull?.name;
-    if (resolvedName != null && resolvedName.trim().isNotEmpty) {
-      return resolvedName;
-    }
-    return 'Chat ${widget.chatId}';
-  }
-
-  Widget _buildNavigationBarTitle(
-    BuildContext context,
-    AsyncValue<ChatMetadata> metadataAsync,
-  ) {
-    return Text(
-      _resolveChatTitle(metadataAsync),
-      style: appTitleTextStyle(context, fontSize: AppFontSizes.appTitle),
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildNavigationBarTrailing() {
-    return SizedBox(
-      width: 72,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            onPressed: () => context.push(AppRoutes.chatMembers(widget.chatId)),
-            child: const Icon(CupertinoIcons.person_2_fill, size: 22),
-          ),
-          const SizedBox(width: 12),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            onPressed: () =>
-                context.push(AppRoutes.chatSettings(widget.chatId)),
-            child: const Icon(
-              CupertinoIcons.gear_solid,
-              size: IconSizes.iconSize,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  EdgeInsets _timelinePadding(BuildContext context) {
-    return EdgeInsets.only(top: 8, bottom: _timelineEndPadding);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -459,33 +326,12 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
 
     timelineAsync.whenData((state) {
       final locatePlan = state.locatePlan;
-      developer.log(
-        'whenData: locatePlan=${locatePlan?.placement}, '
-        'mode=${state.windowMode}, '
-        'placement=${state.viewportPlacement}, '
-        'anchorIdx=${state.anchorEntryIndex}/${state.entries.length}, '
-        'canLoadNewer=${state.canLoadNewer}, '
-        'viewportKey=$_timelineViewportKey, '
-        'generation=$_viewportGeneration',
-        name: 'ChatDetailView',
-      );
       if (locatePlan != null) {
-        // Consume the locate plan: re-key the timeline view to force
-        // CustomScrollView to rebuild with the new anchor position,
-        // then clear it so it isn't re-applied on unrelated rebuilds.
         _viewportGeneration += 1;
         _isAtLiveEdge =
             state.viewportPlacement == ConversationViewportPlacement.liveEdge &&
             !state.canLoadNewer;
         _resetViewportSession(_viewportGeneration);
-        developer.log(
-          'applied locatePlan: placement=${locatePlan.placement}, '
-          'resolvedPlacement=${state.viewportPlacement}, '
-          'isAtLiveEdge=$_isAtLiveEdge, '
-          'newKey=$_timelineViewportKey, '
-          'newGeneration=$_viewportGeneration',
-          name: 'ChatDetailView',
-        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref
@@ -497,9 +343,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       }
       if (state.infoMessage != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) {
-            return;
-          }
+          if (!mounted) return;
           _showErrorDialog(state.infoMessage!);
           ref
               .read(
@@ -509,6 +353,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
         });
       }
     });
+
+    final chatName = metadataAsync.valueOrNull?.name ?? 'Chat ${widget.chatId}';
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -524,9 +370,25 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       },
       child: CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
-          middle: _buildNavigationBarTitle(context, metadataAsync),
-          leading: CupertinoNavigationBarBackButton(onPressed: _popWithResult),
-          trailing: _buildNavigationBarTrailing(),
+          middle: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Thread',
+                style: appTitleTextStyle(
+                  context,
+                  fontSize: AppFontSizes.appTitle,
+                ),
+              ),
+              Text(
+                chatName,
+                style: appSecondaryTextStyle(
+                  context,
+                  fontSize: AppFontSizes.meta,
+                ),
+              ),
+            ],
+          ),
         ),
         child: SafeArea(
           bottom: false,
@@ -538,7 +400,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                   child: Container(
                     color: colors.chatBackground,
                     child: Stack(
-                      key: _overlayViewportKey,
                       children: [
                         timelineAsync.when(
                           loading: () =>
@@ -563,11 +424,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                               ),
                             ),
                           ),
-                          data: (viewState) => _buildTimeline(
-                            viewState,
-                            settings.fontSize,
-                            _timelinePadding(context),
-                          ),
+                          data: (viewState) =>
+                              _buildTimeline(viewState, settings.fontSize),
                         ),
                         if (_activeOverlay case final overlay?)
                           MessageOverlay(
@@ -585,7 +443,10 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                             },
                           ),
                         if (timelineAsync.valueOrNull case final viewState?
-                            when _shouldShowJumpToLatest(viewState))
+                            when shouldShowJumpToLatestFab(
+                              state: viewState,
+                              isAtLiveEdge: _isAtLiveEdge,
+                            ))
                           Positioned(
                             right: 16,
                             bottom: 16,
@@ -648,25 +509,10 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     );
   }
 
-  bool _shouldShowJumpToLatest(ConversationTimelineState state) {
-    return shouldShowJumpToLatestFab(state: state, isAtLiveEdge: _isAtLiveEdge);
-  }
-
   Widget _buildTimeline(
     ConversationTimelineState viewState,
     double chatMessageFontSize,
-    EdgeInsets contentPadding,
   ) {
-    if (viewState.entries.isEmpty) {
-      return const Center(child: Text('No messages yet'));
-    }
-    developer.log(
-      '_buildTimeline: key=$_timelineViewportKey, '
-      'placement=${viewState.viewportPlacement}, '
-      'anchorIdx=${viewState.anchorEntryIndex}/${viewState.entries.length}, '
-      'mode=${viewState.windowMode}',
-      name: 'ChatDetailView',
-    );
     return AnchoredTimelineView(
       key: _timelineViewportKey,
       entries: viewState.entries,
@@ -675,8 +521,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       scrollController: _timelineScrollController,
       onNearOlderEdge: _onNearOlderEdge,
       onNearNewerEdge: _onNearNewerEdge,
-      topPadding: contentPadding.top,
-      bottomPadding: contentPadding.bottom,
+      topPadding: 8,
+      bottomPadding: _timelineEndPadding,
       entryBuilder: (context, entry, index) {
         return switch (entry) {
           TimelineMessageEntry(:final message) => MessageRow(
@@ -692,15 +538,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
             onTapReply: message.replyToMessage != null
                 ? () => _jumpToMessage(message.replyToMessage!.id)
                 : null,
-            onOpenThread:
-                message.threadInfo != null && message.threadInfo!.replyCount > 0
-                ? () => context.push(
-                    AppRoutes.threadDetail(
-                      widget.chatId,
-                      message.serverMessageId.toString(),
-                    ),
-                  )
-                : null,
+            // No nested threads — don't pass onOpenThread
             onToggleReaction: message.messageType == 'sticker'
                 ? null
                 : (emoji) => unawaited(_toggleReaction(message, emoji)),
@@ -783,4 +621,9 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       ),
     );
   }
+}
+
+class _ActiveMessageOverlay {
+  const _ActiveMessageOverlay(this.details);
+  final MessageLongPressDetails details;
 }

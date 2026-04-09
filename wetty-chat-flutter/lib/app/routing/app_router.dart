@@ -7,6 +7,7 @@ import '../../features/auth/presentation/auth_bootstrap_view.dart';
 import '../../features/auth/presentation/token_login_view.dart';
 import '../../features/chats/conversation/presentation/attachment_viewer_page.dart';
 import '../../features/chats/conversation/presentation/chat_detail_view.dart';
+import '../../features/chats/conversation/presentation/thread_detail_view.dart';
 import '../../features/chats/conversation/domain/launch_request.dart';
 import '../../features/chats/list/presentation/chat_list_view.dart';
 import '../../features/chats/list/presentation/new_chat_view.dart';
@@ -102,6 +103,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) {
               final chatId = state.pathParameters['chatId']!;
               return CupertinoPage(child: GroupSettingsPage(chatId: chatId));
+            },
+          ),
+          GoRoute(
+            path: 'thread/:threadId',
+            pageBuilder: (context, state) {
+              final chatId = state.pathParameters['chatId']!;
+              final threadId = state.pathParameters['threadId']!;
+              return CupertinoPage(
+                child: ThreadDetailPage(chatId: chatId, threadRootId: threadId),
+              );
             },
           ),
         ],

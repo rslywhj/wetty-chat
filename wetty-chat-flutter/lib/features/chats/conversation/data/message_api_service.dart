@@ -17,7 +17,8 @@ class MessageApiService {
     return '${DateTime.now().microsecondsSinceEpoch}-$seed-$_currentUserId';
   }
 
-  String _messagesPath(ConversationScope scope) {
+  /// Send path: threads use a dedicated POST endpoint.
+  String _sendPath(ConversationScope scope) {
     if (scope.threadRootId == null) {
       return '/chats/${scope.chatId}/messages';
     }
@@ -53,6 +54,7 @@ class MessageApiService {
     return response.messages;
   }
 
+  /// Fetch path: threads use the same GET endpoint with a `threadId` query param.
   Future<ListMessagesResponseDto> fetchConversationMessages(
     ConversationScope scope, {
     int? max,
@@ -65,9 +67,12 @@ class MessageApiService {
     if (before != null) query['before'] = before.toString();
     if (after != null) query['after'] = after.toString();
     if (around != null) query['around'] = around.toString();
+    if (scope.threadRootId != null) {
+      query['threadId'] = scope.threadRootId!;
+    }
 
     final response = await _dio.get<Map<String, dynamic>>(
-      _messagesPath(scope),
+      '/chats/${scope.chatId}/messages',
       queryParameters: query.isEmpty ? null : query,
     );
     return ListMessagesResponseDto.fromJson(response.data!);
@@ -114,7 +119,7 @@ class MessageApiService {
       replyToId: replyToId,
     );
     final response = await _dio.post<Map<String, dynamic>>(
-      _messagesPath(scope),
+      _sendPath(scope),
       data: body.toJson(),
     );
     return MessageItemDto.fromJson(response.data!);

@@ -10,6 +10,7 @@ import '../video_popup_player.dart';
 import 'linkified_message_text.dart';
 import 'message_bubble_presentation.dart';
 import 'message_reactions.dart';
+import 'message_thread_indicator.dart';
 
 class MessageBubbleContent extends StatelessWidget {
   const MessageBubbleContent({
@@ -109,8 +110,15 @@ class MessageBubbleContent extends StatelessWidget {
     if (threadInfo != null &&
         threadInfo.replyCount > 0 &&
         onOpenThread != null) {
-      contentChildren.add(const SizedBox(height: 8));
-      contentChildren.add(_buildThreadInfo(context, threadInfo));
+      contentChildren.add(const SizedBox(height: 4));
+      contentChildren.add(
+        MessageThreadIndicator(
+          threadInfo: threadInfo,
+          isMe: isMe,
+          presentation: presentation,
+          onTap: onOpenThread,
+        ),
+      );
     }
 
     if (message.reactions.isNotEmpty) {
@@ -253,40 +261,6 @@ class MessageBubbleContent extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-
-  // TODO: this method is not tested
-  Widget _buildThreadInfo(BuildContext context, ThreadInfo threadInfo) {
-    return GestureDetector(
-      onTap: onOpenThread,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isMe ? const Color(0xFFF2E9DE) : const Color(0xFFF1EAE3),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              CupertinoIcons.chat_bubble_2,
-              size: 15,
-              color: const Color(0xFF8B6D52),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '${threadInfo.replyCount} repl${threadInfo.replyCount == 1 ? 'y' : 'ies'}',
-              style: appBubbleTextStyle(
-                context,
-                fontSize: AppFontSizes.meta,
-                fontWeight: _bubbleFontWeight,
-                color: const Color(0xFF8B6D52),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
