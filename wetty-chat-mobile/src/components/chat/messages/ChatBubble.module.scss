@@ -63,8 +63,22 @@
   }
 }
 
-.bubble {
+.bubbleWrapper {
+  display: flex;
+  flex-direction: column;
   max-width: 75%;
+}
+
+.sent .bubbleWrapper {
+  align-items: stretch;
+}
+
+.received .bubbleWrapper {
+  align-items: stretch;
+}
+
+.bubble {
+  max-width: 100%;
   padding: 8px 12px;
   line-height: 1.4;
   font-size: 14px;
@@ -415,23 +429,27 @@
   justify-content: flex-end;
 }
 
-.reactions {
+.reactionsContainer {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
+  position: relative;
+  z-index: 10;
 }
 
 .reactionPill {
   display: inline-flex;
   align-items: center;
-  border-radius: 12px;
+  border-radius: 9999px;
   background: var(--ion-color-light-shade);
   color: var(--ion-color-light-contrast);
+  padding: 2px 8px;
+
   font-size: 21px;
   line-height: 1;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: transform 0.15s ease;
 
   &:active {
     transform: scale(0.95);
@@ -441,6 +459,10 @@
 .reactionPillActive {
   background: var(--ion-color-primary-tint);
   color: var(--ion-color-primary-contrast);
+}
+
+.sent .reactionsContainer {
+  justify-content: flex-end;
 }
 
 .sent .reactionPill {
@@ -454,26 +476,26 @@
 }
 
 .reactionEmoji {
-  margin: 0.5px 0 0.5px 6px;
-  font-size: 18.5px;
+  margin: 0;
+  font-size: 16px;
   line-height: 1;
 }
 
 .reactionCount {
-  font-size: 12px;
-  opacity: 0.7;
+  font-size: 13px;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 .reactorAvatars {
   display: inline-flex;
   align-items: center;
-  margin: 1.5px;
-  //margin-left: 2px;
+  margin-left: 6px;
 }
 
 .reactorAvatar {
-  width: 23px;
-  height: 23px;
+  width: 18px;
+  height: 18px;
 
   //width: 1em;
   //height: 1em;

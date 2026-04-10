@@ -568,69 +568,77 @@ export function ChatBubbleBase({
           </span>
         </div>
       )}
-      {reactions && reactions.length > 0 && (
-        <div className={styles.reactions}>
-          {reactions.map((reaction) =>
-            interactive ? (
-              <button
-                key={reaction.emoji}
-                type="button"
-                className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReactionToggle?.(reaction.emoji, !!reaction.reactedByMe);
-                }}
-              >
-                <span className={styles.reactionEmoji}>{reaction.emoji}</span>
-                {reaction.reactors && reaction.reactors.length > 0 ? (
-                  <span className={styles.reactorAvatars}>
-                    {reaction.reactors.slice(0, 5).map((reactor, i) => (
-                      <img
-                        key={reactor.uid}
-                        src={reactor.avatarUrl ?? undefined}
-                        alt=""
-                        className={styles.reactorAvatar}
-                        style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
-                      />
-                    ))}
-                    {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
-                  </span>
-                ) : (
-                  reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
-                )}
-              </button>
+    </div>
+  );
+
+  const reactionsContent = reactions && reactions.length > 0 && (
+    <div className={styles.reactionsContainer}>
+      {reactions.map((reaction) =>
+        interactive ? (
+          <button
+            key={reaction.emoji}
+            type="button"
+            className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onReactionToggle?.(reaction.emoji, !!reaction.reactedByMe);
+            }}
+          >
+            <span className={styles.reactionEmoji}>{reaction.emoji}</span>
+            {reaction.reactors && reaction.reactors.length > 0 ? (
+              <span className={styles.reactorAvatars}>
+                {reaction.reactors.slice(0, 5).map((reactor, i) => (
+                  <img
+                    key={reactor.uid}
+                    src={reactor.avatarUrl ?? undefined}
+                    alt=""
+                    className={styles.reactorAvatar}
+                    style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
+                  />
+                ))}
+                {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
+              </span>
             ) : (
-              <div
-                key={reaction.emoji}
-                className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
-              >
-                <span className={styles.reactionEmoji}>{reaction.emoji}</span>
-                {reaction.reactors && reaction.reactors.length > 0 ? (
-                  <span className={styles.reactorAvatars}>
-                    {reaction.reactors.slice(0, 5).map((reactor, i) => (
-                      <img
-                        key={reactor.uid}
-                        src={reactor.avatarUrl ?? undefined}
-                        alt=""
-                        className={styles.reactorAvatar}
-                        style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
-                      />
-                    ))}
-                    {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
-                  </span>
-                ) : (
-                  reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
-                )}
-              </div>
-            ),
-          )}
-        </div>
+              reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
+            )}
+          </button>
+        ) : (
+          <div
+            key={reaction.emoji}
+            className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
+          >
+            <span className={styles.reactionEmoji}>{reaction.emoji}</span>
+            {reaction.reactors && reaction.reactors.length > 0 ? (
+              <span className={styles.reactorAvatars}>
+                {reaction.reactors.slice(0, 5).map((reactor, i) => (
+                  <img
+                    key={reactor.uid}
+                    src={reactor.avatarUrl ?? undefined}
+                    alt=""
+                    className={styles.reactorAvatar}
+                    style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
+                  />
+                ))}
+                {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
+              </span>
+            ) : (
+              reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
+            )}
+          </div>
+        ),
       )}
     </div>
   );
 
   if (layout === 'bubble-only') {
-    return <div className={`${styles.bubbleOnly} ${isSent ? styles.sent : styles.received}`}>{bubble}</div>;
+    return (
+      <div className={`${styles.bubbleOnly} ${isSent ? styles.sent : styles.received}`}>
+        <div className={styles.bubbleWrapper}>
+          {bubble}
+          {reactionsContent}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -647,7 +655,10 @@ export function ChatBubbleBase({
         ) : (
           <div className={styles.avatarSpacer} />
         )}
-        {bubble}
+        <div className={styles.bubbleWrapper}>
+          {bubble}
+          {reactionsContent}
+        </div>
         {interactive && onReply && (
           <button className={styles.hoverReplyBtn} onClick={onReply} aria-label={t`Reply`}>
             <IonIcon icon={arrowUndo} />
