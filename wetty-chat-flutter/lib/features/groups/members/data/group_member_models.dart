@@ -1,17 +1,16 @@
-class GroupMember {
-  const GroupMember({
-    required this.uid,
-    this.username,
-    this.avatarUrl,
-    required this.role,
-    required this.joinedAt,
-  });
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  final int uid;
-  final String? username;
-  final String? avatarUrl;
-  final String role;
-  final DateTime? joinedAt;
+part 'group_member_models.freezed.dart';
+
+@freezed
+abstract class GroupMember with _$GroupMember {
+  const factory GroupMember({
+    required int uid,
+    String? username,
+    String? avatarUrl,
+    required String role,
+    DateTime? joinedAt,
+  }) = _GroupMember;
 }
 
 enum GroupMemberSearchMode { autocomplete, submitted }
@@ -23,14 +22,11 @@ extension GroupMemberSearchModeWireValue on GroupMemberSearchMode {
   };
 }
 
-class GroupMembersPage {
-  const GroupMembersPage({
-    required this.members,
-    required this.canManageMembers,
-    this.nextCursor,
-  });
-
-  final List<GroupMember> members;
-  final bool canManageMembers;
-  final int? nextCursor;
+@freezed
+abstract class GroupMembersPage with _$GroupMembersPage {
+  const factory GroupMembersPage({
+    required List<GroupMember> members,
+    @Default(false) bool canManageMembers,
+    int? nextCursor,
+  }) = _GroupMembersPage;
 }

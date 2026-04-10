@@ -50,7 +50,7 @@ class NotificationTapHandler {
       developer.log('Navigating to chat $chatId', name: 'NotificationTap');
       final extra = <String, dynamic>{};
       if (messageId != null) {
-        extra['launchRequest'] = LaunchRequest.message(messageId);
+        extra['launchRequest'] = LaunchRequest.message(messageId: messageId);
       }
       _router.push(
         AppRoutes.chatDetail(chatId),

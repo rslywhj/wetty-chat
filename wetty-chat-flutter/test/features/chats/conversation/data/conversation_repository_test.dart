@@ -13,7 +13,7 @@ void main() {
     test('commitSend forwards audio message type and attachment ids', () async {
       final service = _FakeMessageApiService(messages: const []);
       final repository = ConversationRepository(
-        scope: const ConversationScope.chat('1'),
+        scope: const ConversationScope.chat(chatId: '1'),
         service: service,
       );
 
@@ -50,7 +50,7 @@ void main() {
           ],
         );
         final repository = ConversationRepository(
-          scope: const ConversationScope.chat('1'),
+          scope: const ConversationScope.chat(chatId: '1'),
           service: service,
         );
 
@@ -67,7 +67,7 @@ void main() {
       () async {
         final service = _FakeMessageApiService(messages: [_message()]);
         final repository = ConversationRepository(
-          scope: const ConversationScope.chat('1'),
+          scope: const ConversationScope.chat(chatId: '1'),
           service: service,
         );
 
@@ -85,7 +85,7 @@ void main() {
       final service = _FakeMessageApiService(messages: [_message()]);
       service.failPut = true;
       final repository = ConversationRepository(
-        scope: const ConversationScope.chat('1'),
+        scope: const ConversationScope.chat(chatId: '1'),
         service: service,
       );
 
@@ -117,7 +117,7 @@ void main() {
           ],
         );
         final repository = ConversationRepository(
-          scope: const ConversationScope.chat('1'),
+          scope: const ConversationScope.chat(chatId: '1'),
           service: service,
         );
 
@@ -161,7 +161,7 @@ void main() {
         messages: [_message(messageType: 'sticker')],
       );
       final repository = ConversationRepository(
-        scope: const ConversationScope.chat('1'),
+        scope: const ConversationScope.chat(chatId: '1'),
         service: service,
       );
 

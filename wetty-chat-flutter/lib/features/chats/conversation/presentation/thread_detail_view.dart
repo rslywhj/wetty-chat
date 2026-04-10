@@ -39,8 +39,10 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage>
   int? _maxSeenMessageId;
   Timer? _markReadTimer;
 
-  ConversationScope get scope =>
-      ConversationScope.thread(widget.chatId, widget.threadRootId);
+  ConversationScope get scope => ConversationScope.thread(
+    chatId: widget.chatId,
+    threadRootId: widget.threadRootId,
+  );
 
   ConversationTimelineArgs get _timelineArgs =>
       (scope: scope, launchRequest: const LaunchRequest.latest());

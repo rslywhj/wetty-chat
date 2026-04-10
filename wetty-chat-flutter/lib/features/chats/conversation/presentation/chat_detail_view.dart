@@ -38,7 +38,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
 
   bool _isPopping = false;
 
-  ConversationScope get scope => ConversationScope.chat(widget.chatId);
+  ConversationScope get scope => ConversationScope.chat(chatId: widget.chatId);
 
   ConversationTimelineArgs get _timelineArgs =>
       (scope: scope, launchRequest: widget.launchRequest);
@@ -48,8 +48,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     super.initState();
     developer.log(
       'initState: chatId=${widget.chatId}, '
-      'launchRequest=${widget.launchRequest.intent}/'
-      '${widget.launchRequest.messageId}, '
+      'launchRequest=${widget.launchRequest}, '
       'identity=${identityHashCode(this)}',
       name: 'ChatDetailView',
     );

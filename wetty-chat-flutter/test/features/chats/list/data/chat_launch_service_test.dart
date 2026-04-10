@@ -51,7 +51,7 @@ void main() {
         ChatListItem(id: '1', unreadCount: 2, lastReadMessageId: '50'),
       );
 
-      expect(request, const LaunchRequest.unread(51));
+      expect(request, const LaunchRequest.unread(unreadMessageId: 51));
     });
 
     test('returns latest when backend has no unread target', () async {
@@ -78,7 +78,7 @@ void main() {
           ChatListItem(id: '1', unreadCount: 2, lastReadMessageId: '50'),
         );
 
-        expect(request, const LaunchRequest.unread(51));
+        expect(request, const LaunchRequest.unread(unreadMessageId: 51));
       },
     );
   });

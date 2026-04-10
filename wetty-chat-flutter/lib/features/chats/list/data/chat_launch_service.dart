@@ -23,7 +23,7 @@ class ChatLaunchService {
     }
 
     final response = await _messageApiService.fetchConversationMessages(
-      ConversationScope.chat(chat.id),
+      ConversationScope.chat(chatId: chat.id),
       after: parsedId,
       max: 1,
     );
@@ -31,7 +31,7 @@ class ChatLaunchService {
     if (unreadMessageId == null) {
       return const LaunchRequest.latest();
     }
-    return LaunchRequest.unread(unreadMessageId);
+    return LaunchRequest.unread(unreadMessageId: unreadMessageId);
   }
 }
 

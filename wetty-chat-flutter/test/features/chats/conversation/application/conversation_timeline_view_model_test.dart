@@ -64,8 +64,8 @@ void main() {
         final container = _createContainer();
         addTearDown(container.dispose);
         final provider = conversationTimelineViewModelProvider((
-          scope: const ConversationScope.chat('1'),
-          launchRequest: const LaunchRequest.unread(150),
+          scope: const ConversationScope.chat(chatId: '1'),
+          launchRequest: const LaunchRequest.unread(unreadMessageId: 150),
         ));
 
         final state = await container.read(provider.future);
@@ -197,7 +197,7 @@ ProviderContainer _createContainer() {
 }
 
 ConversationTimelineArgs _args() => (
-  scope: const ConversationScope.chat('1'),
+  scope: const ConversationScope.chat(chatId: '1'),
   launchRequest: const LaunchRequest.latest(),
 );
 

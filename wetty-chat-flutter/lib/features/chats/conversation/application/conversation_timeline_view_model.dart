@@ -155,8 +155,7 @@ class ConversationTimelineViewModel
   Future<ConversationTimelineState> build() async {
     developer.log(
       'build() called — scope=${arg.scope}, '
-      'launchIntent=${arg.launchRequest.intent}, '
-      'messageId=${arg.launchRequest.messageId}',
+      'launchRequest=${arg.launchRequest}',
       name: 'TimelineVM',
     );
     _repository = ref.read(conversationRepositoryProvider(arg.scope));
@@ -181,8 +180,8 @@ class ConversationTimelineViewModel
   Future<ConversationTimelineState> _loadInitial(
     LaunchRequest launchRequest,
   ) async {
-    switch (launchRequest.intent) {
-      case LaunchRequestIntent.latest:
+    switch (launchRequest) {
+      case LatestLaunchRequest():
         final messages = await _repository.loadLatestWindow(limit: _windowSize);
         return _buildState(
           windowStableKeys: messages.map((item) => item.stableKey).toList(),
@@ -190,9 +189,33 @@ class ConversationTimelineViewModel
           viewportPlacement: ConversationViewportPlacement.liveEdge,
           locatePlan: _latestLocatePlan(),
         );
-      case LaunchRequestIntent.unread:
-      case LaunchRequestIntent.message:
-        final anchorId = launchRequest.messageId!;
+      case UnreadLaunchRequest(:final unreadMessageId):
+        final anchorId = unreadMessageId;
+        final messages = await _repository.loadAroundMessage(
+          anchorId,
+          before: _windowSize ~/ 2,
+          after: _windowSize ~/ 2,
+        );
+        if (messages.isEmpty) {
+          final latest = await _repository.loadLatestWindow(limit: _windowSize);
+          return _buildState(
+            windowStableKeys: latest.map((item) => item.stableKey).toList(),
+            windowMode: ConversationWindowMode.liveLatest,
+            viewportPlacement: ConversationViewportPlacement.liveEdge,
+            infoMessage: 'Message unavailable',
+            locatePlan: _latestLocatePlan(),
+          );
+        }
+        return _buildState(
+          windowStableKeys: messages.map((item) => item.stableKey).toList(),
+          windowMode: ConversationWindowMode.anchoredTarget,
+          viewportPlacement: ConversationViewportPlacement.topPreferred,
+          anchorMessageId: anchorId,
+          unreadMarkerMessageId: anchorId,
+          locatePlan: _messageLocatePlan(anchorId),
+        );
+      case MessageLaunchRequest(:final messageId, :final highlight):
+        final anchorId = messageId;
         final messages = await _repository.loadAroundMessage(
           anchorId,
           before: _windowSize ~/ 2,
@@ -213,15 +236,10 @@ class ConversationTimelineViewModel
           windowMode: ConversationWindowMode.anchoredTarget,
           viewportPlacement: ConversationViewportPlacement.topPreferred,
           anchorMessageId: anchorId,
-          unreadMarkerMessageId: launchRequest.isUnread ? anchorId : null,
-          highlightedMessageId:
-              launchRequest.intent == LaunchRequestIntent.message &&
-                  launchRequest.highlight
-              ? anchorId
-              : null,
+          highlightedMessageId: highlight ? anchorId : null,
           locatePlan: _messageLocatePlan(anchorId),
         );
-        if (launchRequest.highlight) {
+        if (highlight) {
           _scheduleHighlightClear();
         }
         return nextState;

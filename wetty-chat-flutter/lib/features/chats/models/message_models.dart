@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'message_models.freezed.dart';
+
 int parseSnowflakeId(Object? value) {
   if (value is int) return value;
   if (value is String) return int.parse(value);
@@ -5,195 +9,120 @@ int parseSnowflakeId(Object? value) {
   throw FormatException('Invalid snowflake id: $value');
 }
 
-class Sender {
-  final int uid;
-  final String? name;
-  final String? avatarUrl;
-  final int gender;
-
-  const Sender({required this.uid, this.name, this.avatarUrl, this.gender = 0});
+@freezed
+abstract class Sender with _$Sender {
+  const factory Sender({
+    required int uid,
+    String? name,
+    String? avatarUrl,
+    @Default(0) int gender,
+  }) = _Sender;
 }
 
-class AttachmentItem {
-  final String id;
-  final String url;
-  final String kind;
-  final int size;
-  final String fileName;
-  final int? width;
-  final int? height;
+@freezed
+abstract class AttachmentItem with _$AttachmentItem {
+  const AttachmentItem._();
 
-  const AttachmentItem({
-    required this.id,
-    required this.url,
-    required this.kind,
-    required this.size,
-    required this.fileName,
-    this.width,
-    this.height,
-  });
+  const factory AttachmentItem({
+    required String id,
+    required String url,
+    required String kind,
+    required int size,
+    required String fileName,
+    int? width,
+    int? height,
+  }) = _AttachmentItem;
 
   bool get isImage => kind.startsWith('image/');
   bool get isVideo => kind.startsWith('video/');
   bool get isAudio => kind.startsWith('audio/');
 }
 
-class StickerSummary {
-  final String? emoji;
-
-  const StickerSummary({this.emoji});
+@freezed
+abstract class StickerSummary with _$StickerSummary {
+  const factory StickerSummary({
+    String? emoji,
+  }) = _StickerSummary;
 }
 
-class ReactionReactor {
-  final int uid;
-  final String? name;
-  final String? avatarUrl;
-
-  const ReactionReactor({required this.uid, this.name, this.avatarUrl});
-
-  @override
-  bool operator ==(Object other) =>
-      other is ReactionReactor &&
-      other.uid == uid &&
-      other.name == name &&
-      other.avatarUrl == avatarUrl;
-
-  @override
-  int get hashCode => Object.hash(uid, name, avatarUrl);
+@freezed
+abstract class ReactionReactor with _$ReactionReactor {
+  const factory ReactionReactor({
+    required int uid,
+    String? name,
+    String? avatarUrl,
+  }) = _ReactionReactor;
 }
 
-class ReactionSummary {
-  final String emoji;
-  final int count;
-  final bool? reactedByMe;
-  final List<ReactionReactor>? reactors;
-
-  const ReactionSummary({
-    required this.emoji,
-    required this.count,
-    this.reactedByMe,
-    this.reactors,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      other is ReactionSummary &&
-      other.emoji == emoji &&
-      other.count == count &&
-      other.reactedByMe == reactedByMe &&
-      _listEquals(other.reactors, reactors);
-
-  @override
-  int get hashCode => Object.hash(
-    emoji,
-    count,
-    reactedByMe,
-    Object.hashAll(reactors ?? const <ReactionReactor>[]),
-  );
+@freezed
+abstract class ReactionSummary with _$ReactionSummary {
+  const factory ReactionSummary({
+    required String emoji,
+    required int count,
+    bool? reactedByMe,
+    List<ReactionReactor>? reactors,
+  }) = _ReactionSummary;
 }
 
-class MentionInfo {
-  final int uid;
-  final String? username;
-
-  const MentionInfo({required this.uid, this.username});
+@freezed
+abstract class MentionInfo with _$MentionInfo {
+  const factory MentionInfo({
+    required int uid,
+    String? username,
+  }) = _MentionInfo;
 }
 
-class ReplyToMessage {
-  final int id;
-  final String? message;
-  final String messageType;
-  final StickerSummary? sticker;
-  final Sender sender;
-  final bool isDeleted;
-  final List<AttachmentItem> attachments;
-  final List<ReactionSummary> reactions;
-  final String? firstAttachmentKind;
-  final List<MentionInfo> mentions;
-
-  const ReplyToMessage({
-    required this.id,
-    this.message,
-    this.messageType = 'text',
-    this.sticker,
-    required this.sender,
-    required this.isDeleted,
-    this.attachments = const [],
-    this.reactions = const [],
-    this.firstAttachmentKind,
-    this.mentions = const [],
-  });
+@freezed
+abstract class ReplyToMessage with _$ReplyToMessage {
+  const factory ReplyToMessage({
+    required int id,
+    String? message,
+    @Default('text') String messageType,
+    StickerSummary? sticker,
+    required Sender sender,
+    @Default(false) bool isDeleted,
+    @Default([]) List<AttachmentItem> attachments,
+    @Default([]) List<ReactionSummary> reactions,
+    String? firstAttachmentKind,
+    @Default([]) List<MentionInfo> mentions,
+  }) = _ReplyToMessage;
 }
 
-class ThreadInfo {
-  final int replyCount;
-
-  const ThreadInfo({required this.replyCount});
+@freezed
+abstract class ThreadInfo with _$ThreadInfo {
+  const factory ThreadInfo({
+    required int replyCount,
+  }) = _ThreadInfo;
 }
 
-class MessageItem {
-  final int id;
-  final String? message;
-  final String messageType;
-  final StickerSummary? sticker;
-  final Sender sender;
-  final String chatId;
-  final DateTime? createdAt;
-  final bool isEdited;
-  final bool isDeleted;
-  final String clientGeneratedId;
-  final int? replyRootId;
-  final bool hasAttachments;
-  final ReplyToMessage? replyToMessage;
-  final List<AttachmentItem> attachments;
-  final List<ReactionSummary> reactions;
-  final List<MentionInfo> mentions;
-  final ThreadInfo? threadInfo;
-
-  const MessageItem({
-    required this.id,
-    this.message,
-    required this.messageType,
-    this.sticker,
-    required this.sender,
-    required this.chatId,
-    required this.createdAt,
-    required this.isEdited,
-    required this.isDeleted,
-    required this.clientGeneratedId,
-    this.replyRootId,
-    required this.hasAttachments,
-    this.replyToMessage,
-    this.attachments = const [],
-    this.reactions = const [],
-    this.mentions = const [],
-    this.threadInfo,
-  });
+@freezed
+abstract class MessageItem with _$MessageItem {
+  const factory MessageItem({
+    required int id,
+    String? message,
+    required String messageType,
+    StickerSummary? sticker,
+    required Sender sender,
+    required String chatId,
+    DateTime? createdAt,
+    @Default(false) bool isEdited,
+    @Default(false) bool isDeleted,
+    @Default('') String clientGeneratedId,
+    int? replyRootId,
+    @Default(false) bool hasAttachments,
+    ReplyToMessage? replyToMessage,
+    @Default([]) List<AttachmentItem> attachments,
+    @Default([]) List<ReactionSummary> reactions,
+    @Default([]) List<MentionInfo> mentions,
+    ThreadInfo? threadInfo,
+  }) = _MessageItem;
 }
 
-class ListMessagesResponse {
-  final List<MessageItem> messages;
-  final String? nextCursor;
-  final String? prevCursor;
-
-  const ListMessagesResponse({
-    required this.messages,
-    this.nextCursor,
-    this.prevCursor,
-  });
-}
-
-bool _listEquals<T>(List<T>? a, List<T>? b) {
-  if (identical(a, b)) {
-    return true;
-  }
-  if (a == null || b == null || a.length != b.length) {
-    return false;
-  }
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
+@freezed
+abstract class ListMessagesResponse with _$ListMessagesResponse {
+  const factory ListMessagesResponse({
+    required List<MessageItem> messages,
+    String? nextCursor,
+    String? prevCursor,
+  }) = _ListMessagesResponse;
 }

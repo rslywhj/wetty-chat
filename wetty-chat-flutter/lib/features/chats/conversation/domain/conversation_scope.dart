@@ -1,28 +1,29 @@
-class ConversationScope {
-  const ConversationScope._({required this.chatId, this.threadRootId});
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  const ConversationScope.chat(String chatId) : this._(chatId: chatId);
+part 'conversation_scope.freezed.dart';
 
-  const ConversationScope.thread(String chatId, String threadRootId)
-    : this._(chatId: chatId, threadRootId: threadRootId);
+@freezed
+abstract class ConversationScope with _$ConversationScope {
+  const ConversationScope._();
 
-  final String chatId;
-  final String? threadRootId;
+  const factory ConversationScope.chat({required String chatId}) = ChatScope;
 
-  bool get isThread => threadRootId != null;
+  const factory ConversationScope.thread({
+    required String chatId,
+    required String threadRootId,
+  }) = ThreadScope;
 
-  String get storageKey => isThread ? '$chatId::thread::$threadRootId' : chatId;
+  bool get isThread => this is ThreadScope;
 
-  @override
-  bool operator ==(Object other) {
-    return other is ConversationScope &&
-        other.chatId == chatId &&
-        other.threadRootId == threadRootId;
-  }
+  String? get threadRootId => switch (this) {
+    ThreadScope(:final threadRootId) => threadRootId,
+    _ => null,
+  };
 
-  @override
-  int get hashCode => Object.hash(chatId, threadRootId);
-
-  @override
-  String toString() => 'ConversationScope($storageKey)';
+  String get storageKey => switch (this) {
+    ChatScope(:final chatId) => chatId,
+    ThreadScope(:final chatId, :final threadRootId) =>
+      '$chatId::thread::$threadRootId',
+    _ => chatId,
+  };
 }

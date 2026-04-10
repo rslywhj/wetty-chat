@@ -238,10 +238,10 @@ class _ChatListRowBuilder extends ConsumerWidget {
     final lastMessage = chat.lastMessage;
     final draftText = ref
         .read(conversationDraftProvider)
-        .getDraft(ConversationScope.chat(chat.id));
+        .getDraft(ConversationScope.chat(chatId: chat.id));
 
-    final isMuted = chat.mutedUntil != null &&
-        chat.mutedUntil!.isAfter(DateTime.now());
+    final isMuted =
+        chat.mutedUntil != null && chat.mutedUntil!.isAfter(DateTime.now());
 
     return ChatListRow(
       chatName: chatName,
