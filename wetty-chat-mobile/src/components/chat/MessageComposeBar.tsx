@@ -260,20 +260,18 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
     useEffect(() => {
       if (!stickerPickerOpen) return;
 
-      const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      const handleClickOutside = (e: MouseEvent | TouchEvent) => {
         const target = e.target as HTMLElement;
         if (target.closest('ion-alert, ion-action-sheet, ion-modal, ion-backdrop, ion-toast')) return;
         if (stickerOverlayActiveRef.current) return;
-        if (containerRef.current && !containerRef.current.contains(target)) {
+        if (!target.closest('[data-sticker-picker]') && !target.closest('[data-sticker-btn]')) {
           setStickerPickerOpen(false);
         }
       };
 
-      document.addEventListener('mousedown', handlePointerDown);
-      document.addEventListener('touchstart', handlePointerDown, { passive: true });
+      document.addEventListener('click', handleClickOutside, { capture: true });
       return () => {
-        document.removeEventListener('mousedown', handlePointerDown);
-        document.removeEventListener('touchstart', handlePointerDown);
+        document.removeEventListener('click', handleClickOutside, { capture: true });
       };
     }, [stickerPickerOpen]);
 

@@ -1634,6 +1634,7 @@ export function ChatVirtualScroll({
     const observer = new ResizeObserver(() => {
       const nextHeight = container.clientHeight;
       if (nextHeight === previousHeight) return;
+      const heightDelta = previousHeight - nextHeight;
       previousHeight = nextHeight;
       setContainerHeight(nextHeight);
 
@@ -1641,9 +1642,13 @@ export function ChatVirtualScroll({
         setPhaseState('BOOTSTRAP');
       }
 
-      if (phaseRef.current === 'READY' && isAtBottomRef.current) {
-        scrollToBottomInternal();
-        scheduleBottomSettle();
+      if (phaseRef.current === 'READY') {
+        if (isAtBottomRef.current) {
+          scrollToBottomInternal();
+          scheduleBottomSettle();
+        } else if (heightDelta !== 0) {
+          container.scrollTop += heightDelta;
+        }
       }
     });
 

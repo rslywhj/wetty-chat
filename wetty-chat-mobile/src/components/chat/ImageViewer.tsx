@@ -551,7 +551,22 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: ImageViewerPr
   }
 
   return createPortal(
-    <div className={styles.overlay} onClick={handleDismissClick}>
+    <div
+      className={styles.overlay}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleDismissClick(e);
+      }}
+      onContextMenu={(e) => {
+        e.stopPropagation();
+      }}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+    >
       <div className={styles.viewer} ref={viewerRef}>
         <div className={styles.toolbar}>
           <button
@@ -618,6 +633,9 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: ImageViewerPr
                 className={styles.image}
                 alt={activeImage.fileName || t`Attachment large view`}
                 draggable={false}
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                }}
                 onLoad={(event) => {
                   const nextSize = {
                     width: event.currentTarget.naturalWidth,
@@ -652,6 +670,9 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: ImageViewerPr
                 src={activeImage.src}
                 className={styles.image}
                 draggable={false}
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                }}
                 onLoad={(event) => {
                   const nextSize = {
                     width: event.currentTarget.videoWidth,

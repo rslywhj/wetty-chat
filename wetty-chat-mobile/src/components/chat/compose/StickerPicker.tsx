@@ -275,7 +275,7 @@ export function StickerPicker({ isOpen, onStickerSelect, overlayActiveRef }: Sti
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-sticker-picker>
       <input
         ref={fileInputRef}
         type="file"

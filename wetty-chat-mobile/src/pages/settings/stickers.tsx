@@ -62,6 +62,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const packOrder = useSelector(selectStickerPackOrder);
   const ownedPackIds = useMemo(() => new Set(ownedPacks.map((pack) => pack.id)), [ownedPacks]);
   const orderedPacks = useMemo(() => sortStickerPacksByPreference(allPacks, packOrder), [allPacks, packOrder]);
+  const lastReorderTimeRef = useRef(0);
 
   useEffect(() => {
     if (listRef.current) {
@@ -97,6 +98,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   }, [loadPacks]);
 
   const handleReorder = (event: CustomEvent<ItemReorderEventDetail>) => {
+    lastReorderTimeRef.current = Date.now();
     const toIndex = event.detail.to;
     const newItems = event.detail.complete(orderedPacks);
     setAllPacks(newItems);
@@ -127,13 +129,27 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
     void dispatch(syncStickerPackOrder([updatedItem]));
   };
 
-  const handleOpenPack = (packId: string) => {
-    if (onOpenPack) {
-      onOpenPack(packId);
-      return;
-    }
-    history.push(`/settings/stickers/${packId}`);
-  };
+  const handleOpenPack = useCallback(
+    (packId: string) => {
+      if (onOpenPack) {
+        onOpenPack(packId);
+        return;
+      }
+      history.push(`/settings/stickers/${packId}`);
+    },
+    [onOpenPack, history],
+  );
+
+  const guardedHandleOpenPack = useCallback(
+    (packId: string) => {
+      // Prevent ghost click immediately after reordering
+      if (Date.now() - lastReorderTimeRef.current < 300) {
+        return;
+      }
+      handleOpenPack(packId);
+    },
+    [handleOpenPack],
+  );
 
   const handleCreatePack = () => {
     presentAlert({
@@ -211,7 +227,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
                 const isOwned = ownedPackIds.has(pack.id);
                 return (
                   <React.Fragment key={pack.id}>
-                    <IonItem button detail={false} onClick={() => handleOpenPack(pack.id)}>
+                    <IonItem button detail={false} onClick={() => guardedHandleOpenPack(pack.id)}>
                       <span
                         slot="start"
                         style={{

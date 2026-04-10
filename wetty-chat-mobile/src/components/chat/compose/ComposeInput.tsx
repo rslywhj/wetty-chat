@@ -98,6 +98,7 @@ export function ComposeInput({
         aria-label={t`Sticker`}
         aria-pressed={isStickerActive}
         onClick={onStickerPress}
+        data-sticker-btn
       >
         <IonIcon icon={happyOutline} />
       </button>
