@@ -32,17 +32,9 @@ enum WaveformExtractor {
 
     private static func extractFromAVAudioFile(url: URL) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)
-        guard let format = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: file.fileFormat.sampleRate,
-            channels: 1,
-            interleaved: false
-        ) else {
-            throw WaveformError.failedToCreateBuffer
-        }
-
+        let processingFormat = file.processingFormat
         let frameCount = AVAudioFrameCount(file.length)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: processingFormat, frameCapacity: frameCount) else {
             throw WaveformError.failedToCreateBuffer
         }
 
