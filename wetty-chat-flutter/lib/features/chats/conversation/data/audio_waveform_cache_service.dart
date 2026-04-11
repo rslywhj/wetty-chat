@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:just_waveform/just_waveform.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:voice_message/voice_message.dart';
 
 import '../../../../core/providers/shared_preferences_provider.dart';
 import '../../models/message_models.dart';
@@ -171,61 +169,17 @@ class AudioWaveformCacheService {
     required String audioFilePath,
     Duration? duration,
   }) async {
-    final tempDirectory = await getTemporaryDirectory();
-    final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final waveformFile = File('${tempDirectory.path}/voice-$timestamp.wave');
-
-    try {
-      Waveform? waveform;
-      await for (final progress in JustWaveform.extract(
-        audioInFile: File(audioFilePath),
-        waveOutFile: waveformFile,
-        zoom: const WaveformZoom.pixelsPerSecond(96),
-      )) {
-        waveform = progress.waveform ?? waveform;
-      }
-
-      if (waveform == null || waveform.length <= 0) {
-        return null;
-      }
-
-      final resolvedDuration = duration ?? waveform.duration;
-      final samples = _compressWaveform(waveform: waveform);
-      if (samples.isEmpty) {
-        return null;
-      }
-
-      return AudioWaveformSnapshot(
-        duration: resolvedDuration,
-        samples: samples,
-      );
-    } finally {
-      if (await waveformFile.exists()) {
-        await waveformFile.delete();
-      }
+    final samples = await VoiceMessage.extractWaveform(
+      path: audioFilePath,
+      samplesCount: targetBarCount,
+    );
+    if (samples.isEmpty) {
+      return null;
     }
-  }
 
-  List<int> _compressWaveform({required Waveform waveform}) {
-    final maxAmplitude = waveform.flags == 0 ? 32767.0 : 127.0;
-
-    return normalizeSampleCount(
-      List<int>.generate(targetBarCount, (index) {
-        final start = (index * waveform.length / targetBarCount).floor();
-        final end = math.max(
-          start + 1,
-          ((index + 1) * waveform.length / targetBarCount).ceil(),
-        );
-
-        var peak = 0;
-        for (var pixelIndex = start; pixelIndex < end; pixelIndex++) {
-          final minSample = waveform.getPixelMin(pixelIndex).abs();
-          final maxSample = waveform.getPixelMax(pixelIndex).abs();
-          peak = math.max(peak, math.max(minSample, maxSample));
-        }
-
-        return ((peak / maxAmplitude) * 255).round().clamp(0, 255);
-      }),
+    return AudioWaveformSnapshot(
+      duration: duration ?? Duration.zero,
+      samples: samples,
     );
   }
 
