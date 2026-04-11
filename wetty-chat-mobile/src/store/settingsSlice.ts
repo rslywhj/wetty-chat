@@ -31,6 +31,8 @@ export interface SettingsState {
   locale: string | null;
   messageFontSize: ChatFontSizeOption;
   showAllTab: boolean;
+  pinnedReactions: string[];
+  recentReactions: string[];
 }
 
 export function isChatFontSizeOption(value: unknown): value is ChatFontSizeOption {
@@ -42,6 +44,8 @@ function persistSettings(state: SettingsState) {
     locale: state.locale,
     messageFontSize: state.messageFontSize,
     showAllTab: state.showAllTab,
+    pinnedReactions: state.pinnedReactions,
+    recentReactions: state.recentReactions,
   });
 }
 
@@ -58,6 +62,8 @@ const defaultSettings: SettingsState = {
   locale: null,
   messageFontSize: defaultChatFontSize,
   showAllTab: true,
+  pinnedReactions: ['👍'],
+  recentReactions: ['❤️', '😂', '😮', '😢', '🎉'],
 };
 
 export function hydrateSettings(saved: Partial<SettingsState> | null | undefined): SettingsState {
@@ -65,6 +71,8 @@ export function hydrateSettings(saved: Partial<SettingsState> | null | undefined
     ...defaultSettings,
     ...saved,
     messageFontSize: isChatFontSizeOption(saved?.messageFontSize) ? saved.messageFontSize : defaultChatFontSize,
+    pinnedReactions: saved?.pinnedReactions ?? defaultSettings.pinnedReactions,
+    recentReactions: saved?.recentReactions ?? defaultSettings.recentReactions,
   };
 }
 
@@ -85,13 +93,27 @@ const settingsSlice = createSlice({
       state.showAllTab = action.payload;
       persistSettings(state);
     },
+    setPinnedReactions(state, action: PayloadAction<string[]>) {
+      state.pinnedReactions = action.payload.slice(0, 5);
+      persistSettings(state);
+    },
+    addRecentReaction(state, action: PayloadAction<string>) {
+      const emoji = action.payload;
+      if (!state.pinnedReactions.includes(emoji)) {
+        state.recentReactions = [emoji, ...state.recentReactions.filter((r) => r !== emoji)].slice(0, 30);
+        persistSettings(state);
+      }
+    },
   },
 });
 
-export const { setLocale, setMessageFontSize, setShowAllTab } = settingsSlice.actions;
+export const { setLocale, setMessageFontSize, setShowAllTab, setPinnedReactions, addRecentReaction } =
+  settingsSlice.actions;
 export const selectLocale = (state: RootState) => state.settings.locale;
 export const selectEffectiveLocale = (state: RootState) => state.settings.locale ?? detectLocale();
 export const selectMessageFontSize = (state: RootState) => state.settings.messageFontSize;
 export const selectShowAllTab = (state: RootState) => state.settings.showAllTab;
+export const selectPinnedReactions = (state: RootState) => state.settings.pinnedReactions;
+export const selectRecentReactions = (state: RootState) => state.settings.recentReactions;
 export const selectChatFontSizeStyle = (state: RootState) => getChatFontSizeStyle(state.settings.messageFontSize);
 export default settingsSlice.reducer;

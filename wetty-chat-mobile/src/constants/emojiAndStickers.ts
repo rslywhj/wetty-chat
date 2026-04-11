@@ -1,0 +1,2 @@
+export const STICKER_AUTO_SORT_LIMIT = 20;
+export const MAX_REACTIONS_PER_USER_PER_MESSAGE = 20;

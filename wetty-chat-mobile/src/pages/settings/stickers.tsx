@@ -24,9 +24,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addOutline, cubeOutline } from 'ionicons/icons';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
-import { STICKER_AUTO_SORT_LIMIT } from '@/constants/stickers';
+import { STICKER_AUTO_SORT_LIMIT } from '@/constants/emojiAndStickers';
 import { BackButton } from '@/components/BackButton';
 import { StickerImage } from '@/components/shared/StickerImage';
+import { EmojiInput } from '@/components/shared/EmojiInput';
+import { selectPinnedReactions, setPinnedReactions } from '@/store/settingsSlice';
+import { extractEmojiSequences } from '@/utils/emojiSequences';
 import {
   createStickerPack,
   getOwnedStickerPacks,
@@ -60,6 +63,7 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
   const listRef = useRef<HTMLIonReorderGroupElement>(null);
   const autoSort = useSelector(selectStickerAutoSortEnabled);
   const packOrder = useSelector(selectStickerPackOrder);
+  const pinnedReactions = useSelector(selectPinnedReactions);
   const ownedPackIds = useMemo(() => new Set(ownedPacks.map((pack) => pack.id)), [ownedPacks]);
   const orderedPacks = useMemo(() => sortStickerPacksByPreference(allPacks, packOrder), [allPacks, packOrder]);
   const lastReorderTimeRef = useRef(0);
@@ -212,6 +216,25 @@ export function StickerSettingsCore({ backAction, onOpenPack }: StickerSettingsC
           </IonItem>
         </IonList>
 
+        <IonList inset>
+          <IonItem style={{ paddingBottom: '12px', paddingTop: '12px' }}>
+            <div style={{ width: '100%' }}>
+              <EmojiInput
+                label={t`Pinned Reactions`}
+                placeholder={t`Choose up to 5 emojis`}
+                value={pinnedReactions.join('')}
+                onChange={(val) => {
+                  const newReactions = extractEmojiSequences(val);
+                  dispatch(setPinnedReactions(newReactions));
+                }}
+                maxEmojiCount={5}
+              />
+              <p style={{ fontSize: '0.85rem', color: 'var(--ion-color-medium)', margin: '8px 0 0 0' }}>
+                <Trans>Choose up to 5 default pinned emojis for quick reactions</Trans>
+              </p>
+            </div>
+          </IonItem>
+        </IonList>
         <IonList inset>
           <IonItem button detail={false} onClick={handleCreatePack}>
             <IonIcon aria-hidden="true" icon={addOutline} slot="start" color="primary" />

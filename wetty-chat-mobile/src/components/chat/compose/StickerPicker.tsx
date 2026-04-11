@@ -21,7 +21,7 @@ import {
   unfavoriteSticker,
 } from '@/api/stickers';
 import { useAddSticker } from '@/hooks/useAddSticker';
-import { STICKER_AUTO_SORT_LIMIT } from '@/constants/stickers';
+import { STICKER_AUTO_SORT_LIMIT } from '@/constants/emojiAndStickers';
 import type { AppDispatch } from '@/store/index';
 import {
   selectStickerAutoSortEnabled,

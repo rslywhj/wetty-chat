@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { IonIcon } from '@ionic/react';
+import { addOutline } from 'ionicons/icons';
+import EmojiPicker, { EmojiStyle, Theme, type EmojiClickData } from 'emoji-picker-react';
 import type { Attachment } from '@/api/messages';
 import type { PreviewMessage } from '@/utils/messagePreview';
 import { ChatBubbleBase } from './messages/ChatBubbleBase';
@@ -70,7 +72,18 @@ export function MessageOverlay(props: MessageOverlayProps) {
   } = props;
   const isSticker = props.messageType === 'sticker';
   const contentRef = useRef<HTMLDivElement>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData) => {
+      if (reactions) {
+        reactions.onReact(emojiData.emoji);
+      }
+      setIsEmojiPickerOpen(false);
+      onClose();
+    },
+    [reactions, onClose],
+  );
   // Compute position after first render so we know the full content dimensions
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -322,6 +335,16 @@ export function MessageOverlay(props: MessageOverlayProps) {
                 {emoji}
               </button>
             ))}
+            <button
+              type="button"
+              className={styles.reactionBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEmojiPickerOpen(!isEmojiPickerOpen);
+              }}
+            >
+              <IonIcon icon={addOutline} style={{ color: 'var(--ion-text-color)' }} />
+            </button>
           </div>
         )}
 
@@ -348,6 +371,35 @@ export function MessageOverlay(props: MessageOverlayProps) {
           ))}
         </div>
       </div>
+
+      {isEmojiPickerOpen && (
+        <div
+          data-emoji-picker="true"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'var(--ion-background-color, #fff)',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.28)',
+            zIndex: 100000,
+            overflow: 'hidden',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            theme={Theme.AUTO}
+            emojiStyle={EmojiStyle.NATIVE}
+            lazyLoadEmojis
+            previewConfig={{ showPreview: false }}
+            skinTonesDisabled
+            width={Math.min(window.innerWidth - 32, 350)}
+            height={Math.min(window.innerHeight - 32, 400)}
+          />
+        </div>
+      )}
     </div>
   );
 

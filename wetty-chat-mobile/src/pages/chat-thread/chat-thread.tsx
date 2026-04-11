@@ -116,8 +116,8 @@ import { listPins, createPin, deletePin } from '@/api/pins';
 import { setPins, selectPinsForChat, selectPinsLoaded } from '@/store/pinsSlice';
 import { PinBanner } from '@/components/chat/PinBanner';
 import { PinListModal } from '@/components/chat/PinListModal';
-
-const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+import { selectPinnedReactions, selectRecentReactions, addRecentReaction } from '@/store/settingsSlice';
+import { MAX_REACTIONS_PER_USER_PER_MESSAGE } from '@/constants/emojiAndStickers';
 
 function generateClientId(): string {
   return `cg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -202,6 +202,11 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const storedName = useSelector((state: RootState) => selectChatName(state, chatId));
   const isMuted = useSelector((state: RootState) => selectIsChatMuted(state, chatId));
   const lastReadMessageId = useSelector((state: RootState) => selectChatLastReadMessageId(state, chatId));
+  const pinnedReactions = useSelector(selectPinnedReactions);
+  const recentReactions = useSelector(selectRecentReactions);
+  const QUICK_REACTION_EMOJIS = useMemo(() => {
+    return [...pinnedReactions, ...recentReactions.filter((r) => !pinnedReactions.includes(r))].slice(0, 5);
+  }, [pinnedReactions, recentReactions]);
   const chatName = threadId ? t`Thread` : (storedName ?? t`Loading...`);
 
   useEffect(() => {
@@ -828,17 +833,23 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           .filter((r) => r.count > 0);
         deleteReaction(chatId, msg.id, emoji).catch(() => {});
       } else {
+        const myReactionsCount = existing.filter((r) => r.reactedByMe).length;
+        if (myReactionsCount >= MAX_REACTIONS_PER_USER_PER_MESSAGE) {
+          showToast(t`You can only add up to ${MAX_REACTIONS_PER_USER_PER_MESSAGE} reactions`, 2000);
+          return;
+        }
         const found = existing.find((r) => r.emoji === emoji);
         if (found) {
           optimistic = existing.map((r) => (r.emoji === emoji ? { ...r, count: r.count + 1, reactedByMe: true } : r));
         } else {
           optimistic = [...existing, { emoji, count: 1, reactedByMe: true }];
         }
+        dispatch(addRecentReaction(emoji));
         putReaction(chatId, msg.id, emoji).catch(() => {});
       }
       dispatch(reactionsUpdated({ chatId, messageId: msg.id, reactions: optimistic }));
     },
-    [chatId, dispatch],
+    [chatId, dispatch, showToast],
   );
 
   const jumpToMessage = useCallback(
