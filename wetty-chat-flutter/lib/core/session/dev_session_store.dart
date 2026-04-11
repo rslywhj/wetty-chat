@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../network/dio_client.dart';
 import '../network/api_config.dart';
 import '../providers/shared_preferences_provider.dart';
 
@@ -63,29 +64,14 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
   static const String _jwtTokenStorageKey = 'auth_session_jwt_token';
 
   late SharedPreferences _prefs;
-
-  /// Plain Dio instance without auth interceptors.
-  /// The auth store is the source of auth state, so it cannot depend on the
-  /// interceptor-equipped [dioProvider] without creating a circular dependency.
-  late Dio _dio;
+  late AuthBootstrapApi _authApi;
 
   Future<void>? _bootstrapFuture;
 
   @override
   AuthSessionState build() {
     _prefs = ref.read(sharedPreferencesProvider);
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: apiBaseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-    ref.onDispose(_dio.close);
+    _authApi = ref.read(authBootstrapApiProvider);
     final developerUserId = _prefs.getInt(_userIdStorageKey) ?? defaultUserId;
     final jwtToken = _prefs.getString(_jwtTokenStorageKey);
     return AuthSessionState(
@@ -239,6 +225,27 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
   }
 
   Future<String?> _fetchAuthToken(Map<String, String> authHeaders) async {
+    return _authApi.fetchAuthToken(authHeaders);
+  }
+
+  Future<_MeResponse?> _fetchMe(Map<String, String> authHeaders) async {
+    final me = await _authApi.fetchMe(authHeaders);
+    return me == null ? null : _MeResponse(me.uid);
+  }
+}
+
+class AuthBootstrapMe {
+  const AuthBootstrapMe(this.uid);
+
+  final int uid;
+}
+
+class AuthBootstrapApi {
+  const AuthBootstrapApi(this._dio);
+
+  final Dio _dio;
+
+  Future<String?> fetchAuthToken(Map<String, String> authHeaders) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/users/auth-token',
@@ -254,7 +261,7 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
     }
   }
 
-  Future<_MeResponse?> _fetchMe(Map<String, String> authHeaders) async {
+  Future<AuthBootstrapMe?> fetchMe(Map<String, String> authHeaders) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/users/me',
@@ -264,7 +271,7 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
       if (uid is! int || uid <= 0) {
         return null;
       }
-      return _MeResponse(uid);
+      return AuthBootstrapMe(uid);
     } on DioException {
       return null;
     }
@@ -281,6 +288,32 @@ final authSessionProvider =
     NotifierProvider<AuthSessionNotifier, AuthSessionState>(
       AuthSessionNotifier.new,
     );
+
+final authBootstrapDioProvider = Provider<Dio>((ref) {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: apiBaseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ),
+  );
+
+  if (kDebugMode) {
+    dio.interceptors.add(DebugLogInterceptor());
+  }
+
+  ref.onDispose(dio.close);
+  return dio;
+});
+
+final authBootstrapApiProvider = Provider<AuthBootstrapApi>((ref) {
+  final dio = ref.read(authBootstrapDioProvider);
+  return AuthBootstrapApi(dio);
+});
 
 final devSessionProvider = Provider<int>((ref) {
   return ref.watch(authSessionProvider).currentUserId;

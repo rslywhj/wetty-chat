@@ -1,9 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:chahua/core/providers/http_client_provider.dart';
 import 'package:chahua/core/providers/shared_preferences_provider.dart';
 import 'package:chahua/core/session/dev_session_store.dart';
 
@@ -18,9 +16,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        httpClientProvider.overrideWithValue(
-          MockClient((request) async => http.Response('unauthorized', 401)),
-        ),
+        authBootstrapApiProvider.overrideWithValue(_FakeAuthBootstrapApi()),
       ],
     );
   });
@@ -46,23 +42,23 @@ void main() {
   });
 
   test('loginWithJwt stores jwt session and current user id', () async {
-    final client = MockClient((request) async {
-      if (request.url.path.endsWith('/users/auth-token')) {
-        expect(request.headers['authorization'], 'Bearer test-token');
-        return http.Response('{"token":"server-token"}', 200);
-      }
-      if (request.url.path.endsWith('/users/me')) {
-        expect(request.headers['authorization'], 'Bearer server-token');
-        return http.Response('{"uid":7}', 200);
-      }
-      return http.Response('not found', 404);
-    });
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(
           await SharedPreferences.getInstance(),
         ),
-        httpClientProvider.overrideWithValue(client),
+        authBootstrapApiProvider.overrideWithValue(
+          _FakeAuthBootstrapApi(
+            onFetchAuthToken: (headers) {
+              expect(headers['Authorization'], 'Bearer test-token');
+              return 'server-token';
+            },
+            onFetchMe: (headers) {
+              expect(headers['Authorization'], 'Bearer server-token');
+              return const AuthBootstrapMe(7);
+            },
+          ),
+        ),
       ],
     );
 
@@ -77,20 +73,20 @@ void main() {
   });
 
   test('bootstrap falls back to dev header mode when jwt is absent', () async {
-    final client = MockClient((request) async {
-      if (request.url.path.endsWith('/users/auth-token')) {
-        expect(request.headers['x-user-id'], '1');
-        expect(request.headers['x-client-id'], '1');
-        return http.Response('{"token":"dev-token"}', 200);
-      }
-      return http.Response('not found', 404);
-    });
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(
           await SharedPreferences.getInstance(),
         ),
-        httpClientProvider.overrideWithValue(client),
+        authBootstrapApiProvider.overrideWithValue(
+          _FakeAuthBootstrapApi(
+            onFetchAuthToken: (headers) {
+              expect(headers['X-User-Id'], '1');
+              expect(headers['X-Client-Id'], '1');
+              return 'dev-token';
+            },
+          ),
+        ),
       ],
     );
 
@@ -114,11 +110,13 @@ void main() {
       container = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          httpClientProvider.overrideWithValue(
-            MockClient((request) async {
-              requests.add(request.url);
-              return http.Response('unauthorized', 401);
-            }),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onFetchAuthToken: (headers) {
+                requests.add(Uri(path: '/users/auth-token'));
+                return null;
+              },
+            ),
           ),
         ],
       );
@@ -142,10 +140,10 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(
           await SharedPreferences.getInstance(),
         ),
-        httpClientProvider.overrideWithValue(
-          MockClient((request) async {
-            throw Exception('network failed');
-          }),
+        authBootstrapApiProvider.overrideWithValue(
+          _FakeAuthBootstrapApi(
+            onFetchAuthToken: (headers) => throw Exception('network failed'),
+          ),
         ),
       ],
     );
@@ -161,19 +159,19 @@ void main() {
     'bootstrap can run again after a previous bootstrap completed',
     () async {
       var devProbeCount = 0;
-      final client = MockClient((request) async {
-        if (request.url.path.endsWith('/users/auth-token')) {
-          devProbeCount++;
-          return http.Response('unauthorized', 401);
-        }
-        return http.Response('not found', 404);
-      });
       container = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(
             await SharedPreferences.getInstance(),
           ),
-          httpClientProvider.overrideWithValue(client),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onFetchAuthToken: (headers) {
+                devProbeCount++;
+                return null;
+              },
+            ),
+          ),
         ],
       );
 
@@ -183,4 +181,24 @@ void main() {
       expect(devProbeCount, 2);
     },
   );
+}
+
+class _FakeAuthBootstrapApi extends AuthBootstrapApi {
+  _FakeAuthBootstrapApi({this.onFetchAuthToken, this.onFetchMe})
+    : super(_noopDio);
+
+  final String? Function(Map<String, String> headers)? onFetchAuthToken;
+  final AuthBootstrapMe? Function(Map<String, String> headers)? onFetchMe;
+
+  static final Dio _noopDio = Dio();
+
+  @override
+  Future<String?> fetchAuthToken(Map<String, String> authHeaders) async {
+    return onFetchAuthToken?.call(authHeaders);
+  }
+
+  @override
+  Future<AuthBootstrapMe?> fetchMe(Map<String, String> authHeaders) async {
+    return onFetchMe?.call(authHeaders);
+  }
 }

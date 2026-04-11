@@ -20,7 +20,7 @@ void main() {
     });
 
     testWidgets(
-      'outgoing metadata width is larger than incoming metadata width',
+      'waveform width dominates when metadata width stays below the waveform row',
       (tester) async {
         late double incomingWidth;
         late double outgoingWidth;
@@ -60,7 +60,8 @@ void main() {
           },
         );
 
-        expect(outgoingWidth, greaterThan(incomingWidth));
+        expect(incomingWidth, closeTo(154, 0.5));
+        expect(outgoingWidth, greaterThanOrEqualTo(incomingWidth));
       },
     );
   });
