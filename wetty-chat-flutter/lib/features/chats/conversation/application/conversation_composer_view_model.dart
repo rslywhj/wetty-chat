@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:voice_message/voice_message.dart';
+
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/session/dev_session_store.dart';
 import '../../list/application/chat_list_view_model.dart';
@@ -832,13 +834,6 @@ class ConversationComposerViewModel
       return;
     }
 
-    final platformFile = PlatformFile(
-      name: audioDraft.fileName,
-      size: audioDraft.sizeBytes,
-      path: audioDraft.path,
-      readStream: File(audioDraft.path).openRead(),
-    );
-
     state = state.copyWith(
       audioDraft: audioDraft.copyWith(
         phase: ComposerAudioDraftPhase.uploading,
@@ -846,12 +841,56 @@ class ConversationComposerViewModel
       ),
     );
 
+    // On iOS/macOS, convert M4A recording to OGG/Opus before upload.
+    final ComposerAudioDraft uploadDraft;
+    String? oggPath;
+    if (Platform.isIOS || Platform.isMacOS) {
+      oggPath = audioDraft.path.replaceAll(RegExp(r'\.m4a$'), '.ogg');
+      try {
+        await VoiceMessage.convertM4aToOgg(
+          srcPath: audioDraft.path,
+          destPath: oggPath,
+        );
+      } catch (_) {
+        state = state.copyWith(
+          audioDraft: audioDraft.copyWith(
+            phase: ComposerAudioDraftPhase.recorded,
+            progress: 0,
+          ),
+        );
+        throw const ComposerAudioException(
+          ComposerAudioErrorCode.uploadFailed,
+        );
+      }
+      final oggFile = File(oggPath);
+      final oggStat = await oggFile.stat();
+      final oggFileName = audioDraft.fileName.replaceAll(
+        RegExp(r'\.m4a$'),
+        '.ogg',
+      );
+      uploadDraft = audioDraft.copyWith(
+        path: oggPath,
+        fileName: oggFileName,
+        mimeType: 'audio/ogg',
+        sizeBytes: oggStat.size,
+      );
+    } else {
+      uploadDraft = audioDraft;
+    }
+
+    final platformFile = PlatformFile(
+      name: uploadDraft.fileName,
+      size: uploadDraft.sizeBytes,
+      path: uploadDraft.path,
+      readStream: File(uploadDraft.path).openRead(),
+    );
+
     late final UploadUrlResponse uploadInfo;
     try {
       uploadInfo = await _attachmentService.requestUploadUrl(
-        filename: audioDraft.fileName,
-        contentType: audioDraft.mimeType,
-        size: audioDraft.sizeBytes,
+        filename: uploadDraft.fileName,
+        contentType: uploadDraft.mimeType,
+        size: uploadDraft.sizeBytes,
       );
       await _attachmentService.uploadFileToS3(
         uploadUrl: uploadInfo.uploadUrl,
@@ -876,6 +915,10 @@ class ConversationComposerViewModel
         ),
       );
       throw const ComposerAudioException(ComposerAudioErrorCode.uploadFailed);
+    } finally {
+      if (oggPath != null) {
+        _deleteFileIfExists(oggPath);
+      }
     }
 
     final currentUserId = ref.read(authSessionProvider).currentUserId;
@@ -887,7 +930,7 @@ class ConversationComposerViewModel
       text: '',
       messageType: 'audio',
       attachments: [
-        audioDraft.toAttachmentItem(attachmentId: uploadInfo.attachmentId),
+        uploadDraft.toAttachmentItem(attachmentId: uploadInfo.attachmentId),
       ],
       clientGeneratedId: clientGeneratedId,
       replyToId: mode is ComposerReplying ? mode.message.serverMessageId : null,

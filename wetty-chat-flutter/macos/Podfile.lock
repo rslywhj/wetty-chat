@@ -1,18 +1,10 @@
 PODS:
   - audio_session (0.0.1):
     - FlutterMacOS
-  - ffmpeg_kit_flutter_new_audio (7.1.1):
-    - ffmpeg_kit_flutter_new_audio/audio (= 7.1.1)
-    - FlutterMacOS
-  - ffmpeg_kit_flutter_new_audio/audio (7.1.1):
-    - FlutterMacOS
   - file_picker (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - just_audio (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - just_waveform (0.0.1):
     - Flutter
     - FlutterMacOS
   - libogg (1.3.5)
@@ -35,11 +27,9 @@ PODS:
 
 DEPENDENCIES:
   - audio_session (from `Flutter/ephemeral/.symlinks/plugins/audio_session/macos`)
-  - ffmpeg_kit_flutter_new_audio (from `Flutter/ephemeral/.symlinks/plugins/ffmpeg_kit_flutter_new_audio/macos`)
   - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - just_audio (from `Flutter/ephemeral/.symlinks/plugins/just_audio/darwin`)
-  - just_waveform (from `Flutter/ephemeral/.symlinks/plugins/just_waveform/darwin`)
   - record_macos (from `Flutter/ephemeral/.symlinks/plugins/record_macos/macos`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
@@ -54,16 +44,12 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   audio_session:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_session/macos
-  ffmpeg_kit_flutter_new_audio:
-    :path: Flutter/ephemeral/.symlinks/plugins/ffmpeg_kit_flutter_new_audio/macos
   file_picker:
     :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
   just_audio:
     :path: Flutter/ephemeral/.symlinks/plugins/just_audio/darwin
-  just_waveform:
-    :path: Flutter/ephemeral/.symlinks/plugins/just_waveform/darwin
   record_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/record_macos/macos
   shared_preferences_foundation:
@@ -77,11 +63,9 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
-  ffmpeg_kit_flutter_new_audio: d3c98512bcf22c530b56262ac7969a62f3dd60b6
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
-  just_waveform: be2cb6dec86096cb972bf8b73c893fe16bf1cff4
   libogg: a355eccc76b1ec82b20f97a9f9d78a3683d28371
   libopus: ad5f060dcb8f30f139777244d70f9111f1c80863
   record_macos: 7f227161b93c49e7e34fe681c5891c8622c8cc8b
