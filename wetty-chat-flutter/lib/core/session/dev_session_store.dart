@@ -7,6 +7,9 @@ import '../network/dio_client.dart';
 import '../network/api_config.dart';
 import '../providers/shared_preferences_provider.dart';
 
+const String _credentialLoginUrl =
+    'https://www.shireyishunjian.com/main/shireyishunjian-telegram-api/chahua_login.php';
+
 enum AuthBootstrapStatus { bootstrapping, authenticated, unauthenticated }
 
 enum AuthSessionMode { none, devHeader, jwt }
@@ -106,6 +109,19 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
     final developerUserId = _prefs.getInt(_userIdStorageKey) ?? defaultUserId;
 
     try {
+      final devHeaders = legacyApiAuthHeadersForUser(developerUserId);
+      final devToken = await _fetchAuthToken(devHeaders);
+      if (devToken != null) {
+        state = AuthSessionState(
+          status: AuthBootstrapStatus.authenticated,
+          mode: AuthSessionMode.devHeader,
+          developerUserId: developerUserId,
+          currentUserId: developerUserId,
+          jwtToken: null,
+        );
+        return;
+      }
+
       final persistedToken = _prefs.getString(_jwtTokenStorageKey);
       if (persistedToken != null && persistedToken.trim().isNotEmpty) {
         final normalizedToken = await _validateJwtToken(persistedToken);
@@ -126,19 +142,6 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
           }
         }
         await _prefs.remove(_jwtTokenStorageKey);
-      }
-
-      final devHeaders = legacyApiAuthHeadersForUser(developerUserId);
-      final devToken = await _fetchAuthToken(devHeaders);
-      if (devToken != null) {
-        state = AuthSessionState(
-          status: AuthBootstrapStatus.authenticated,
-          mode: AuthSessionMode.devHeader,
-          developerUserId: developerUserId,
-          currentUserId: developerUserId,
-          jwtToken: null,
-        );
-        return;
       }
     } catch (error, stackTrace) {
       debugPrint('[auth:bootstrap] exception during bootstrap: $error');
@@ -161,7 +164,28 @@ class AuthSessionNotifier extends Notifier<AuthSessionState> {
       throw Exception('Enter a JWT token.');
     }
 
-    final normalizedToken = await _validateJwtToken(normalizedInput);
+    await _completeJwtLogin(normalizedInput);
+  }
+
+  Future<void> loginWithCredentials(String username, String password) async {
+    final normalizedUsername = username.trim();
+    if (normalizedUsername.isEmpty || password.isEmpty) {
+      throw Exception('Enter username and password.');
+    }
+
+    final jwtToken = await _authApi.loginWithCredentials(
+      username: normalizedUsername,
+      password: password,
+    );
+    if (jwtToken == null) {
+      throw Exception('Incorrect username or password.');
+    }
+
+    await _completeJwtLogin(jwtToken);
+  }
+
+  Future<void> _completeJwtLogin(String token) async {
+    final normalizedToken = await _validateJwtToken(token.trim());
     if (normalizedToken == null) {
       throw Exception('Invalid JWT token.');
     }
@@ -272,6 +296,33 @@ class AuthBootstrapApi {
         return null;
       }
       return AuthBootstrapMe(uid);
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<String?> loginWithCredentials({
+    required String username,
+    required String password,
+  }) async {
+    final encodedBody =
+        'username=${Uri.encodeQueryComponent(username)}'
+        '&password=${Uri.encodeQueryComponent(password)}';
+    try {
+      final response = await _dio.post<String>(
+        _credentialLoginUrl,
+        data: encodedBody,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.plain,
+          headers: <String, String>{'Accept': 'text/plain'},
+        ),
+      );
+      final token = response.data?.trim();
+      if (token == null || token.isEmpty) {
+        return null;
+      }
+      return token;
     } on DioException {
       return null;
     }

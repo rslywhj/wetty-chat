@@ -122,8 +122,8 @@ class _DevSessionSettingsPageState
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'The Flutter app now supports a temporary JWT session and the '
-              'existing developer UID session. Changing the developer UID '
+              'The Flutter app supports a stored JWT session after login and '
+              'the existing developer UID session. Changing the developer UID '
               'applies immediately only while the app is using developer headers.',
               style: appSecondaryTextStyle(
                 context,

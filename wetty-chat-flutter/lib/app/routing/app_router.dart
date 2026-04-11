@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/session/dev_session_store.dart';
+import '../../features/auth/presentation/auth_login_view.dart';
 import '../../features/auth/presentation/auth_bootstrap_view.dart';
-import '../../features/auth/presentation/token_login_view.dart';
 import '../../features/chats/conversation/presentation/attachment_viewer_page.dart';
 import '../../features/chats/conversation/presentation/chat_detail_view.dart';
 import '../../features/chats/conversation/presentation/thread_detail_view.dart';
@@ -61,7 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.login,
         pageBuilder: (context, state) =>
-            const CupertinoPage(child: TokenLoginPage()),
+            const CupertinoPage(child: AuthLoginPage()),
       ),
       // Full-screen routes outside the shell (no bottom nav, swipe-back enabled).
       GoRoute(

@@ -41,7 +41,7 @@ void main() {
     expect(session.currentUserId, 42);
   });
 
-  test('loginWithJwt stores jwt session and current user id', () async {
+  test('loginWithCredentials stores jwt session and current user id', () async {
     container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(
@@ -49,8 +49,13 @@ void main() {
         ),
         authBootstrapApiProvider.overrideWithValue(
           _FakeAuthBootstrapApi(
+            onLoginWithCredentials: ({required username, required password}) {
+              expect(username, 'alice');
+              expect(password, 'secret');
+              return 'issued-token';
+            },
             onFetchAuthToken: (headers) {
-              expect(headers['Authorization'], 'Bearer test-token');
+              expect(headers['Authorization'], 'Bearer issued-token');
               return 'server-token';
             },
             onFetchMe: (headers) {
@@ -64,13 +69,96 @@ void main() {
 
     await container
         .read(authSessionProvider.notifier)
-        .loginWithJwt('test-token');
+        .loginWithCredentials('alice', 'secret');
 
     final session = container.read(authSessionProvider);
     expect(session.mode, AuthSessionMode.jwt);
     expect(session.currentUserId, 7);
     expect(session.jwtToken, 'server-token');
   });
+
+  test(
+    'bootstrap prefers developer UID auth over persisted jwt restore',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'auth_session_jwt_token': 'persisted-token',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      var jwtValidationAttempted = false;
+      container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onFetchAuthToken: (headers) {
+                expect(headers['X-User-Id'], '1');
+                expect(headers['X-Client-Id'], '1');
+                jwtValidationAttempted = headers.containsKey('Authorization');
+                return 'dev-token';
+              },
+            ),
+          ),
+        ],
+      );
+
+      await container.read(authSessionProvider.notifier).bootstrap();
+
+      final session = container.read(authSessionProvider);
+      expect(session.mode, AuthSessionMode.devHeader);
+      expect(session.status, AuthBootstrapStatus.authenticated);
+      expect(session.currentUserId, AuthSessionNotifier.defaultUserId);
+      expect(session.jwtToken, isNull);
+      expect(jwtValidationAttempted, isFalse);
+    },
+  );
+
+  test(
+    'bootstrap restores persisted jwt after developer UID auth fails',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'auth_session_jwt_token': 'persisted-token',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final requests = <String>[];
+      container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onFetchAuthToken: (headers) {
+                final authHeader = headers['Authorization'];
+                if (authHeader != null) {
+                  requests.add(authHeader);
+                  expect(authHeader, 'Bearer persisted-token');
+                  return 'server-token';
+                }
+                requests.add('dev:${headers['X-User-Id']}');
+                return null;
+              },
+              onFetchMe: (headers) {
+                requests.add('me:${headers['Authorization']}');
+                expect(headers['Authorization'], 'Bearer server-token');
+                return const AuthBootstrapMe(9);
+              },
+            ),
+          ),
+        ],
+      );
+
+      await container.read(authSessionProvider.notifier).bootstrap();
+
+      final session = container.read(authSessionProvider);
+      expect(session.mode, AuthSessionMode.jwt);
+      expect(session.status, AuthBootstrapStatus.authenticated);
+      expect(session.currentUserId, 9);
+      expect(session.jwtToken, 'server-token');
+      expect(requests, <String>[
+        'dev:1',
+        'Bearer persisted-token',
+        'me:Bearer server-token',
+      ]);
+    },
+  );
 
   test('bootstrap falls back to dev header mode when jwt is absent', () async {
     container = ProviderContainer(
@@ -97,6 +185,91 @@ void main() {
     expect(session.status, AuthBootstrapStatus.authenticated);
     expect(session.currentUserId, AuthSessionNotifier.defaultUserId);
     expect(session.jwtToken, isNull);
+  });
+
+  test(
+    'loginWithCredentials rejects empty fields before network call',
+    () async {
+      var loginAttempts = 0;
+      container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(
+            await SharedPreferences.getInstance(),
+          ),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onLoginWithCredentials: ({required username, required password}) {
+                loginAttempts++;
+                return null;
+              },
+            ),
+          ),
+        ],
+      );
+
+      await expectLater(
+        container
+            .read(authSessionProvider.notifier)
+            .loginWithCredentials('', ''),
+        throwsException,
+      );
+      expect(loginAttempts, 0);
+    },
+  );
+
+  test(
+    'loginWithCredentials treats non-200 credentials response as failure',
+    () async {
+      container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(
+            await SharedPreferences.getInstance(),
+          ),
+          authBootstrapApiProvider.overrideWithValue(
+            _FakeAuthBootstrapApi(
+              onLoginWithCredentials: ({required username, required password}) {
+                return null;
+              },
+            ),
+          ),
+        ],
+      );
+
+      await expectLater(
+        container
+            .read(authSessionProvider.notifier)
+            .loginWithCredentials('alice', 'wrong-password'),
+        throwsException,
+      );
+
+      final session = container.read(authSessionProvider);
+      expect(session.mode, AuthSessionMode.none);
+      expect(session.jwtToken, isNull);
+    },
+  );
+
+  test('loginWithCredentials treats empty token response as failure', () async {
+    container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(
+          await SharedPreferences.getInstance(),
+        ),
+        authBootstrapApiProvider.overrideWithValue(
+          _FakeAuthBootstrapApi(
+            onLoginWithCredentials: ({required username, required password}) {
+              return '';
+            },
+          ),
+        ),
+      ],
+    );
+
+    await expectLater(
+      container
+          .read(authSessionProvider.notifier)
+          .loginWithCredentials('alice', 'secret'),
+      throwsException,
+    );
   });
 
   test(
@@ -184,11 +357,16 @@ void main() {
 }
 
 class _FakeAuthBootstrapApi extends AuthBootstrapApi {
-  _FakeAuthBootstrapApi({this.onFetchAuthToken, this.onFetchMe})
-    : super(_noopDio);
+  _FakeAuthBootstrapApi({
+    this.onFetchAuthToken,
+    this.onFetchMe,
+    this.onLoginWithCredentials,
+  }) : super(_noopDio);
 
   final String? Function(Map<String, String> headers)? onFetchAuthToken;
   final AuthBootstrapMe? Function(Map<String, String> headers)? onFetchMe;
+  final String? Function({required String username, required String password})?
+  onLoginWithCredentials;
 
   static final Dio _noopDio = Dio();
 
@@ -200,5 +378,13 @@ class _FakeAuthBootstrapApi extends AuthBootstrapApi {
   @override
   Future<AuthBootstrapMe?> fetchMe(Map<String, String> authHeaders) async {
     return onFetchMe?.call(authHeaders);
+  }
+
+  @override
+  Future<String?> loginWithCredentials({
+    required String username,
+    required String password,
+  }) async {
+    return onLoginWithCredentials?.call(username: username, password: password);
   }
 }
