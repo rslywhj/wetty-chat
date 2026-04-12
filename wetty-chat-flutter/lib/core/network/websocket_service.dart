@@ -41,7 +41,7 @@ class WebSocketService {
       final ticket = WsTicketResponseDto.fromJson(ticketRes.data!).ticket;
 
       // create a WebSocketChannel
-      final wsUrl = '${apiBaseUrl.replaceAll('http', 'ws')}/ws';
+      final wsUrl = '${apiBaseUrl.replaceFirst('http', 'ws')}/ws';
       debugPrint('[WS] connecting to $wsUrl');
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 

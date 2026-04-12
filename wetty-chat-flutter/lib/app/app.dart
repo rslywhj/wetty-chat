@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../core/network/api_config.dart';
+import '../core/network/ws_event_router.dart';
 import '../core/notifications/apns_channel.dart';
 import '../core/notifications/notification_tap_handler.dart';
 import '../core/notifications/push_notification_provider.dart';
@@ -68,6 +69,7 @@ class _WettyChatAppState extends ConsumerState<WettyChatApp>
     final router = ref.watch(appRouterProvider);
     final session = ref.watch(authSessionProvider);
     ref.watch(unreadBadgeProvider);
+    ref.watch(wsEventRouterProvider);
 
     // Keep ApiSession bridge in sync for deep presentation-layer code.
     ApiSession.updateSession(

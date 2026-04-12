@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/models/chats_api_models.dart';
-import '../api/models/websocket_api_models.dart';
-import '../network/websocket_service.dart';
 import '../session/dev_session_store.dart';
 import '../../features/chats/list/data/chat_api_service.dart';
 import '../../features/chats/threads/data/thread_api_service.dart';
@@ -77,21 +75,6 @@ class UnreadBadgeNotifier extends Notifier<UnreadBadgeState> {
       }
       if (previous?.isAuthenticated != true) {
         unawaited(refresh());
-      }
-    });
-
-    ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
-      final event = next.value;
-      if (event == null) {
-        return;
-      }
-      switch (event) {
-        case MessageCreatedWsEvent():
-        case MessageDeletedWsEvent():
-        case MessageUpdatedWsEvent():
-          scheduleReconcile();
-        default:
-          break;
       }
     });
 

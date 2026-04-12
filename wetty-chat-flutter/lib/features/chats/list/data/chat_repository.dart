@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/models/websocket_api_models.dart';
-import '../../../../core/network/websocket_service.dart';
+import '../../../../core/api/models/messages_api_models.dart';
 import '../../../../core/notifications/unread_badge_provider.dart';
 import '../../../../core/session/dev_session_store.dart';
 import '../../list_projection/domain/list_projection_helpers.dart';
@@ -28,11 +28,6 @@ class ChatListNotifier extends Notifier<ChatListState> {
 
   @override
   ChatListState build() {
-    // Subscribe to WebSocket events for realtime updates.
-    ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
-      final event = next.value;
-      if (event != null) applyRealtimeEvent(event);
-    });
     return (chats: const [], nextCursor: null, hasMore: false);
   }
 
@@ -319,85 +314,96 @@ class ChatListNotifier extends Notifier<ChatListState> {
   }
 
   void applyRealtimeEvent(ApiWsEvent event) {
-    final (type, payload) = switch (event) {
-      MessageCreatedWsEvent(:final payload) => ('message', payload),
-      MessageUpdatedWsEvent(:final payload) => ('messageUpdated', payload),
-      MessageDeletedWsEvent(:final payload) => ('messageDeleted', payload),
-      _ => (null, null),
-    };
-    if (type == null || payload == null) return;
+    switch (event) {
+      case MessageCreatedWsEvent(:final payload):
+        _applyRealtimeCreated(payload);
+        return;
+      case MessageUpdatedWsEvent(:final payload):
+        _applyRealtimePatched(payload);
+        return;
+      case MessageDeletedWsEvent(:final payload):
+        _applyRealtimePatched(payload);
+        return;
+      default:
+        return;
+    }
+  }
 
+  void _applyRealtimeCreated(MessageItemDto payload) {
     final chatId = payload.chatId.toString();
     final chats = state.chats;
     final index = chats.indexWhere((chat) => chat.id == chatId);
     if (index < 0) {
-      if (type == 'message') {
-        unawaited(_refreshForRealtimeMiss());
-      }
+      unawaited(_refreshForRealtimeMiss());
       return;
     }
 
     final previous = chats[index];
     final message = payload.toDomain();
-    if (type == 'message') {
-      if (!isEligibleChatPreviewMessage(message)) {
-        return;
-      }
-      if (matchesChatPreview(previous.lastMessage, payload)) {
-        return;
-      }
-      final senderUid = payload.sender.uid;
-      final currentUserId = ref.read(authSessionProvider).currentUserId;
-      final createdAt = payload.createdAt;
-      final updated = previous.copyWith(
-        lastMessage: message,
-        lastMessageAt: createdAt,
-        unreadCount: senderUid != currentUserId
-            ? previous.unreadCount + 1
-            : previous.unreadCount,
-      );
-      final newChats = moveChatToFront(chats, index, updated);
-      state = (
-        chats: newChats,
-        nextCursor: state.nextCursor,
-        hasMore: state.hasMore,
-      );
-      if (senderUid != currentUserId) {
-        _applyBadgeDelta(
-          previousUnreadCount: previous.unreadCount,
-          previousMutedUntil: previous.mutedUntil,
-          nextUnreadCount: updated.unreadCount,
-          nextMutedUntil: updated.mutedUntil,
-        );
-      }
+    if (!isEligibleChatPreviewMessage(message)) {
+      return;
+    }
+    if (matchesChatPreview(previous.lastMessage, payload)) {
       return;
     }
 
-    if (type == 'messageUpdated' || type == 'messageDeleted') {
-      if (payload.replyRootId != null) {
-        return;
-      }
-      if (!matchesChatPreview(previous.lastMessage, payload)) {
-        return;
-      }
-      if (payload.isDeleted) {
-        unawaited(_refreshForRealtimeMiss());
-        return;
-      }
-      final newChats = replaceChatAt(
+    final senderUid = payload.sender.uid;
+    final currentUserId = ref.read(authSessionProvider).currentUserId;
+    final updated = previous.copyWith(
+      lastMessage: message,
+      lastMessageAt: payload.createdAt,
+      unreadCount: senderUid != currentUserId
+          ? previous.unreadCount + 1
+          : previous.unreadCount,
+    );
+    state = (
+      chats: moveChatToFront(chats, index, updated),
+      nextCursor: state.nextCursor,
+      hasMore: state.hasMore,
+    );
+    if (senderUid != currentUserId) {
+      _applyBadgeDelta(
+        previousUnreadCount: previous.unreadCount,
+        previousMutedUntil: previous.mutedUntil,
+        nextUnreadCount: updated.unreadCount,
+        nextMutedUntil: updated.mutedUntil,
+      );
+    }
+  }
+
+  void _applyRealtimePatched(MessageItemDto payload) {
+    if (payload.replyRootId != null) {
+      return;
+    }
+
+    final chatId = payload.chatId.toString();
+    final chats = state.chats;
+    final index = chats.indexWhere((chat) => chat.id == chatId);
+    if (index < 0) {
+      return;
+    }
+
+    final previous = chats[index];
+    if (!matchesChatPreview(previous.lastMessage, payload)) {
+      return;
+    }
+    if (payload.isDeleted) {
+      unawaited(_refreshForRealtimeMiss());
+      return;
+    }
+
+    state = (
+      chats: replaceChatAt(
         chats,
         index,
         previous.copyWith(
-          lastMessage: message,
-          lastMessageAt: message.createdAt,
+          lastMessage: payload.toDomain(),
+          lastMessageAt: payload.createdAt,
         ),
-      );
-      state = (
-        chats: newChats,
-        nextCursor: state.nextCursor,
-        hasMore: state.hasMore,
-      );
-    }
+      ),
+      nextCursor: state.nextCursor,
+      hasMore: state.hasMore,
+    );
   }
 
   Future<void> _refreshForRealtimeMiss() async {

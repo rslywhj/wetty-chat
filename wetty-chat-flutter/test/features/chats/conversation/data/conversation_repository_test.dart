@@ -6,6 +6,7 @@ import 'package:chahua/core/api/models/websocket_api_models.dart';
 import 'package:chahua/features/chats/conversation/data/conversation_repository.dart';
 import 'package:chahua/features/chats/conversation/data/message_api_service.dart';
 import 'package:chahua/features/chats/conversation/domain/conversation_scope.dart';
+import 'package:chahua/features/chats/message_domain/domain/message_domain_store.dart';
 import 'package:chahua/features/chats/models/message_models.dart';
 
 void main() {
@@ -15,6 +16,7 @@ void main() {
       final repository = ConversationRepository(
         scope: const ConversationScope.chat(chatId: '1'),
         service: service,
+        store: MessageDomainStore(),
       );
 
       await repository.commitSend(
@@ -52,6 +54,7 @@ void main() {
         final repository = ConversationRepository(
           scope: const ConversationScope.chat(chatId: '1'),
           service: service,
+          store: MessageDomainStore(),
         );
 
         await repository.loadLatestWindow();
@@ -69,6 +72,7 @@ void main() {
         final repository = ConversationRepository(
           scope: const ConversationScope.chat(chatId: '1'),
           service: service,
+          store: MessageDomainStore(),
         );
 
         await repository.loadLatestWindow();
@@ -87,6 +91,7 @@ void main() {
       final repository = ConversationRepository(
         scope: const ConversationScope.chat(chatId: '1'),
         service: service,
+        store: MessageDomainStore(),
       );
 
       await repository.loadLatestWindow();
@@ -119,6 +124,7 @@ void main() {
         final repository = ConversationRepository(
           scope: const ConversationScope.chat(chatId: '1'),
           service: service,
+          store: MessageDomainStore(),
         );
 
         await repository.loadLatestWindow();
@@ -163,6 +169,7 @@ void main() {
       final repository = ConversationRepository(
         scope: const ConversationScope.chat(chatId: '1'),
         service: service,
+        store: MessageDomainStore(),
       );
 
       await repository.loadLatestWindow();

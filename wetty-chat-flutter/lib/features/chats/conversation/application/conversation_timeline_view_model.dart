@@ -4,8 +4,8 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/models/websocket_api_models.dart';
-import '../../../../core/network/websocket_service.dart';
 import '../../list/data/chat_repository.dart';
+import 'conversation_realtime_registry.dart';
 import '../data/conversation_repository.dart';
 import '../domain/conversation_message.dart';
 import '../domain/conversation_scope.dart';
@@ -162,18 +162,18 @@ class ConversationTimelineViewModel
     );
     _repository = ref.read(conversationRepositoryProvider(arg.scope));
 
-    ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
-      final event = next.value;
-      if (event != null) {
-        _handleRealtimeEvent(event);
-      }
-    });
+    final realtimeListenerToken = ref
+        .read(conversationRealtimeRegistryProvider)
+        .addListener(_handleRealtimeEvent);
 
     ref.onDispose(() {
       developer.log('disposed', name: 'TimelineVM');
       _isDisposed = true;
       _readSyncDebounceTimer?.cancel();
       _highlightTimer?.cancel();
+      ref
+          .read(conversationRealtimeRegistryProvider)
+          .removeListener(realtimeListenerToken);
     });
 
     return _loadInitial(arg.launchRequest);

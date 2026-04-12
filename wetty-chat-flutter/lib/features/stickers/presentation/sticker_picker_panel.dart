@@ -5,7 +5,6 @@ import '../../../app/theme/style_config.dart';
 import '../../chats/conversation/presentation/message_bubble/sticker_image_widget.dart';
 import '../../chats/models/message_models.dart';
 import '../application/sticker_picker_view_model.dart';
-import '../data/sticker_pack_order_sync.dart';
 import 'sticker_pack_tab_bar.dart';
 
 /// Panel that displays a sticker picker grid with a pack tab bar.
@@ -39,8 +38,6 @@ class _StickerPickerPanelState extends ConsumerState<StickerPickerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    // Keep WS sync alive while picker is mounted.
-    ref.watch(stickerPackOrderSyncProvider);
     final pickerState = ref.watch(stickerPickerViewModelProvider);
     final colors = context.appColors;
 

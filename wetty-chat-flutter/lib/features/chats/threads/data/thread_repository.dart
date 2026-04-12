@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/models/messages_api_models.dart';
 import '../../../../core/api/models/websocket_api_models.dart';
-import '../../../../core/network/websocket_service.dart';
 import '../../../../core/notifications/unread_badge_provider.dart';
 import '../../../../core/session/dev_session_store.dart';
 import '../../list_projection/domain/list_projection_helpers.dart';
@@ -27,12 +26,6 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
 
   @override
   ThreadListState build() {
-    ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
-      final event = next.value;
-      if (event != null) {
-        _applyRealtimeEvent(event);
-      }
-    });
     return (
       threads: const [],
       nextCursor: null,
@@ -117,7 +110,7 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
     ref.read(unreadBadgeProvider.notifier).scheduleReconcile();
   }
 
-  void _applyRealtimeEvent(ApiWsEvent event) {
+  void applyRealtimeEvent(ApiWsEvent event) {
     switch (event) {
       case MessageCreatedWsEvent(:final payload):
         applyRealtimeCreated(payload);
