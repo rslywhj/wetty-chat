@@ -128,6 +128,26 @@ pub enum MessageType {
     Eq,
     utoipa::ToSchema,
 )]
+#[ExistingTypePath = "crate::schema::sql_types::TranscodeStatus"]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeStatus {
+    None,
+    Pending,
+    Done,
+    Failed,
+}
+
+#[derive(
+    diesel_derive_enum::DbEnum,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    utoipa::ToSchema,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::PushProvider"]
 #[serde(rename_all = "snake_case")]
 pub enum PushProvider {
@@ -400,6 +420,8 @@ pub struct Message {
     pub has_thread: bool,
     pub has_reactions: bool,
     pub sticker_id: Option<i64>,
+    pub is_published: bool,
+    pub transcode_status: TranscodeStatus,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
@@ -426,6 +448,8 @@ pub struct NewMessage {
     pub has_thread: bool,
     pub has_reactions: bool,
     pub sticker_id: Option<i64>,
+    pub is_published: bool,
+    pub transcode_status: TranscodeStatus,
 }
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
@@ -461,7 +485,7 @@ pub struct NewPinnedMessage {
 
 #[cfg(test)]
 mod tests {
-    use super::MessageType;
+    use super::{MessageType, TranscodeStatus};
 
     #[test]
     fn message_type_serializes_as_snake_case() {
@@ -488,6 +512,13 @@ mod tests {
         let value: MessageType =
             serde_json::from_str("\"sticker\"").expect("deserialize message type");
         assert_eq!(value, MessageType::Sticker);
+    }
+
+    #[test]
+    fn transcode_status_serializes_as_snake_case() {
+        let json =
+            serde_json::to_string(&TranscodeStatus::Pending).expect("serialize transcode status");
+        assert_eq!(json, "\"pending\"");
     }
 }
 

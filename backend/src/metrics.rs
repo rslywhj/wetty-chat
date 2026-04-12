@@ -73,6 +73,9 @@ pub(crate) struct Metrics {
     app_version_clients: DashMap<String, DashSet<String>>,
     background_jobs_total: IntCounterVec,
     background_job_duration_seconds: HistogramVec,
+    audio_transcode_source_total: IntCounterVec,
+    audio_transcode_jobs_total: IntCounterVec,
+    audio_transcode_job_duration_seconds: HistogramVec,
 }
 
 impl Metrics {
@@ -312,6 +315,35 @@ impl Metrics {
         background_jobs_total.with_label_values(&["bulk_delete_messages", "failure"]);
         background_job_duration_seconds.with_label_values(&["bulk_delete_messages", "success"]);
         background_job_duration_seconds.with_label_values(&["bulk_delete_messages", "failure"]);
+        let audio_transcode_source_total = IntCounterVec::new(
+            opts!(
+                "audio_transcode_source_total",
+                "Total number of audio transcode jobs by normalized source media type"
+            ),
+            &["content_type"],
+        )
+        .expect("audio_transcode_source_total metric should be valid");
+        let audio_transcode_jobs_total = IntCounterVec::new(
+            opts!(
+                "audio_transcode_jobs_total",
+                "Total number of audio transcode jobs processed"
+            ),
+            &["result"],
+        )
+        .expect("audio_transcode_jobs_total metric should be valid");
+        let audio_transcode_job_duration_seconds = HistogramVec::new(
+            histogram_opts!(
+                "audio_transcode_job_duration_seconds",
+                "Audio transcode job runtime in seconds",
+                vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
+            ),
+            &["result"],
+        )
+        .expect("audio_transcode_job_duration_seconds metric should be valid");
+        audio_transcode_jobs_total.with_label_values(&["success"]);
+        audio_transcode_jobs_total.with_label_values(&["failure"]);
+        audio_transcode_job_duration_seconds.with_label_values(&["success"]);
+        audio_transcode_job_duration_seconds.with_label_values(&["failure"]);
 
         registry
             .register(Box::new(http_requests_total.clone()))
@@ -415,6 +447,15 @@ impl Metrics {
         registry
             .register(Box::new(background_job_duration_seconds.clone()))
             .expect("background_job_duration_seconds registration should succeed");
+        registry
+            .register(Box::new(audio_transcode_source_total.clone()))
+            .expect("audio_transcode_source_total registration should succeed");
+        registry
+            .register(Box::new(audio_transcode_jobs_total.clone()))
+            .expect("audio_transcode_jobs_total registration should succeed");
+        registry
+            .register(Box::new(audio_transcode_job_duration_seconds.clone()))
+            .expect("audio_transcode_job_duration_seconds registration should succeed");
 
         Self {
             registry,
@@ -453,6 +494,9 @@ impl Metrics {
             app_version_clients: DashMap::new(),
             background_jobs_total,
             background_job_duration_seconds,
+            audio_transcode_source_total,
+            audio_transcode_jobs_total,
+            audio_transcode_job_duration_seconds,
         }
     }
 
@@ -525,6 +569,22 @@ impl Metrics {
             .inc();
         self.background_job_duration_seconds
             .with_label_values(&[job_kind, result])
+            .observe(duration_seconds);
+    }
+
+    pub(crate) fn record_audio_transcode_source(&self, content_type: &str) {
+        let normalized = normalize_metric_content_type(content_type);
+        self.audio_transcode_source_total
+            .with_label_values(&[normalized.as_str()])
+            .inc();
+    }
+
+    pub(crate) fn record_audio_transcode_job(&self, result: &str, duration_seconds: f64) {
+        self.audio_transcode_jobs_total
+            .with_label_values(&[result])
+            .inc();
+        self.audio_transcode_job_duration_seconds
+            .with_label_values(&[result])
             .observe(duration_seconds);
     }
 
@@ -690,6 +750,28 @@ fn route_label(matched_path: Option<&str>) -> String {
     matched_path.unwrap_or("unknown").to_string()
 }
 
+fn normalize_metric_content_type(content_type: &str) -> String {
+    let normalized = content_type
+        .split(';')
+        .next()
+        .unwrap_or("unknown")
+        .trim()
+        .to_ascii_lowercase();
+
+    match normalized.as_str() {
+        "" => "unknown".to_string(),
+        "audio/ogg" => "audio/ogg".to_string(),
+        "audio/mp4" => "audio/mp4".to_string(),
+        "audio/mpeg" => "audio/mpeg".to_string(),
+        "audio/webm" => "audio/webm".to_string(),
+        "audio/wav" | "audio/x-wav" => "audio/wav".to_string(),
+        "audio/aac" | "audio/aacp" => "audio/aac".to_string(),
+        "audio/flac" => "audio/flac".to_string(),
+        value if value.starts_with("audio/") => "other".to_string(),
+        _ => "unknown".to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -733,6 +815,8 @@ mod tests {
         metrics.record_client_rebind();
         metrics.record_client_tracking_purge("stale_clients", 2);
         metrics.record_activity_daily_rollup_update("success");
+        metrics.record_audio_transcode_source("audio/ogg;codecs=opus");
+        metrics.record_audio_transcode_job("success", 0.75);
         metrics.set_activity_today(ActivityTodaySnapshot {
             active_users: 3,
             new_users: 1,
@@ -796,6 +880,9 @@ mod tests {
         assert!(body.contains("app_version_unique_clients"));
         assert!(body.contains("background_jobs_total"));
         assert!(body.contains("background_job_duration_seconds"));
+        assert!(body.contains("audio_transcode_source_total"));
+        assert!(body.contains("audio_transcode_jobs_total"));
+        assert!(body.contains("audio_transcode_job_duration_seconds"));
     }
 
     #[tokio::test]
@@ -910,6 +997,8 @@ mod tests {
         metrics.record_client_rebind();
         metrics.record_client_tracking_purge("legacy_subscriptions", 3);
         metrics.record_activity_daily_rollup_update("success");
+        metrics.record_audio_transcode_source("audio/ogg");
+        metrics.record_audio_transcode_job("failure", 1.5);
         metrics.set_activity_today(ActivityTodaySnapshot {
             active_users: 5,
             new_users: 2,
@@ -957,6 +1046,11 @@ mod tests {
         assert!(rendered.contains("client_rebinds_total 1"));
         assert!(rendered.contains("client_tracking_purge_total{kind=\"legacy_subscriptions\"} 3"));
         assert!(rendered.contains("activity_daily_rollup_updates_total{result=\"success\"} 1"));
+        assert!(rendered.contains("audio_transcode_source_total{content_type=\"audio/ogg\"} 1"));
+        assert!(rendered.contains("audio_transcode_jobs_total{result=\"failure\"} 1"));
+        assert!(
+            rendered.contains("audio_transcode_job_duration_seconds_sum{result=\"failure\"} 1.5")
+        );
         assert!(rendered.contains("activity_today_active_users 5"));
         assert!(rendered.contains("activity_today_new_users 2"));
         assert!(rendered.contains("activity_today_active_clients 6"));
@@ -994,5 +1088,17 @@ mod tests {
         let rendered = metrics.render().expect("metrics should render");
         assert!(rendered.contains("app_version_requests_total{version=\"abc1234\"} 4"));
         assert!(rendered.contains("app_version_unique_clients{version=\"abc1234\"} 2"));
+    }
+
+    #[test]
+    fn audio_transcode_source_metric_normalizes_content_type() {
+        let metrics = Metrics::new();
+
+        metrics.record_audio_transcode_source("Audio/Ogg;codecs=opus");
+        metrics.record_audio_transcode_source("audio/x-custom-thing");
+
+        let rendered = metrics.render().expect("metrics should render");
+        assert!(rendered.contains("audio_transcode_source_total{content_type=\"audio/ogg\"} 1"));
+        assert!(rendered.contains("audio_transcode_source_total{content_type=\"other\"} 1"));
     }
 }

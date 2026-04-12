@@ -56,7 +56,7 @@ FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libmariadb-dev \
+    ffmpeg \
     libpq5 \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*

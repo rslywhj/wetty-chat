@@ -71,6 +71,8 @@ async fn get_threads(
     // Load raw root messages (no heavy attach_metadata — enrich_thread_list builds lightweight previews)
     let root_messages: Vec<Message> = messages::table
         .filter(messages::id.eq_any(&root_ids))
+        .filter(messages::deleted_at.is_null())
+        .filter(messages::is_published.eq(true))
         .select(Message::as_select())
         .load(conn)?;
 
@@ -195,7 +197,9 @@ async fn subscribe_thread(
         messages::table.filter(
             messages::id
                 .eq(thread_root_id)
-                .and(messages::chat_id.eq(chat_id)),
+                .and(messages::chat_id.eq(chat_id))
+                .and(messages::deleted_at.is_null())
+                .and(messages::is_published.eq(true)),
         ),
     ))
     .get_result(conn)?;

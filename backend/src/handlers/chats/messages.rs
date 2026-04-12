@@ -186,9 +186,12 @@ async fn get_messages(
     let q_thread_id = q.thread_id;
     macro_rules! base_query {
         () => {{
-            let mut b = messages::table
-                .into_boxed()
-                .filter(dsl::chat_id.eq(chat_id).and(dsl::deleted_at.is_null()));
+            let mut b = messages::table.into_boxed().filter(
+                dsl::chat_id
+                    .eq(chat_id)
+                    .and(dsl::deleted_at.is_null())
+                    .and(dsl::is_published.eq(true)),
+            );
             if let Some(tid) = q_thread_id {
                 b = b.filter(dsl::reply_root_id.eq(tid).or(dsl::id.eq(tid)));
             } else {
@@ -335,7 +338,8 @@ async fn get_message(
             dsl::id
                 .eq(message_id)
                 .and(dsl::chat_id.eq(chat_id))
-                .and(dsl::deleted_at.is_null()),
+                .and(dsl::deleted_at.is_null())
+                .and(dsl::is_published.eq(true)),
         )
         .select(Message::as_select())
         .first(conn)
@@ -383,6 +387,7 @@ async fn post_message(
     // Keep message creation and read-position advancement atomic.
     diesel::sql_query("BEGIN").execute(conn)?;
 
+    let publish_immediately = !matches!(body.message_type, MessageType::Audio);
     let tx_result: Result<_, AppError> = async {
         let send_result = send_prepared_message(
             conn,
@@ -402,6 +407,7 @@ async fn post_message(
                 client_generated_id: body.client_generated_id,
                 attachment_ids,
                 update_group_last_message: true,
+                publish_immediately,
             },
         )
         .await?;
@@ -424,6 +430,9 @@ async fn post_message(
     };
 
     send_result.side_effects.fire(&state);
+    if matches!(send_result.response.message_type, MessageType::Audio) {
+        crate::services::audio_transcode::enqueue_message(state.clone(), send_result.response.id);
+    }
 
     Ok((StatusCode::CREATED, Json(send_result.response)))
 }
@@ -458,7 +467,13 @@ pub(super) async fn post_thread_message(
     // Load root message: validate existence and message type
     use crate::schema::messages::dsl;
     let root_msg: Message = messages::table
-        .filter(dsl::id.eq(thread_id).and(dsl::chat_id.eq(chat_id)))
+        .filter(
+            dsl::id
+                .eq(thread_id)
+                .and(dsl::chat_id.eq(chat_id))
+                .and(dsl::deleted_at.is_null())
+                .and(dsl::is_published.eq(true)),
+        )
         .select(Message::as_select())
         .first(conn)
         .optional()?
@@ -480,6 +495,7 @@ pub(super) async fn post_thread_message(
     // send_prepared_message is async so we use raw BEGIN/COMMIT.
     diesel::sql_query("BEGIN").execute(conn)?;
 
+    let publish_immediately = !matches!(body.message_type, MessageType::Audio);
     let tx_result: Result<_, AppError> = async {
         let send_result = send_prepared_message(
             conn,
@@ -499,19 +515,14 @@ pub(super) async fn post_thread_message(
                 client_generated_id: body.client_generated_id,
                 attachment_ids,
                 update_group_last_message: false,
+                publish_immediately,
             },
         )
         .await?;
         let response = send_result.response;
         let member_uids = send_result.member_uids;
         let msg_side_effects = send_result.side_effects;
-
-        crate::services::threads::increment_thread_meta(
-            conn,
-            chat_id,
-            thread_id,
-            response.created_at,
-        )?;
+        let publish_now = publish_immediately;
 
         // Auto-subscribe the replying user and mark as read
         crate::services::threads::ensure_thread_subscription(conn, chat_id, thread_id, uid)?;
@@ -541,10 +552,19 @@ pub(super) async fn post_thread_message(
             }
         }
 
-        // Mark the root message as having a thread
-        diesel::update(messages::table.filter(dsl::id.eq(thread_id)))
-            .set(dsl::has_thread.eq(true))
-            .execute(conn)?;
+        if publish_now {
+            crate::services::threads::increment_thread_meta(
+                conn,
+                chat_id,
+                thread_id,
+                response.created_at,
+            )?;
+
+            // Mark the root message as having a thread
+            diesel::update(messages::table.filter(dsl::id.eq(thread_id)))
+                .set(dsl::has_thread.eq(true))
+                .execute(conn)?;
+        }
 
         Ok((response, member_uids, msg_side_effects))
     }
@@ -563,6 +583,9 @@ pub(super) async fn post_thread_message(
 
     // Post-commit: fire deferred side effects (new message WS broadcast + push)
     msg_side_effects.fire(&state);
+    if matches!(response.message_type, MessageType::Audio) {
+        crate::services::audio_transcode::enqueue_message(state.clone(), response.id);
+    }
 
     // Post-commit: WS broadcasts (root message update + thread update)
     let root_msg_updated: Option<Message> = messages::table
@@ -571,30 +594,34 @@ pub(super) async fn post_thread_message(
         .first(conn)
         .ok();
 
-    if let Some(root_msg) = root_msg_updated {
-        let root_response = attach_metadata(conn, vec![root_msg], &state, uid)
-            .await
-            .into_iter()
-            .next()
-            .unwrap();
-        let ws_msg = std::sync::Arc::new(
-            crate::handlers::ws::messages::ServerWsMessage::MessageUpdated(root_response.clone()),
-        );
-        state.ws_registry.broadcast_to_uids(&member_uids, ws_msg);
-    }
+    if publish_immediately {
+        if let Some(root_msg) = root_msg_updated {
+            let root_response = attach_metadata(conn, vec![root_msg], &state, uid)
+                .await
+                .into_iter()
+                .next()
+                .unwrap();
+            let ws_msg = std::sync::Arc::new(
+                crate::handlers::ws::messages::ServerWsMessage::MessageUpdated(
+                    root_response.clone(),
+                ),
+            );
+            state.ws_registry.broadcast_to_uids(&member_uids, ws_msg);
+        }
 
-    if let Err(err) = crate::services::threads::broadcast_thread_update_to_subscribers(
-        conn,
-        &state.ws_registry,
-        chat_id,
-        thread_id,
-    ) {
-        tracing::warn!(
+        if let Err(err) = crate::services::threads::broadcast_thread_update_to_subscribers(
+            conn,
+            &state.ws_registry,
             chat_id,
             thread_id,
-            ?err,
-            "failed to broadcast thread update to subscribers"
-        );
+        ) {
+            tracing::warn!(
+                chat_id,
+                thread_id,
+                ?err,
+                "failed to broadcast thread update to subscribers"
+            );
+        }
     }
 
     Ok((StatusCode::CREATED, Json(response)))
@@ -644,6 +671,9 @@ async fn patch_message(
 
     if message.deleted_at.is_some() {
         return Err(AppError::BadRequest("Cannot edit deleted message"));
+    }
+    if !message.is_published {
+        return Err(AppError::BadRequest("Cannot edit unpublished message"));
     }
 
     if body.message.trim().is_empty() && body.attachment_ids.is_empty() {
@@ -752,6 +782,9 @@ async fn delete_message(
 
     if message.deleted_at.is_some() {
         return Err(AppError::Gone("Message already deleted"));
+    }
+    if !message.is_published {
+        return Err(AppError::BadRequest("Cannot delete unpublished message"));
     }
 
     // Transaction: soft-delete + thread_meta + group last_message

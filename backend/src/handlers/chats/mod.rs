@@ -34,6 +34,7 @@ use crate::{
         Sender,
         Sticker,
         ThreadInfo,
+        TranscodeStatus,
         UserGroupInfo, //
     },
     schema::{
@@ -216,6 +217,7 @@ pub(crate) struct PreparedMessageSend {
     pub client_generated_id: String,
     pub attachment_ids: Vec<i64>,
     pub update_group_last_message: bool,
+    pub publish_immediately: bool,
 }
 
 pub(crate) struct SendMessageResult {
@@ -226,9 +228,9 @@ pub(crate) struct SendMessageResult {
 
 #[must_use = "side effects must be fired via .fire()"]
 pub(crate) struct PendingSideEffects {
-    ws_msg: std::sync::Arc<crate::handlers::ws::messages::ServerWsMessage>,
-    broadcast_uids: Vec<i32>,
-    push_job: Option<PushJob>,
+    pub(crate) ws_msg: std::sync::Arc<crate::handlers::ws::messages::ServerWsMessage>,
+    pub(crate) broadcast_uids: Vec<i32>,
+    pub(crate) push_job: Option<PushJob>,
 }
 
 impl PendingSideEffects {
@@ -295,6 +297,8 @@ fn load_reply_messages(
 
     messages_schema::table
         .filter(messages_schema::id.eq_any(reply_ids))
+        .filter(messages_schema::deleted_at.is_null())
+        .filter(messages_schema::is_published.eq(true))
         .select(Message::as_select())
         .load::<Message>(conn)
         .map(|rows| rows.into_iter().map(|msg| (msg.id, msg)).collect())
@@ -529,6 +533,58 @@ fn build_push_preview_bundle(response: &MessageResponse) -> PushPreviewBundle {
     }
 }
 
+pub(crate) fn build_message_side_effects(
+    conn: &mut PgConnection,
+    response: &MessageResponse,
+    _state: &AppState,
+    sender_uid: i32,
+    chat_id: i64,
+    enqueue_push: bool,
+) -> Result<PendingSideEffects, AppError> {
+    let member_uids: Vec<i32> = {
+        use crate::schema::group_membership as gm_dsl;
+        group_membership::table
+            .filter(gm_dsl::chat_id.eq(chat_id))
+            .select(group_membership::uid)
+            .load(conn)?
+    };
+
+    let ws_msg = std::sync::Arc::new(crate::handlers::ws::messages::ServerWsMessage::Message(
+        response.clone(),
+    ));
+
+    let is_system_message = matches!(response.message_type, MessageType::System);
+    let push_job = if enqueue_push && !is_system_message {
+        let sender_username =
+            load_username_by_uid(conn, sender_uid)?.unwrap_or_else(|| "Someone".to_string());
+        let chat_name = groups::table
+            .filter(groups::dsl::id.eq(chat_id))
+            .select(groups::dsl::name)
+            .first::<String>(conn)
+            .unwrap_or_else(|_| "Chat".to_string());
+        let push_preview = build_push_preview_bundle(response);
+        Some(PushJob {
+            chat_id,
+            sender_uid,
+            sender_username,
+            chat_name,
+            message_preview: push_preview.message_preview,
+            body_preview: push_preview.body_preview,
+            message_id: response.id,
+            thread_root_id: response.reply_root_id,
+            mentioned_uids: push_preview.mentioned_uids,
+        })
+    } else {
+        None
+    };
+
+    Ok(PendingSideEffects {
+        ws_msg,
+        broadcast_uids: member_uids,
+        push_job,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // send_prepared_message (shared by messages, invites, pins)
 // ---------------------------------------------------------------------------
@@ -546,12 +602,22 @@ pub(crate) async fn send_prepared_message(
         })?;
 
     let now = Utc::now();
-    let is_system_message = matches!(prepared.message_type, MessageType::System);
+    let message_type = prepared.message_type.clone();
+    let is_system_message = matches!(message_type, MessageType::System);
+    let transcode_status = if matches!(message_type, MessageType::Audio) {
+        if prepared.publish_immediately {
+            TranscodeStatus::Done
+        } else {
+            TranscodeStatus::Pending
+        }
+    } else {
+        TranscodeStatus::None
+    };
 
     let new_msg = NewMessage {
         id,
         message: prepared.message,
-        message_type: prepared.message_type,
+        message_type,
         sticker_id: prepared.sticker_id,
         reply_to_id: prepared.reply_to_id,
         reply_root_id: prepared.reply_root_id,
@@ -564,6 +630,8 @@ pub(crate) async fn send_prepared_message(
         has_attachments: !prepared.attachment_ids.is_empty(),
         has_thread: false,
         has_reactions: false,
+        is_published: prepared.publish_immediately,
+        transcode_status,
     };
 
     let inserted_msg: Message = diesel::insert_into(messages_schema::table)
@@ -572,7 +640,7 @@ pub(crate) async fn send_prepared_message(
         .get_result(conn)?;
     state.metrics.record_message(prepared.chat_id);
 
-    if prepared.update_group_last_message {
+    if prepared.publish_immediately && prepared.update_group_last_message {
         use crate::schema::groups::dsl as g_dsl;
         diesel::update(groups::table.filter(g_dsl::id.eq(prepared.chat_id)))
             .set((
@@ -595,46 +663,28 @@ pub(crate) async fn send_prepared_message(
         .next()
         .ok_or(AppError::Internal("Failed to build message response"))?;
 
-    let member_uids: Vec<i32> = {
-        use crate::schema::group_membership as gm_dsl;
-        group_membership::table
-            .filter(gm_dsl::chat_id.eq(prepared.chat_id))
-            .select(group_membership::uid)
-            .load(conn)?
-    };
-
-    let ws_msg = std::sync::Arc::new(crate::handlers::ws::messages::ServerWsMessage::Message(
-        response.clone(),
-    ));
-
-    let push_job = if !is_system_message {
-        let sender_username = load_username_by_uid(conn, prepared.sender_uid)?
-            .unwrap_or_else(|| "Someone".to_string());
-        let chat_name = groups::table
-            .filter(groups::dsl::id.eq(prepared.chat_id))
-            .select(groups::dsl::name)
-            .first::<String>(conn)
-            .unwrap_or_else(|_| "Chat".to_string());
-        let push_preview = build_push_preview_bundle(&response);
-        Some(PushJob {
-            chat_id: prepared.chat_id,
-            sender_uid: prepared.sender_uid,
-            sender_username,
-            chat_name,
-            message_preview: push_preview.message_preview,
-            body_preview: push_preview.body_preview,
-            message_id: response.id,
-            thread_root_id: response.reply_root_id,
-            mentioned_uids: push_preview.mentioned_uids,
-        })
+    let (member_uids, side_effects) = if prepared.publish_immediately {
+        let side_effects = build_message_side_effects(
+            conn,
+            &response,
+            state,
+            prepared.sender_uid,
+            prepared.chat_id,
+            !is_system_message,
+        )?;
+        let member_uids = side_effects.broadcast_uids.clone();
+        (member_uids, side_effects)
     } else {
-        None
-    };
-
-    let side_effects = PendingSideEffects {
-        ws_msg,
-        broadcast_uids: member_uids.clone(),
-        push_job,
+        (
+            Vec::new(),
+            PendingSideEffects {
+                ws_msg: std::sync::Arc::new(
+                    crate::handlers::ws::messages::ServerWsMessage::Message(response.clone()),
+                ),
+                broadcast_uids: Vec::new(),
+                push_job: None,
+            },
+        )
     };
 
     Ok(SendMessageResult {
@@ -735,6 +785,7 @@ pub async fn attach_metadata(
         let counts: Vec<(Option<i64>, i64)> = messages_schema::table
             .filter(m_dsl::reply_root_id.eq_any(&thread_root_ids))
             .filter(m_dsl::deleted_at.is_null())
+            .filter(m_dsl::is_published.eq(true))
             .group_by(m_dsl::reply_root_id)
             .select((m_dsl::reply_root_id, diesel::dsl::count_star()))
             .load(conn)
@@ -1069,6 +1120,8 @@ async fn get_chats(
             AND
                 deleted_at IS NULL
             AND
+                is_published = TRUE
+            AND
                 id > COALESCE(group_membership.last_read_message_id, 0)
             LIMIT {}
         ) AS unread_messages)",
@@ -1345,7 +1398,8 @@ async fn mark_as_unread(
                 dsl::chat_id
                     .eq(chat_id)
                     .and(dsl::reply_root_id.is_null())
-                    .and(dsl::deleted_at.is_null()),
+                    .and(dsl::deleted_at.is_null())
+                    .and(dsl::is_published.eq(true)),
             )
             .order(dsl::id.desc())
             .limit(2)
@@ -1427,6 +1481,7 @@ pub(crate) fn recalculate_group_last_message(
     let prev_message: Option<(i64, DateTime<Utc>)> = messages_schema::table
         .filter(dsl::chat_id.eq(chat_id))
         .filter(dsl::deleted_at.is_null())
+        .filter(dsl::is_published.eq(true))
         .filter(dsl::reply_root_id.is_null())
         .order(dsl::id.desc())
         .select((dsl::id, dsl::created_at))

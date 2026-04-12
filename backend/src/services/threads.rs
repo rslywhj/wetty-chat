@@ -161,7 +161,8 @@ pub fn recalculate_thread_meta(
         .filter(
             messages::reply_root_id
                 .eq(thread_root_id)
-                .and(messages::deleted_at.is_null()),
+                .and(messages::deleted_at.is_null())
+                .and(messages::is_published.eq(true)),
         )
         .select((
             diesel::dsl::count_star(),
@@ -211,7 +212,9 @@ pub fn build_thread_update_payload(
         .filter(
             messages::id
                 .eq(thread_root_id)
-                .and(messages::chat_id.eq(chat_id)),
+                .and(messages::chat_id.eq(chat_id))
+                .and(messages::deleted_at.is_null())
+                .and(messages::is_published.eq(true)),
         )
         .select(messages::created_at)
         .first::<DateTime<Utc>>(conn)
@@ -331,6 +334,7 @@ pub fn get_user_threads(
         JOIN messages root_msg ON root_msg.id = ts.thread_root_id
         WHERE ts.uid = $1
           AND root_msg.deleted_at IS NULL
+          AND root_msg.is_published = TRUE
           AND ($2::timestamptz IS NULL OR COALESCE(tm.last_reply_at, ts.subscribed_at) < $2)
         ORDER BY COALESCE(tm.last_reply_at, ts.subscribed_at) DESC
         LIMIT $3",
@@ -365,10 +369,12 @@ pub fn get_total_unread_thread_count(
          JOIN messages root_msg ON root_msg.id = ts.thread_root_id
          WHERE ts.uid = $1
            AND root_msg.deleted_at IS NULL
+           AND root_msg.is_published = TRUE
            AND EXISTS (
                SELECT 1 FROM messages m
                WHERE m.reply_root_id = ts.thread_root_id
                  AND m.deleted_at IS NULL
+                 AND m.is_published = TRUE
                  AND m.id > COALESCE(ts.last_read_message_id, 0)
            )",
     )
@@ -503,6 +509,7 @@ pub fn enrich_thread_list(
          FROM thread_subscriptions ts
          JOIN messages m ON m.reply_root_id = ts.thread_root_id
                         AND m.deleted_at IS NULL
+                        AND m.is_published = TRUE
                         AND m.id > COALESCE(ts.last_read_message_id, 0)
          WHERE ts.uid = $1
            AND ts.thread_root_id = ANY($2)
@@ -524,11 +531,13 @@ pub fn enrich_thread_list(
             FROM messages m
             WHERE m.reply_root_id = ANY($1)
               AND m.deleted_at IS NULL
+              AND m.is_published = TRUE
             UNION ALL
             SELECT root.id AS reply_root_id, root.sender_uid
             FROM messages root
             WHERE root.id = ANY($1)
               AND root.deleted_at IS NULL
+              AND root.is_published = TRUE
          ) combined
          ORDER BY reply_root_id, sender_uid",
     )
@@ -560,6 +569,7 @@ pub fn enrich_thread_list(
          FROM messages m
          WHERE m.reply_root_id = ANY($1)
            AND m.deleted_at IS NULL
+           AND m.is_published = TRUE
          ORDER BY m.reply_root_id, m.id DESC",
     )
     .bind::<diesel::sql_types::Array<diesel::sql_types::BigInt>, _>(&root_ids)

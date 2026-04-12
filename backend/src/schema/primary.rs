@@ -32,6 +32,10 @@ pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "push_provider"))]
     pub struct PushProvider;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "transcode_status"))]
+    pub struct TranscodeStatus;
 }
 
 diesel::table! {
@@ -165,6 +169,7 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::MessageType;
+    use super::sql_types::TranscodeStatus;
 
     messages (id) {
         id -> Int8,
@@ -182,6 +187,8 @@ diesel::table! {
         has_thread -> Bool,
         has_reactions -> Bool,
         sticker_id -> Nullable<Int8>,
+        is_published -> Bool,
+        transcode_status -> TranscodeStatus,
     }
 }
 

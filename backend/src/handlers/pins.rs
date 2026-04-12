@@ -103,6 +103,8 @@ async fn list_pins(
     let message_ids: Vec<i64> = pins.iter().map(|p| p.message_id).collect();
     let msgs: Vec<Message> = messages::table
         .filter(messages::id.eq_any(&message_ids))
+        .filter(messages::deleted_at.is_null())
+        .filter(messages::is_published.eq(true))
         .load(conn)?;
 
     let enriched = attach_metadata(conn, msgs, &state, uid).await;
@@ -159,7 +161,8 @@ async fn create_pin(
             messages::id
                 .eq(body.message_id)
                 .and(messages::chat_id.eq(path.chat_id))
-                .and(messages::deleted_at.is_null()),
+                .and(messages::deleted_at.is_null())
+                .and(messages::is_published.eq(true)),
         )
         .first(conn)
         .optional()?
@@ -239,6 +242,7 @@ async fn create_pin(
             client_generated_id: Uuid::new_v4().to_string(),
             attachment_ids: vec![],
             update_group_last_message: false,
+            publish_immediately: true,
         },
     )
     .await
@@ -314,6 +318,7 @@ async fn delete_pin(
             client_generated_id: Uuid::new_v4().to_string(),
             attachment_ids: vec![],
             update_group_last_message: false,
+            publish_immediately: true,
         },
     )
     .await

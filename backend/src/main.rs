@@ -192,6 +192,8 @@ async fn main() {
         jwt_signing_key,
     };
 
+    services::audio_transcode::start(state.clone());
+
     let registry = state.ws_registry.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));

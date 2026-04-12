@@ -12,20 +12,73 @@ const MIN_VOICE_DURATION_MS = 500;
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
 
-const getSupportedVoiceMimeType = () => {
-  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
-    return '';
+type VoiceRecordingFormat = {
+  extension: 'm4a' | 'mp3' | 'ogg';
+  mimeType: string;
+  isAcceptedMimeType: (mimeType: string) => boolean;
+};
+
+const normalizeMimeType = (mimeType: string) => mimeType.trim().toLowerCase();
+
+const isOggOpusMimeType = (mimeType: string) => {
+  const normalized = normalizeMimeType(mimeType);
+  return normalized.startsWith('audio/ogg') && normalized.includes('opus');
+};
+
+const isMp4AacMimeType = (mimeType: string) => {
+  const normalized = normalizeMimeType(mimeType);
+  if (!normalized.startsWith('audio/mp4')) {
+    return false;
   }
 
-  const candidates = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/mpeg'];
-  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
+  if (!normalized.includes('codecs=')) {
+    return false;
+  }
+
+  return normalized.includes('mp4a') || normalized.includes('aac');
 };
+
+const isMp3MimeType = (mimeType: string) => normalizeMimeType(mimeType).startsWith('audio/mpeg');
+
+const VOICE_RECORDING_FORMATS: readonly VoiceRecordingFormat[] = [
+  {
+    mimeType: 'audio/ogg;codecs=opus',
+    extension: 'ogg',
+    isAcceptedMimeType: isOggOpusMimeType,
+  },
+  {
+    mimeType: 'audio/mp4;codecs=mp4a.40.2',
+    extension: 'm4a',
+    isAcceptedMimeType: isMp4AacMimeType,
+  },
+  {
+    mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+    extension: 'm4a',
+    isAcceptedMimeType: isMp4AacMimeType,
+  },
+  {
+    mimeType: 'audio/mp4;codecs=aac',
+    extension: 'm4a',
+    isAcceptedMimeType: isMp4AacMimeType,
+  },
+  {
+    mimeType: 'audio/mp4; codecs="aac"',
+    extension: 'm4a',
+    isAcceptedMimeType: isMp4AacMimeType,
+  },
+  {
+    mimeType: 'audio/mpeg',
+    extension: 'mp3',
+    isAcceptedMimeType: isMp3MimeType,
+  },
+] as const;
 
 const getVoiceFileExtension = (mimeType: string) => {
   if (mimeType.includes('ogg')) return 'ogg';
   if (mimeType.includes('mp4')) return 'm4a';
+  if (mimeType.includes('aac')) return 'm4a';
   if (mimeType.includes('mpeg')) return 'mp3';
-  return 'ogg';
+  return 'bin';
 };
 
 interface UseVoiceRecorderArgs {
@@ -207,8 +260,41 @@ export function useVoiceRecorder({
       voiceStreamRef.current = stream;
       voiceChunksRef.current = [];
 
-      const mimeType = getSupportedVoiceMimeType();
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      let recorder: MediaRecorder | null = null;
+      let selectedFormat: VoiceRecordingFormat | null = null;
+
+      for (const candidateFormat of VOICE_RECORDING_FORMATS) {
+        if (
+          typeof MediaRecorder.isTypeSupported === 'function' &&
+          !MediaRecorder.isTypeSupported(candidateFormat.mimeType)
+        ) {
+          continue;
+        }
+
+        try {
+          const nextRecorder = new MediaRecorder(stream, { mimeType: candidateFormat.mimeType });
+          const resolvedMimeType = nextRecorder.mimeType || candidateFormat.mimeType;
+
+          if (!candidateFormat.isAcceptedMimeType(resolvedMimeType)) {
+            continue;
+          }
+
+          recorder = nextRecorder;
+          selectedFormat = candidateFormat;
+          break;
+        } catch {
+          continue;
+        }
+      }
+
+      if (!recorder || !selectedFormat) {
+        stopVoiceStream();
+        deferredActionRef.current = null;
+        setVoiceRecorderState(null);
+        reportVoiceError(t`Voice recording is not supported on this device.`);
+        return;
+      }
+
       voiceMediaRecorderRef.current = recorder;
       const startedAt = Date.now();
 
@@ -239,10 +325,11 @@ export function useVoiceRecorder({
           return;
         }
 
-        const blobType = recorder.mimeType || mimeType || 'audio/ogg';
+        const blobType = recorder.mimeType || selectedFormat.mimeType;
+        const fileExtension = getVoiceFileExtension(blobType);
         const file = new File(
           [new Blob(recordedChunks, { type: blobType })],
-          `voice-${Date.now()}.${getVoiceFileExtension(blobType)}`,
+          `voice-${Date.now()}.${fileExtension === 'bin' ? selectedFormat.extension : fileExtension}`,
           {
             type: blobType,
             lastModified: Date.now(),

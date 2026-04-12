@@ -64,6 +64,7 @@ fn get_unread_counts_batch(
              WHERE gm.uid = input_uids.uid
                AND m.id > COALESCE(gm.last_read_message_id, 0)
                AND m.deleted_at IS NULL
+               AND m.is_published = TRUE
                AND m.reply_root_id IS NULL
                AND (gm.muted_until IS NULL OR gm.muted_until <= NOW())
              LIMIT 100
@@ -94,6 +95,7 @@ pub fn get_chat_unread_count(
              WHERE chat_id = $1
                AND reply_root_id IS NULL
                AND deleted_at IS NULL
+               AND is_published = TRUE
                AND id > COALESCE($2, 0)
              LIMIT 100
          ) AS unread_messages",

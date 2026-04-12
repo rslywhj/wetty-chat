@@ -529,6 +529,7 @@ async fn post_send_invite_message(
             client_generated_id: body.client_generated_id,
             attachment_ids: vec![],
             update_group_last_message: true,
+            publish_immediately: true,
         },
     )
     .await?;
