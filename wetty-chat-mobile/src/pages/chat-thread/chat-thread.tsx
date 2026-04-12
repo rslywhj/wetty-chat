@@ -1726,6 +1726,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
           messageId={reactionDetail?.messageId ?? null}
           initialEmoji={reactionDetail?.emoji}
           onDismiss={() => setReactionDetail(null)}
+          onAvatarClick={setProfileSender}
         />
         <StickerPreviewModal stickerId={stickerPreviewId} onDismiss={() => setStickerPreviewId(null)} />
         <PinListModal

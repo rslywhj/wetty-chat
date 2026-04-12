@@ -1,5 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, current } from '@reduxjs/toolkit';
 import type { RootState } from './index';
 import { kvSet } from '@/utils/db';
 
@@ -40,12 +40,13 @@ export function isChatFontSizeOption(value: unknown): value is ChatFontSizeOptio
 }
 
 function persistSettings(state: SettingsState) {
+  const currentState = current(state);
   void kvSet('settings', {
-    locale: state.locale,
-    messageFontSize: state.messageFontSize,
-    showAllTab: state.showAllTab,
-    pinnedReactions: state.pinnedReactions,
-    recentReactions: state.recentReactions,
+    locale: currentState.locale,
+    messageFontSize: currentState.messageFontSize,
+    showAllTab: currentState.showAllTab,
+    pinnedReactions: currentState.pinnedReactions,
+    recentReactions: currentState.recentReactions,
   });
 }
 

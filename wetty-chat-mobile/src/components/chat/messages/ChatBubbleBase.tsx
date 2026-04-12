@@ -571,9 +571,18 @@ export function ChatBubbleBase({
     </div>
   );
 
-  const reactionsContent = reactions && reactions.length > 0 && (
+  const sortedReactions = reactions
+    ? [...reactions].sort((a, b) => {
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return a.emoji.localeCompare(b.emoji);
+      })
+    : [];
+
+  const reactionsContent = sortedReactions.length > 0 && (
     <div className={styles.reactionsContainer}>
-      {reactions.map((reaction) =>
+      {sortedReactions.map((reaction) =>
         interactive ? (
           <button
             key={reaction.emoji}
