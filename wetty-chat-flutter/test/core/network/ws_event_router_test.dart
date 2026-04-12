@@ -244,6 +244,24 @@ void main() {
               ),
             ],
           ),
+          ListThreadsResponseDto(
+            threads: [
+              _threadItem(
+                rootId: 10,
+                chatId: 1,
+                rootText: 'root one',
+                lastReplyAt: DateTime.parse('2026-01-03T00:00:00Z'),
+                replyCount: 4,
+              ),
+              _threadItem(
+                rootId: 20,
+                chatId: 1,
+                rootText: 'root two',
+                lastReplyAt: DateTime.parse('2026-01-02T00:00:00Z'),
+                replyCount: 1,
+              ),
+            ],
+          ),
         ],
       );
       final container = await _containerFor(
@@ -284,7 +302,7 @@ void main() {
           ),
         ),
       );
-      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
       final chatState = container.read(chatListStateProvider);
       final threadState = container.read(threadListStateProvider);
@@ -296,7 +314,77 @@ void main() {
         [10, 20],
       );
       expect(threadState.threads.first.replyCount, 4);
+      expect(threadService.fetchThreadsCalls, 2);
     });
+
+    test(
+      'duplicate websocket deliveries are deduplicated at the router',
+      () async {
+        final controller = StreamController<ApiWsEvent>.broadcast();
+        final chatService = _FakeChatApiService(
+          unreadCount: 0,
+          chatResponses: [
+            ListChatsResponseDto(
+              chats: [
+                _chatListItem(
+                  id: 1,
+                  name: 'one',
+                  lastMessage: _messageItem(id: 100, chatId: 1, text: 'old'),
+                  lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+                ),
+              ],
+            ),
+          ],
+        );
+        final threadService = _FakeThreadApiService(
+          unreadCount: 0,
+          threadResponses: const [],
+        );
+        final container = await _containerFor(
+          controller: controller,
+          chatService: chatService,
+          threadService: threadService,
+        );
+        addTearDown(() async {
+          await controller.close();
+          container.dispose();
+        });
+
+        final routerSubscription = container.listen<void>(
+          wsEventRouterProvider,
+          (previous, next) {},
+        );
+        addTearDown(routerSubscription.close);
+        await container.read(chatListStateProvider.notifier).loadChats();
+
+        var conversationEvents = 0;
+        final token = container
+            .read(conversationRealtimeRegistryProvider)
+            .addListener((_) => conversationEvents += 1);
+        addTearDown(
+          () => container
+              .read(conversationRealtimeRegistryProvider)
+              .removeListener(token),
+        );
+
+        final event = MessageCreatedWsEvent(
+          payload: _messageItem(
+            id: 300,
+            chatId: 1,
+            text: 'latest one',
+            createdAt: DateTime.parse('2026-01-03T00:00:00Z'),
+          ),
+        );
+        controller.add(event);
+        controller.add(event);
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+
+        final chatState = container.read(chatListStateProvider);
+        expect(conversationEvents, 1);
+        expect(chatState.chats.single.lastMessage?.message, 'latest one');
+        expect(chatState.chats.single.unreadCount, 1);
+      },
+    );
 
     test('sticker pack order events only update sticker order store', () async {
       final controller = StreamController<ApiWsEvent>.broadcast();

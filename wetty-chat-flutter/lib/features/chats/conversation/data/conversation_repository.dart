@@ -95,6 +95,12 @@ class ConversationRepository {
         around: messageId,
         max: before + after + 1,
       );
+      _updateReachabilityFromAroundResponse(
+        response.messages,
+        anchorMessageId: messageId,
+        before: before,
+        after: after,
+      );
       _reconcileDtos(response.messages);
       developer.log(
         'loadAroundMessage: fetched ${response.messages.length} msgs, '
@@ -227,6 +233,12 @@ class ConversationRepository {
       scope,
       around: messageId,
       max: before + after + 1,
+    );
+    _updateReachabilityFromAroundResponse(
+      response.messages,
+      anchorMessageId: messageId,
+      before: before,
+      after: after,
     );
     _reconcileDtos(response.messages);
     if (response.messages.isEmpty) {
@@ -757,6 +769,58 @@ class ConversationRepository {
     final availableAfter = replyKeys.length - replyIndex - 1;
     return (availableBefore >= before || _hasReachedOldest) &&
         (availableAfter >= after || _hasReachedNewest);
+  }
+
+  void _updateReachabilityFromAroundResponse(
+    List<MessageItemDto> messages, {
+    required int anchorMessageId,
+    required int before,
+    required int after,
+  }) {
+    if (messages.isEmpty) {
+      _hasReachedOldest = false;
+      _hasReachedNewest = false;
+      return;
+    }
+
+    if (!scope.isThread) {
+      final anchorIndex = messages.indexWhere(
+        (message) => message.id == anchorMessageId,
+      );
+      if (anchorIndex < 0) {
+        _hasReachedOldest = false;
+        _hasReachedNewest = false;
+        return;
+      }
+      final availableBefore = anchorIndex;
+      final availableAfter = messages.length - anchorIndex - 1;
+      _hasReachedOldest = availableBefore < before;
+      _hasReachedNewest = availableAfter < after;
+      return;
+    }
+
+    final threadRootId = int.tryParse(scope.threadRootId ?? '');
+    final replyMessages = messages
+        .where((message) => message.id != threadRootId)
+        .toList(growable: false);
+    if (anchorMessageId == threadRootId) {
+      _hasReachedOldest = true;
+      _hasReachedNewest = replyMessages.length < after;
+      return;
+    }
+
+    final replyIndex = replyMessages.indexWhere(
+      (message) => message.id == anchorMessageId,
+    );
+    if (replyIndex < 0) {
+      _hasReachedOldest = false;
+      _hasReachedNewest = false;
+      return;
+    }
+    final availableBefore = replyIndex;
+    final availableAfter = replyMessages.length - replyIndex - 1;
+    _hasReachedOldest = availableBefore < before;
+    _hasReachedNewest = availableAfter < after;
   }
 
   String? _resolvePagingAnchorStableKey(

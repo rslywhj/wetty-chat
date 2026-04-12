@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:chahua/core/api/models/messages_api_models.dart';
 import 'package:chahua/core/api/models/websocket_api_models.dart';
-import 'package:chahua/core/network/websocket_service.dart';
 import 'package:chahua/core/providers/shared_preferences_provider.dart';
 import 'package:chahua/features/chats/threads/data/thread_api_service.dart';
 import 'package:chahua/features/chats/threads/data/thread_repository.dart';
@@ -137,6 +136,155 @@ void main() {
       expect(state.threads.single.replyCount, 0);
       expect(state.threads.single.lastReply, isNull);
     });
+
+    test('reply update patches current preview without refresh', () async {
+      final service = _FakeThreadApiService(
+        threadResponses: [
+          ListThreadsResponseDto(
+            threads: [
+              _threadItem(
+                rootId: 10,
+                chatId: 1,
+                rootText: 'root one',
+                lastReply: _replyPreview(id: 100, text: 'reply one'),
+                lastReplyAt: DateTime.parse('2026-01-02T00:00:00Z'),
+                replyCount: 1,
+              ),
+            ],
+          ),
+        ],
+      );
+      final container = await _containerFor(service);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(threadListStateProvider.notifier);
+      await notifier.loadThreads();
+
+      notifier.applyRealtimeUpdated(
+        _message(
+          id: 100,
+          chatId: 1,
+          text: 'reply edited',
+          replyRootId: 10,
+          createdAt: DateTime.parse('2026-01-02T00:00:00Z'),
+        ),
+      );
+
+      final state = container.read(threadListStateProvider);
+      expect(service.fetchThreadsCalls, 1);
+      expect(state.threads.single.lastReply?.message, 'reply edited');
+    });
+
+    test(
+      'deleting a non-preview reply updates count without refresh',
+      () async {
+        final service = _FakeThreadApiService(
+          threadResponses: [
+            ListThreadsResponseDto(
+              threads: [
+                _threadItem(
+                  rootId: 10,
+                  chatId: 1,
+                  rootText: 'root one',
+                  lastReply: _replyPreview(id: 101, text: 'reply two'),
+                  lastReplyAt: DateTime.parse('2026-01-03T00:00:00Z'),
+                  replyCount: 2,
+                ),
+              ],
+            ),
+          ],
+        );
+        final container = await _containerFor(service);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(threadListStateProvider.notifier);
+        await notifier.loadThreads();
+
+        notifier.applyRealtimeDeleted(
+          _message(
+            id: 100,
+            chatId: 1,
+            text: 'reply one',
+            replyRootId: 10,
+            isDeleted: true,
+          ),
+        );
+
+        final state = container.read(threadListStateProvider);
+        expect(service.fetchThreadsCalls, 1);
+        expect(state.threads.single.replyCount, 1);
+        expect(state.threads.single.lastReply?.message, 'reply two');
+      },
+    );
+
+    test('thread update triggers authoritative refresh', () async {
+      final service = _FakeThreadApiService(
+        threadResponses: [
+          ListThreadsResponseDto(
+            threads: [
+              _threadItem(
+                rootId: 20,
+                chatId: 1,
+                rootText: 'root two',
+                lastReplyAt: DateTime.parse('2026-01-02T00:00:00Z'),
+                replyCount: 1,
+              ),
+              _threadItem(
+                rootId: 10,
+                chatId: 1,
+                rootText: 'root one',
+                lastReplyAt: DateTime.parse('2026-01-01T00:00:00Z'),
+                replyCount: 1,
+              ),
+            ],
+          ),
+          ListThreadsResponseDto(
+            threads: [
+              _threadItem(
+                rootId: 20,
+                chatId: 1,
+                rootText: 'root two',
+                lastReply: _replyPreview(id: 200, text: 'server reply'),
+                lastReplyAt: DateTime.parse('2026-01-04T00:00:00Z'),
+                replyCount: 2,
+              ),
+              _threadItem(
+                rootId: 10,
+                chatId: 1,
+                rootText: 'root one',
+                lastReply: _replyPreview(id: 101, text: 'local reply'),
+                lastReplyAt: DateTime.parse('2026-01-03T00:00:00Z'),
+                replyCount: 2,
+              ),
+            ],
+          ),
+        ],
+      );
+      final container = await _containerFor(service);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(threadListStateProvider.notifier);
+      await notifier.loadThreads();
+      notifier.applyRealtimeEvent(
+        ThreadUpdatedWsEvent(
+          payload: ThreadUpdatePayloadDto(
+            threadRootId: 10,
+            chatId: 1,
+            lastReplyAt: DateTime.parse('2026-01-03T00:00:00Z'),
+            replyCount: 2,
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final state = container.read(threadListStateProvider);
+      expect(state.threads.map((thread) => thread.threadRootId).toList(), [
+        20,
+        10,
+      ]);
+      expect(state.threads.first.lastReply?.message, 'server reply');
+      expect(state.threads.last.lastReply?.message, 'local reply');
+    });
   });
 }
 
@@ -147,7 +295,6 @@ Future<ProviderContainer> _containerFor(_FakeThreadApiService service) async {
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       threadApiServiceProvider.overrideWithValue(service),
-      wsEventsProvider.overrideWith((ref) => const Stream<ApiWsEvent>.empty()),
     ],
   );
 }

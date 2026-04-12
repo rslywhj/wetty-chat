@@ -25,35 +25,6 @@ class MessageApiService {
     return '/chats/${scope.chatId}/threads/${scope.threadRootId}/messages';
   }
 
-  Future<ListMessagesResponseDto> fetchMessages(
-    String chatId, {
-    int? max,
-    int? before,
-    int? after,
-    int? around,
-    String? threadId,
-  }) async {
-    final query = <String, String>{};
-    if (max != null) query['max'] = max.toString();
-    if (before != null) query['before'] = before.toString();
-    if (after != null) query['after'] = after.toString();
-    if (around != null) query['around'] = around.toString();
-    if (threadId != null && threadId.isNotEmpty) {
-      query['threadId'] = threadId;
-    }
-
-    final response = await _dio.get<Map<String, dynamic>>(
-      '/chats/$chatId/messages',
-      queryParameters: query.isEmpty ? null : query,
-    );
-    return ListMessagesResponseDto.fromJson(response.data!);
-  }
-
-  Future<List<MessageItemDto>> fetchAround(String chatId, int messageId) async {
-    final response = await fetchMessages(chatId, around: messageId);
-    return response.messages;
-  }
-
   /// Fetch path: threads use the same GET endpoint with a `threadId` query param.
   Future<ListMessagesResponseDto> fetchConversationMessages(
     ConversationScope scope, {
@@ -76,35 +47,6 @@ class MessageApiService {
       queryParameters: query.isEmpty ? null : query,
     );
     return ListMessagesResponseDto.fromJson(response.data!);
-  }
-
-  Future<MessageItemDto> sendMessage(
-    String chatId,
-    String text, {
-    String messageType = 'text',
-    int? replyToId,
-    String? threadId,
-    List<String> attachmentIds = const <String>[],
-    String? clientGeneratedId,
-    String? stickerId,
-  }) async {
-    final path = threadId == null
-        ? '/chats/$chatId/messages'
-        : '/chats/$chatId/threads/$threadId/messages';
-    final body = SendMessageRequestDto(
-      message: text,
-      messageType: messageType,
-      clientGeneratedId: clientGeneratedId ?? nextClientGeneratedId(),
-      attachmentIds: attachmentIds,
-      replyToId: replyToId,
-      stickerId: stickerId,
-    );
-
-    final response = await _dio.post<Map<String, dynamic>>(
-      path,
-      data: body.toJson(),
-    );
-    return MessageItemDto.fromJson(response.data!);
   }
 
   Future<MessageItemDto> sendConversationMessage(

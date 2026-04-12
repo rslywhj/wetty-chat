@@ -8,7 +8,6 @@ typedef ConversationRealtimeListener = void Function(ApiWsEvent event);
 class ConversationRealtimeRegistry {
   final Map<Object, ConversationRealtimeListener> _listeners =
       <Object, ConversationRealtimeListener>{};
-  String? _lastEventKey;
 
   Object addListener(ConversationRealtimeListener listener) {
     final token = Object();
@@ -21,61 +20,6 @@ class ConversationRealtimeRegistry {
   }
 
   void dispatch(ApiWsEvent event) {
-    final eventKey = switch (event) {
-      MessageCreatedWsEvent(:final payload) => [
-        'messageCreated',
-        payload.id,
-        payload.chatId,
-        payload.replyRootId,
-        payload.clientGeneratedId,
-        payload.createdAt?.millisecondsSinceEpoch,
-        payload.isDeleted,
-      ].join(':'),
-      MessageUpdatedWsEvent(:final payload) => [
-        'messageUpdated',
-        payload.id,
-        payload.chatId,
-        payload.replyRootId,
-        payload.clientGeneratedId,
-        payload.createdAt?.millisecondsSinceEpoch,
-        payload.isDeleted,
-      ].join(':'),
-      MessageDeletedWsEvent(:final payload) => [
-        'messageDeleted',
-        payload.id,
-        payload.chatId,
-        payload.replyRootId,
-        payload.clientGeneratedId,
-        payload.createdAt?.millisecondsSinceEpoch,
-        payload.isDeleted,
-      ].join(':'),
-      ReactionUpdatedWsEvent(:final payload) => [
-        'reactionUpdated',
-        payload.chatId,
-        payload.messageId,
-        payload.reactions
-            .map((reaction) => '${reaction.emoji}:${reaction.count}')
-            .join(','),
-      ].join(':'),
-      ThreadUpdatedWsEvent(:final payload) => [
-        'threadUpdated',
-        payload.chatId,
-        payload.threadRootId,
-        payload.lastReplyAt.millisecondsSinceEpoch,
-        payload.replyCount,
-      ].join(':'),
-      StickerPackOrderUpdatedWsEvent(:final payload) => [
-        'stickerPackOrderUpdated',
-        payload.order
-            .map((item) => '${item.stickerPackId}:${item.lastUsedOn}')
-            .join(','),
-      ].join(':'),
-      PongWsEvent() => 'pong',
-    };
-    if (_lastEventKey == eventKey) {
-      return;
-    }
-    _lastEventKey = eventKey;
     for (final listener in _listeners.values.toList(growable: false)) {
       listener(event);
     }

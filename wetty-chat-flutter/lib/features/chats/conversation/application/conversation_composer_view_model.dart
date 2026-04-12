@@ -10,7 +10,6 @@ import 'package:voice_message/voice_message.dart';
 
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/session/dev_session_store.dart';
-import '../../list/application/chat_list_view_model.dart';
 import '../../models/message_models.dart';
 import '../data/attachment_picker_service.dart';
 import '../data/attachment_service.dart';
@@ -474,7 +473,7 @@ class ConversationComposerViewModel
     );
 
     try {
-      final sentMessage = await _repository.commitSend(
+      await _repository.commitSend(
         clientGeneratedId: clientGeneratedId,
         text: trimmed,
         messageType: 'text',
@@ -483,7 +482,6 @@ class ConversationComposerViewModel
             ? mode.message.serverMessageId
             : null,
       );
-      _syncListStateAfterSend(sentMessage);
       state = const ConversationComposerState(
         draft: '',
         mode: ComposerIdle(),
@@ -523,7 +521,7 @@ class ConversationComposerViewModel
     }
 
     try {
-      final sentMessage = await _repository.commitSend(
+      await _repository.commitSend(
         clientGeneratedId: clientGeneratedId,
         text: '',
         messageType: 'sticker',
@@ -531,7 +529,6 @@ class ConversationComposerViewModel
         replyToId: replyToId,
         stickerId: stickerId,
       );
-      _syncListStateAfterSend(sentMessage);
     } catch (_) {
       _repository.markSendFailed(clientGeneratedId);
       rethrow;
@@ -858,9 +855,7 @@ class ConversationComposerViewModel
             progress: 0,
           ),
         );
-        throw const ComposerAudioException(
-          ComposerAudioErrorCode.uploadFailed,
-        );
+        throw const ComposerAudioException(ComposerAudioErrorCode.uploadFailed);
       }
       final oggFile = File(oggPath);
       final oggStat = await oggFile.stat();
@@ -938,7 +933,7 @@ class ConversationComposerViewModel
     state = state.copyWith(audioDraft: null);
 
     try {
-      final sentMessage = await _repository.commitSend(
+      await _repository.commitSend(
         clientGeneratedId: clientGeneratedId,
         text: '',
         messageType: 'audio',
@@ -947,7 +942,6 @@ class ConversationComposerViewModel
             ? mode.message.serverMessageId
             : null,
       );
-      _syncListStateAfterSend(sentMessage);
       state = const ConversationComposerState(
         draft: '',
         mode: ComposerIdle(),
@@ -958,14 +952,6 @@ class ConversationComposerViewModel
     } catch (_) {
       _repository.markSendFailed(clientGeneratedId);
       rethrow;
-    }
-  }
-
-  void _syncListStateAfterSend(ConversationMessage message) {
-    if (_scope.threadRootId == null) {
-      ref
-          .read(chatListViewModelProvider.notifier)
-          .recordOutgoingMessage(message);
     }
   }
 

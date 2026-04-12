@@ -161,19 +161,18 @@ class ConversationTimelineViewModel
       name: 'TimelineVM',
     );
     _repository = ref.read(conversationRepositoryProvider(arg.scope));
+    final realtimeRegistry = ref.read(conversationRealtimeRegistryProvider);
 
-    final realtimeListenerToken = ref
-        .read(conversationRealtimeRegistryProvider)
-        .addListener(_handleRealtimeEvent);
+    final realtimeListenerToken = realtimeRegistry.addListener(
+      _handleRealtimeEvent,
+    );
 
     ref.onDispose(() {
       developer.log('disposed', name: 'TimelineVM');
       _isDisposed = true;
       _readSyncDebounceTimer?.cancel();
       _highlightTimer?.cancel();
-      ref
-          .read(conversationRealtimeRegistryProvider)
-          .removeListener(realtimeListenerToken);
+      realtimeRegistry.removeListener(realtimeListenerToken);
     });
 
     return _loadInitial(arg.launchRequest);

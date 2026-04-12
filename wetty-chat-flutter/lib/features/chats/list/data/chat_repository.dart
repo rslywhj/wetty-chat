@@ -12,7 +12,6 @@ import '../../models/chat_api_mapper.dart';
 import '../../models/chat_models.dart';
 import '../../models/message_api_mapper.dart';
 import '../../conversation/data/message_api_service.dart';
-import '../../conversation/domain/conversation_message.dart';
 import 'chat_api_service.dart';
 
 typedef ChatListState = ({
@@ -173,11 +172,6 @@ class ChatListNotifier extends Notifier<ChatListState> {
       nextUnreadCount: nextUnreadCount,
       nextMutedUntil: current.mutedUntil,
     );
-  }
-
-  void recordOutgoingMessage(ConversationMessage message) {
-    // Chat list projection is confirmation-driven. Optimistic sends only affect
-    // the conversation runtime and the list waits for websocket or refresh.
   }
 
   Future<void> markChatReadViaSwipe({required String chatId}) async {

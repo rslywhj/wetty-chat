@@ -7,12 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/route_names.dart';
 import '../../../../app/theme/style_config.dart';
-import '../../../../core/notifications/unread_badge_provider.dart';
 import '../../../groups/metadata/application/group_metadata_view_model.dart';
 import '../../../groups/metadata/data/group_metadata_models.dart';
-import '../../list/application/chat_list_view_model.dart';
 import '../../models/message_models.dart';
-import '../../threads/application/thread_list_view_model.dart';
 import '../application/conversation_composer_view_model.dart';
 import '../application/conversation_timeline_view_model.dart';
 import '../domain/conversation_scope.dart';
@@ -122,21 +119,8 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     );
   }
 
-  Future<void> _refreshConversationLists() async {
-    try {
-      await Future.wait([
-        ref.read(chatListViewModelProvider.notifier).refreshChats(),
-        ref.read(threadListViewModelProvider.notifier).refreshThreads(),
-        ref.read(unreadBadgeProvider.notifier).refresh(),
-      ]);
-    } catch (_) {
-      // Keep detail interaction responsive; websocket/manual refresh remains fallback.
-    }
-  }
-
   Future<void> _handleMessageSent() async {
     await _timelineController.scrollToLatest();
-    unawaited(_refreshConversationLists());
   }
 
   void _toggleStickerPicker() {

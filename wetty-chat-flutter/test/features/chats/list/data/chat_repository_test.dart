@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chahua/core/api/models/chats_api_models.dart';
 import 'package:chahua/core/api/models/messages_api_models.dart';
 import 'package:chahua/core/api/models/websocket_api_models.dart';
-import 'package:chahua/core/network/websocket_service.dart';
 import 'package:chahua/core/providers/shared_preferences_provider.dart';
 import 'package:chahua/features/chats/list/data/chat_api_service.dart';
 import 'package:chahua/features/chats/list/data/chat_repository.dart';
@@ -41,9 +40,6 @@ void main() {
               await SharedPreferences.getInstance(),
             ),
             chatApiServiceProvider.overrideWithValue(fakeService),
-            wsEventsProvider.overrideWith(
-              (ref) => const Stream<ApiWsEvent>.empty(),
-            ),
           ],
         );
         addTearDown(testContainer.dispose);
@@ -95,9 +91,6 @@ void main() {
               await SharedPreferences.getInstance(),
             ),
             chatApiServiceProvider.overrideWithValue(fakeService),
-            wsEventsProvider.overrideWith(
-              (ref) => const Stream<ApiWsEvent>.empty(),
-            ),
           ],
         );
         addTearDown(testContainer.dispose);
@@ -144,9 +137,6 @@ void main() {
               await SharedPreferences.getInstance(),
             ),
             chatApiServiceProvider.overrideWithValue(fakeService),
-            wsEventsProvider.overrideWith(
-              (ref) => const Stream<ApiWsEvent>.empty(),
-            ),
           ],
         );
         addTearDown(testContainer.dispose);
@@ -201,9 +191,6 @@ void main() {
               await SharedPreferences.getInstance(),
             ),
             chatApiServiceProvider.overrideWithValue(fakeService),
-            wsEventsProvider.overrideWith(
-              (ref) => const Stream<ApiWsEvent>.empty(),
-            ),
           ],
         );
         addTearDown(testContainer.dispose);
@@ -226,6 +213,171 @@ void main() {
         final state = testContainer.read(chatListStateProvider);
         expect(fakeService.fetchChatsCalls, 2);
         expect(state.chats.single.lastMessage, isNull);
+      },
+    );
+
+    test('message update patches current preview without refresh', () async {
+      SharedPreferences.setMockInitialValues({});
+      final fakeService = _FakeChatApiService([
+        ListChatsResponseDto(
+          chats: [
+            _chatListItem(
+              id: 1,
+              name: 'one',
+              lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+              lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+            ),
+          ],
+        ),
+      ]);
+      final testContainer = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(
+            await SharedPreferences.getInstance(),
+          ),
+          chatApiServiceProvider.overrideWithValue(fakeService),
+        ],
+      );
+      addTearDown(testContainer.dispose);
+
+      final notifier = testContainer.read(chatListStateProvider.notifier);
+      await notifier.loadChats();
+
+      notifier.applyRealtimeEvent(
+        MessageUpdatedWsEvent(
+          payload: _messageItem(
+            id: 100,
+            chatId: 1,
+            text: 'edited one',
+            createdAt: DateTime.parse('2026-01-01T00:00:00Z'),
+          ),
+        ),
+      );
+
+      final state = testContainer.read(chatListStateProvider);
+      expect(fakeService.fetchChatsCalls, 1);
+      expect(state.chats.single.lastMessage?.message, 'edited one');
+    });
+
+    test(
+      'deleting a non-preview message does not refresh or change preview',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'preview'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
+          ),
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+          ],
+        );
+        addTearDown(testContainer.dispose);
+
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
+
+        notifier.applyRealtimeEvent(
+          MessageDeletedWsEvent(
+            payload: _messageItem(
+              id: 99,
+              chatId: 1,
+              text: 'older',
+              isDeleted: true,
+            ),
+          ),
+        );
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(fakeService.fetchChatsCalls, 1);
+        expect(state.chats.single.lastMessage?.message, 'preview');
+      },
+    );
+
+    test(
+      'loadChats refresh replaces stale realtime projection and ordering',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 2,
+                name: 'two',
+                lastMessage: _messageItem(id: 200, chatId: 2, text: 'old two'),
+                lastMessageAt: DateTime.parse('2026-01-02T00:00:00Z'),
+              ),
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
+          ),
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 2,
+                name: 'two',
+                lastMessage: _messageItem(
+                  id: 201,
+                  chatId: 2,
+                  text: 'server two',
+                ),
+                lastMessageAt: DateTime.parse('2026-01-04T00:00:00Z'),
+              ),
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(
+                  id: 300,
+                  chatId: 1,
+                  text: 'local one',
+                ),
+                lastMessageAt: DateTime.parse('2026-01-03T00:00:00Z'),
+              ),
+            ],
+          ),
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+          ],
+        );
+        addTearDown(testContainer.dispose);
+
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
+        notifier.applyRealtimeEvent(
+          _messageEvent(
+            chatId: '1',
+            messageId: 300,
+            text: 'local one',
+            createdAt: DateTime.parse('2026-01-03T00:00:00Z'),
+          ),
+        );
+
+        await notifier.loadChats();
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(state.chats.map((chat) => chat.id).toList(), ['2', '1']);
+        expect(state.chats.first.lastMessage?.message, 'server two');
+        expect(state.chats.last.lastMessage?.message, 'local one');
       },
     );
   });

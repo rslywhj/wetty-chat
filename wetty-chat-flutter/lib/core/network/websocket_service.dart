@@ -136,7 +136,3 @@ final webSocketProvider = Provider<WebSocketService>((ref) {
 
   return service;
 });
-
-final wsEventsProvider = StreamProvider<ApiWsEvent>((ref) {
-  return ref.watch(webSocketProvider).events;
-});

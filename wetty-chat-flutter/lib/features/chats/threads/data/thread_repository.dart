@@ -206,30 +206,22 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
 
     final previous = state.threads[index];
     final isCurrentPreview = matchesThreadPreview(previous.lastReply, payload);
-    final updated = previous.copyWith(
-      replyCount: previous.replyCount > 0 ? previous.replyCount - 1 : 0,
-    );
-    _replaceState(threads: replaceThreadAt(state.threads, index, updated));
     if (isCurrentPreview) {
-      unawaited(_refreshForUnknownRealtimeThread());
-    }
-  }
-
-  void applyThreadUpdated(ThreadUpdatePayloadDto payload) {
-    final index = _indexOfThread(payload.threadRootId);
-    if (index < 0) {
       unawaited(_refreshForUnknownRealtimeThread());
       return;
     }
 
-    final previous = state.threads[index];
     final updated = previous.copyWith(
-      replyCount: payload.replyCount,
-      lastReplyAt: payload.lastReplyAt,
+      replyCount: previous.replyCount > 0 ? previous.replyCount - 1 : 0,
     );
-    _replaceState(
-      threads: reinsertThreadByActivity(state.threads, index, updated),
-    );
+    _replaceState(threads: replaceThreadAt(state.threads, index, updated));
+  }
+
+  void applyThreadUpdated(ThreadUpdatePayloadDto payload) {
+    // TODO: replace this refresh-based handling with a dedicated
+    // thread-membership websocket event once the backend can notify
+    // subscribe/unsubscribe transitions explicitly.
+    unawaited(_refreshForUnknownRealtimeThread());
   }
 
   int get _currentUserId => ref.read(authSessionProvider).currentUserId;

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:chahua/core/api/models/chats_api_models.dart';
-import 'package:chahua/core/network/websocket_service.dart';
 import 'package:chahua/core/notifications/apns_channel.dart';
 import 'package:chahua/core/notifications/unread_badge_provider.dart';
 import 'package:chahua/core/session/dev_session_store.dart';
@@ -26,7 +25,6 @@ void main() {
             _FakeThreadApiService(unreadCount: 3),
           ),
           apnsChannelProvider.overrideWithValue(_FakeApnsChannel()),
-          wsEventsProvider.overrideWith((ref) => const Stream.empty()),
         ],
       );
       addTearDown(container.dispose);
@@ -51,7 +49,6 @@ void main() {
             _FakeThreadApiService(unreadCount: 0),
           ),
           apnsChannelProvider.overrideWithValue(_FakeApnsChannel()),
-          wsEventsProvider.overrideWith((ref) => const Stream.empty()),
         ],
       );
       addTearDown(container.dispose);
