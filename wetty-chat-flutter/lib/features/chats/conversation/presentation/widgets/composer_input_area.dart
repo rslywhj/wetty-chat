@@ -21,7 +21,6 @@ class ComposerInputArea extends StatelessWidget {
     required this.snapPosition,
     required this.fieldMinHeight,
     required this.onDraftChanged,
-    required this.onClearMode,
     required this.onRemoveAttachment,
     required this.onRetryAttachment,
     required this.onDeleteAudioDraft,
@@ -35,7 +34,6 @@ class ComposerInputArea extends StatelessWidget {
   final ComposerAudioSnapPosition snapPosition;
   final double fieldMinHeight;
   final ValueChanged<String> onDraftChanged;
-  final VoidCallback onClearMode;
   final ValueChanged<String> onRemoveAttachment;
   final Future<void> Function(String localId) onRetryAttachment;
   final Future<void> Function() onDeleteAudioDraft;
@@ -66,7 +64,6 @@ class ComposerInputArea extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ComposerPreviewBar(composer: composer, onClearMode: onClearMode),
         if (composer.attachments.isNotEmpty)
           _ComposerAttachmentPreview(
             attachments: composer.attachments,
@@ -115,8 +112,9 @@ class ComposerInputArea extends StatelessWidget {
   }
 }
 
-class _ComposerPreviewBar extends StatelessWidget {
-  const _ComposerPreviewBar({
+class ComposerPreviewBar extends StatelessWidget {
+  const ComposerPreviewBar({
+    super.key,
     required this.composer,
     required this.onClearMode,
   });

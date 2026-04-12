@@ -13,6 +13,7 @@ import 'message_avatar.dart';
 import 'message_bubble/message_bubble.dart';
 import 'message_bubble/message_bubble_presentation.dart';
 import 'message_bubble/voice_message_bubble.dart';
+import 'reply_swipe_action.dart';
 import 'video_popup_player.dart';
 
 class MessageLongPressDetails {
@@ -80,9 +81,7 @@ class MessageRow extends StatefulWidget {
   State<MessageRow> createState() => _MessageRowState();
 }
 
-class _MessageRowState extends State<MessageRow>
-    with SingleTickerProviderStateMixin {
-  static const double _replyThreshold = 60;
+class _MessageRowState extends State<MessageRow> {
   static const double _rowHorizontalPadding =
       MessageBubblePresentation.rowHorizontalPadding / 2;
   static const double _avatarLaneWidth =
@@ -95,8 +94,6 @@ class _MessageRowState extends State<MessageRow>
     'invite',
   };
 
-  double _dragOffset = 0;
-  bool _hasTriggeredReply = false;
   final GlobalKey _bubbleKey = GlobalKey();
 
   bool get _isMe {
@@ -146,34 +143,6 @@ class _MessageRowState extends State<MessageRow>
     );
   }
 
-  void _onHorizontalDragUpdate(DragUpdateDetails details) {
-    if (!_canReply) {
-      return;
-    }
-
-    setState(() {
-      _dragOffset = (_dragOffset + details.delta.dx).clamp(
-        -_replyThreshold * 1.3,
-        0,
-      );
-    });
-    if (!_hasTriggeredReply && _dragOffset <= -_replyThreshold) {
-      _hasTriggeredReply = true;
-    }
-  }
-
-  void _onHorizontalDragEnd(DragEndDetails details) {
-    if (!_canReply) {
-      return;
-    }
-
-    if (_hasTriggeredReply) {
-      widget.onReply?.call();
-    }
-    _hasTriggeredReply = false;
-    setState(() => _dragOffset = 0);
-  }
-
   Future<void> _openAttachment(AttachmentItem attachment) async {
     if (attachment.url.isEmpty) {
       return;
@@ -199,54 +168,21 @@ class _MessageRowState extends State<MessageRow>
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final presentation = MessageBubblePresentation.fromContext(
       context: context,
       message: widget.message,
       isMe: _isMe,
       chatMessageFontSize: widget.chatMessageFontSize,
     );
-    final replyIconOpacity = _canReply
-        ? (_dragOffset.abs() / _replyThreshold).clamp(0.0, 1.0)
-        : 0.0;
 
     return GestureDetector(
       onLongPress: _isDesktopPlatform ? null : _handleLongPress,
       onSecondaryTapUp: _isDesktopPlatform ? (_) => _handleLongPress() : null,
-      onHorizontalDragUpdate: _canReply ? _onHorizontalDragUpdate : null,
-      onHorizontalDragEnd: _canReply ? _onHorizontalDragEnd : null,
-      child: Stack(
-        alignment: Alignment.centerRight,
-        children: [
-          if (_canReply)
-            Positioned(
-              right: 16,
-              child: Opacity(
-                opacity: replyIconOpacity,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: colors.chatReplyActionBackground,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.reply,
-                    size: 22,
-                    color: CupertinoColors.activeBlue,
-                  ),
-                ),
-              ),
-            ),
-          AnimatedContainer(
-            duration: _dragOffset == 0
-                ? const Duration(milliseconds: 200)
-                : Duration.zero,
-            curve: Curves.easeOut,
-            transform: Matrix4.translationValues(_dragOffset, 0, 0),
-            child: _buildMessageRow(context, presentation),
-          ),
-        ],
+      child: ReplySwipeAction(
+        key: ValueKey(widget.message.stableKey),
+        enabled: _canReply,
+        onTriggered: widget.onReply,
+        child: _buildMessageRow(context, presentation),
       ),
     );
   }
