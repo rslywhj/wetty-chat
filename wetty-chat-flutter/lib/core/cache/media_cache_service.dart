@@ -211,9 +211,10 @@ class MediaCacheService {
         return null;
       }
 
-      return _cacheManager.putFileStream(
+      final bytes = await derivedFile.readAsBytes();
+      return _cacheManager.putFile(
         cacheKey,
-        derivedFile.openRead(),
+        bytes,
         key: cacheKey,
         maxAge: artifactMaxAge,
         fileExtension: fileExtension,

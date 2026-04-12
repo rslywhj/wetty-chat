@@ -76,102 +76,109 @@ class _VoiceMessageBubbleFallbackState
         ? playbackState.errorMessage ?? 'Audio playback failed'
         : '${_formatDuration(clampedSliderPosition)} / ${_formatDuration(duration)}';
 
-    return Container(
-      width: bubbleWidth,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: bubbleColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: buttonBackground,
-                  shape: BoxShape.circle,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: canPlay
+          ? () => controller.togglePlayback(widget.attachment)
+          : null,
+      child: Container(
+        width: bubbleWidth,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: buttonBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size.square(32),
+                    onPressed: canPlay
+                        ? () => controller.togglePlayback(widget.attachment)
+                        : null,
+                    child: _PlaybackIcon(phase: phase, iconColor: accent),
+                  ),
                 ),
-                child: CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size.square(32),
-                  onPressed: canPlay
-                      ? () => controller.togglePlayback(widget.attachment)
-                      : null,
-                  child: _PlaybackIcon(phase: phase, iconColor: accent),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: waveformWidth,
-                child: CupertinoSlider(
-                  value: _sliderValue(clampedSliderPosition, duration),
-                  min: 0,
-                  max: _sliderMax(duration),
-                  activeColor: accent,
-                  onChanged: duration == null || !isActive
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _dragPosition = Duration(
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: waveformWidth,
+                  child: CupertinoSlider(
+                    value: _sliderValue(clampedSliderPosition, duration),
+                    min: 0,
+                    max: _sliderMax(duration),
+                    activeColor: accent,
+                    onChanged: duration == null || !isActive
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _dragPosition = Duration(
+                                milliseconds: value.round(),
+                              );
+                            });
+                          },
+                    onChangeEnd: duration == null || !isActive
+                        ? null
+                        : (value) async {
+                            final nextPosition = Duration(
                               milliseconds: value.round(),
                             );
-                          });
-                        },
-                  onChangeEnd: duration == null || !isActive
-                      ? null
-                      : (value) async {
-                          final nextPosition = Duration(
-                            milliseconds: value.round(),
-                          );
-                          setState(() {
-                            _dragPosition = null;
-                          });
-                          await controller.seekToAttachment(
-                            widget.attachment,
-                            nextPosition,
-                          );
-                        },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  secondaryText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      appSecondaryTextStyle(
-                        context,
-                        fontSize: AppFontSizes.meta,
-                      ).copyWith(
-                        color:
-                            isActive && phase == VoiceMessagePlaybackPhase.error
-                            ? CupertinoColors.systemRed.resolveFrom(context)
-                            : metaColor,
-                      ),
-                ),
-              ),
-              if (widget.message != null && widget.presentation != null) ...[
-                const SizedBox(width: 8),
-                MessageBubbleMeta(
-                  message: widget.message!,
-                  presentation: widget.presentation!,
-                  isMe: widget.isMe,
+                            setState(() {
+                              _dragPosition = null;
+                            });
+                            await controller.seekToAttachment(
+                              widget.attachment,
+                              nextPosition,
+                            );
+                          },
+                  ),
                 ),
               ],
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    secondaryText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        appSecondaryTextStyle(
+                          context,
+                          fontSize: AppFontSizes.meta,
+                        ).copyWith(
+                          color:
+                              isActive &&
+                                  phase == VoiceMessagePlaybackPhase.error
+                              ? CupertinoColors.systemRed.resolveFrom(context)
+                              : metaColor,
+                        ),
+                  ),
+                ),
+                if (widget.message != null && widget.presentation != null) ...[
+                  const SizedBox(width: 8),
+                  MessageBubbleMeta(
+                    message: widget.message!,
+                    presentation: widget.presentation!,
+                    isMe: widget.isMe,
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

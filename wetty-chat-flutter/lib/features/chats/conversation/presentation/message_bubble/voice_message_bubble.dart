@@ -269,124 +269,118 @@ class _WaveformVoiceMessageBody extends ConsumerWidget {
       maxBubbleWidth: presentation?.maxBubbleWidth,
     );
 
-    return Container(
-      width: bubbleWidth,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: bubbleColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: buttonBackground,
-                  shape: BoxShape.circle,
-                ),
-                child: CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size.square(32),
-                  onPressed: canPlay
-                      ? () => controller.togglePlayback(attachment)
-                      : null,
-                  child: _PlaybackIcon(phase: phase, iconColor: accent),
-                ),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: !canPlay
-                    ? null
-                    : (details) async {
-                        final target = _positionFromDx(
-                          details.localPosition.dx,
-                          waveformWidth,
-                          duration,
-                        );
-                        await controller.playFromPosition(attachment, target);
-                      },
-                onHorizontalDragStart: !canPlay
-                    ? null
-                    : (details) {
-                        onPreviewSeek(
-                          _positionFromDx(
-                            details.localPosition.dx,
-                            waveformWidth,
-                            duration,
-                          ),
-                        );
-                      },
-                onHorizontalDragUpdate: !canPlay
-                    ? null
-                    : (details) {
-                        onPreviewSeek(
-                          _positionFromDx(
-                            details.localPosition.dx,
-                            waveformWidth,
-                            duration,
-                          ),
-                        );
-                      },
-                onHorizontalDragEnd: !canPlay || dragPosition == null
-                    ? null
-                    : (_) async {
-                        final target = dragPosition!;
-                        onCommitSeek();
-                        await controller.playFromPosition(attachment, target);
-                      },
-                onHorizontalDragCancel: onCommitSeek,
-                child: SizedBox(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: canPlay ? () => controller.togglePlayback(attachment) : null,
+      child: Container(
+        width: bubbleWidth,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
                   height: 32,
-                  width: waveformWidth,
-                  child: CustomPaint(
-                    painter: _WaveformPainter(
-                      samples: visibleSamples,
-                      progress: progress,
-                      activeColor: accent,
-                      inactiveColor: inactiveWaveformColor,
+                  decoration: BoxDecoration(
+                    color: buttonBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size.square(32),
+                    onPressed: canPlay
+                        ? () => controller.togglePlayback(attachment)
+                        : null,
+                    child: _PlaybackIcon(phase: phase, iconColor: accent),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: !canPlay
+                      ? null
+                      : (details) {
+                          onPreviewSeek(
+                            _positionFromDx(
+                              details.localPosition.dx,
+                              waveformWidth,
+                              duration,
+                            ),
+                          );
+                        },
+                  onHorizontalDragUpdate: !canPlay
+                      ? null
+                      : (details) {
+                          onPreviewSeek(
+                            _positionFromDx(
+                              details.localPosition.dx,
+                              waveformWidth,
+                              duration,
+                            ),
+                          );
+                        },
+                  onHorizontalDragEnd: !canPlay || dragPosition == null
+                      ? null
+                      : (_) async {
+                          final target = dragPosition!;
+                          onCommitSeek();
+                          await controller.playFromPosition(attachment, target);
+                        },
+                  onHorizontalDragCancel: onCommitSeek,
+                  child: SizedBox(
+                    height: 32,
+                    width: waveformWidth,
+                    child: CustomPaint(
+                      painter: _WaveformPainter(
+                        samples: visibleSamples,
+                        progress: progress,
+                        activeColor: accent,
+                        inactiveColor: inactiveWaveformColor,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  secondaryText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      appSecondaryTextStyle(
-                        context,
-                        fontSize: AppFontSizes.meta,
-                      ).copyWith(
-                        color: phase == VoiceMessagePlaybackPhase.error
-                            ? CupertinoColors.systemRed.resolveFrom(context)
-                            : metaColor,
-                      ),
-                ),
-              ),
-              if (message != null && presentation != null) ...[
-                const SizedBox(width: 8),
-                MessageBubbleMeta(
-                  message: message!,
-                  presentation: presentation!,
-                  isMe: isMe,
-                ),
               ],
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    secondaryText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        appSecondaryTextStyle(
+                          context,
+                          fontSize: AppFontSizes.meta,
+                        ).copyWith(
+                          color: phase == VoiceMessagePlaybackPhase.error
+                              ? CupertinoColors.systemRed.resolveFrom(context)
+                              : metaColor,
+                        ),
+                  ),
+                ),
+                if (message != null && presentation != null) ...[
+                  const SizedBox(width: 8),
+                  MessageBubbleMeta(
+                    message: message!,
+                    presentation: presentation!,
+                    isMe: isMe,
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
