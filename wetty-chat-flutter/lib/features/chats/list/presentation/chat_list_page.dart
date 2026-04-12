@@ -169,14 +169,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Chats'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _addChat,
-          child: const Icon(
-            CupertinoIcons.square_pencil,
-            size: IconSizes.iconSize,
-          ),
-        ),
+        // TODO: create chat button, add back later
+        // trailing: CupertinoButton(
+        //   padding: EdgeInsets.zero,
+        //   onPressed: _addChat,
+        //   child: const Icon(
+        //     CupertinoIcons.square_pencil,
+        //     size: IconSizes.iconSize,
+        //   ),
+        // ),
       ),
       child: SafeArea(
         bottom: false,

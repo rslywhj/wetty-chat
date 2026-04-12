@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:voice_message/voice_message.dart';
@@ -66,17 +67,10 @@ class AudioSourceResolverService {
   }
 
   bool _requiresTranscode(AttachmentItem attachment) {
-    if (!Platform.isIOS && !Platform.isMacOS) {
-      return false;
-    }
-    if (!attachment.isAudio || attachment.url.isEmpty) {
-      return false;
-    }
-
-    final descriptor = _audioDescriptorForAttachment(attachment);
-    return descriptor.contains('webm') ||
-        descriptor.contains('ogg') ||
-        descriptor.contains('opus');
+    return audioAttachmentNeedsAppleTranscode(
+      attachment,
+      isApplePlatform: Platform.isIOS || Platform.isMacOS,
+    );
   }
 
   Future<File?> _resolvePreparedLocalFile(AttachmentItem attachment) async {
@@ -109,11 +103,49 @@ class AudioSourceResolverService {
       return null;
     }
   }
+}
 
-  String _audioDescriptorForAttachment(AttachmentItem attachment) {
-    final uriPath = Uri.tryParse(attachment.url)?.path.toLowerCase() ?? '';
-    return '${attachment.kind.toLowerCase()}|${attachment.fileName.toLowerCase()}|$uriPath';
+@visibleForTesting
+bool audioAttachmentNeedsAppleTranscode(
+  AttachmentItem attachment, {
+  required bool isApplePlatform,
+}) {
+  if (!isApplePlatform || !attachment.isAudio || attachment.url.isEmpty) {
+    return false;
   }
+
+  final kind = attachment.kind.toLowerCase();
+  final fileName = attachment.fileName.toLowerCase();
+  final urlPath = Uri.tryParse(attachment.url)?.path.toLowerCase() ?? '';
+  final extension = _audioFileExtension(fileName, urlPath);
+
+  if (kind.contains('webm') || extension == 'webm') {
+    return true;
+  }
+  if (kind.contains('ogg') ||
+      extension == 'ogg' ||
+      extension == 'oga' ||
+      extension == 'opus') {
+    return true;
+  }
+
+  return false;
+}
+
+String? _audioFileExtension(String fileName, String urlPath) {
+  final candidates = <String>[fileName, urlPath];
+  for (final candidate in candidates) {
+    final trimmed = candidate.trim();
+    if (trimmed.isEmpty) {
+      continue;
+    }
+    final dotIndex = trimmed.lastIndexOf('.');
+    if (dotIndex == -1 || dotIndex == trimmed.length - 1) {
+      continue;
+    }
+    return trimmed.substring(dotIndex + 1).toLowerCase();
+  }
+  return null;
 }
 
 final audioSourceResolverServiceProvider = Provider<AudioSourceResolverService>(
