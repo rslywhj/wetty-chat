@@ -7,6 +7,7 @@ import '../../../../core/api/models/websocket_api_models.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/notifications/unread_badge_provider.dart';
 import '../../../../core/session/dev_session_store.dart';
+import '../../list_projection/domain/list_projection_helpers.dart';
 import '../../models/message_api_mapper.dart';
 import '../models/thread_api_mapper.dart';
 import '../models/thread_models.dart';
@@ -137,7 +138,7 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
 
   void applyRealtimeCreated(MessageItemDto payload) {
     final threadRootId = payload.replyRootId;
-    if (threadRootId == null) {
+    if (threadRootId == null || !isEligibleThreadPreviewPayload(payload)) {
       return;
     }
 
@@ -148,27 +149,24 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
     }
 
     final previous = state.threads[index];
-    final alreadyProjected =
-        previous.lastReply?.messageId == payload.id ||
-        (payload.clientGeneratedId.isNotEmpty &&
-            previous.lastReply?.clientGeneratedId == payload.clientGeneratedId);
+    final alreadyProjected = matchesThreadPreview(previous.lastReply, payload);
     final shouldIncrementUnread =
-        !payload.isDeleted && payload.sender.uid != _currentUserId;
+        !alreadyProjected &&
+        !payload.isDeleted &&
+        payload.sender.uid != _currentUserId;
     final updated = previous.copyWith(
       lastReply: _toReplyPreview(payload),
-      lastReplyAt: alreadyProjected
-          ? (payload.createdAt ?? previous.lastReplyAt)
-          : previous.lastReplyAt,
-      replyCount: previous.replyCount,
+      lastReplyAt: payload.createdAt ?? previous.lastReplyAt,
+      replyCount: alreadyProjected
+          ? previous.replyCount
+          : previous.replyCount + 1,
       unreadCount: shouldIncrementUnread
           ? previous.unreadCount + 1
           : previous.unreadCount,
     );
-    _patchThreadAt(index, updated);
-    if (!alreadyProjected && payload.createdAt != null) {
-      // Keep the row feeling realtime even before the matching threadUpdate arrives.
-      _moveThreadToTop(index, updated);
-    }
+    _replaceState(
+      threads: reinsertThreadByActivity(state.threads, index, updated),
+    );
     if (shouldIncrementUnread) {
       _replaceState(totalUnreadCount: state.totalUnreadCount + 1);
       ref.read(unreadBadgeProvider.notifier).applyThreadUnreadDelta(1);
@@ -188,13 +186,16 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
     }
 
     final previous = state.threads[index];
-    if (!_matchesLastReply(previous.lastReply, payload)) {
+    if (!matchesThreadPreview(previous.lastReply, payload)) {
       return;
     }
 
-    _patchThreadAt(
-      index,
-      previous.copyWith(lastReply: _toReplyPreview(payload)),
+    _replaceState(
+      threads: replaceThreadAt(
+        state.threads,
+        index,
+        previous.copyWith(lastReply: _toReplyPreview(payload)),
+      ),
     );
   }
 
@@ -211,14 +212,14 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
     }
 
     final previous = state.threads[index];
-    if (!_matchesLastReply(previous.lastReply, payload)) {
-      return;
-    }
-
-    _patchThreadAt(
-      index,
-      previous.copyWith(lastReply: _toReplyPreview(payload)),
+    final isCurrentPreview = matchesThreadPreview(previous.lastReply, payload);
+    final updated = previous.copyWith(
+      replyCount: previous.replyCount > 0 ? previous.replyCount - 1 : 0,
     );
+    _replaceState(threads: replaceThreadAt(state.threads, index, updated));
+    if (isCurrentPreview) {
+      unawaited(_refreshForUnknownRealtimeThread());
+    }
   }
 
   void applyThreadUpdated(ThreadUpdatePayloadDto payload) {
@@ -233,7 +234,9 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
       replyCount: payload.replyCount,
       lastReplyAt: payload.lastReplyAt,
     );
-    _moveThreadToTop(index, updated);
+    _replaceState(
+      threads: reinsertThreadByActivity(state.threads, index, updated),
+    );
   }
 
   int get _currentUserId => ref.read(authSessionProvider).currentUserId;
@@ -266,60 +269,20 @@ class ThreadListNotifier extends Notifier<ThreadListState> {
     );
   }
 
-  bool _matchesLastReply(ThreadReplyPreview? preview, MessageItemDto payload) {
-    if (preview == null) {
-      return false;
-    }
-    if (preview.messageId != null) {
-      return preview.messageId == payload.id;
-    }
-    final clientGeneratedId = preview.clientGeneratedId;
-    return clientGeneratedId != null &&
-        clientGeneratedId.isNotEmpty &&
-        clientGeneratedId == payload.clientGeneratedId;
-  }
-
   void _applyRootPatched(MessageItemDto payload) {
     final index = _indexOfThread(payload.id);
     if (index < 0) {
       return;
     }
 
-    if (payload.isDeleted) {
-      _removeThreadAt(index);
-      return;
-    }
-
     final previous = state.threads[index];
-    _patchThreadAt(
-      index,
-      previous.copyWith(threadRootMessage: payload.toDomain()),
-    );
-  }
-
-  void _moveThreadToTop(int index, ThreadListItem updated) {
-    final threads = [...state.threads]..removeAt(index);
-    threads.insert(0, updated);
-    _replaceState(threads: threads);
-  }
-
-  void _patchThreadAt(int index, ThreadListItem updated) {
-    final threads = [...state.threads];
-    threads[index] = updated;
-    _replaceState(threads: threads);
-  }
-
-  void _removeThreadAt(int index) {
-    final removed = state.threads[index];
-    final threads = [...state.threads]..removeAt(index);
-    final totalUnreadCount = state.totalUnreadCount - removed.unreadCount;
     _replaceState(
-      threads: threads,
-      totalUnreadCount: totalUnreadCount < 0 ? 0 : totalUnreadCount,
+      threads: replaceThreadAt(
+        state.threads,
+        index,
+        previous.copyWith(threadRootMessage: payload.toDomain()),
+      ),
     );
-    ref
-        .read(unreadBadgeProvider.notifier)
-        .applyThreadUnreadDelta(-removed.unreadCount);
   }
 
   void _replaceState({

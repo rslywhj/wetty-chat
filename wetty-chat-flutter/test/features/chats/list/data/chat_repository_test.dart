@@ -13,49 +13,221 @@ import 'package:chahua/features/chats/list/data/chat_repository.dart';
 
 void main() {
   group('ChatListNotifier realtime', () {
-    late ProviderContainer container;
-
-    setUp(() async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      container = ProviderContainer(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      );
-    });
-
-    tearDown(() => container.dispose());
-
-    test('message event updates loaded chat and moves it to the top', () async {
-      final fakeService = _FakeChatApiService([
-        const ListChatsResponseDto(
-          chats: [
-            ChatListItemDto(id: 1, name: 'one'),
-            ChatListItemDto(id: 2, name: 'two'),
+    test(
+      'confirmed root message updates preview and moves chat to top',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 2,
+                name: 'two',
+                lastMessage: _messageItem(id: 200, chatId: 2, text: 'old two'),
+                lastMessageAt: DateTime.parse('2026-01-02T00:00:00Z'),
+              ),
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
+          ),
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+            wsEventsProvider.overrideWith(
+              (ref) => const Stream<ApiWsEvent>.empty(),
+            ),
           ],
-        ),
-      ]);
+        );
+        addTearDown(testContainer.dispose);
 
-      final testContainer = ProviderContainer(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(
-            await SharedPreferences.getInstance(),
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
+
+        notifier.applyRealtimeEvent(
+          _messageEvent(
+            chatId: '1',
+            messageId: 300,
+            text: 'latest one',
+            createdAt: DateTime.parse('2026-01-03T00:00:00Z'),
           ),
-          chatApiServiceProvider.overrideWithValue(fakeService),
-          // Disable WebSocket events in tests
-          wsEventsProvider.overrideWith(
-            (ref) => const Stream<ApiWsEvent>.empty(),
+        );
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(state.chats.map((c) => c.id).toList(), ['1', '2']);
+        expect(state.chats.first.lastMessage?.message, 'latest one');
+        expect(state.chats.first.unreadCount, 1);
+      },
+    );
+
+    test(
+      'confirmed thread reply does not update chat preview or reorder row',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 2,
+                name: 'two',
+                lastMessage: _messageItem(id: 200, chatId: 2, text: 'old two'),
+                lastMessageAt: DateTime.parse('2026-01-02T00:00:00Z'),
+              ),
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
           ),
-        ],
-      );
-      addTearDown(testContainer.dispose);
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+            wsEventsProvider.overrideWith(
+              (ref) => const Stream<ApiWsEvent>.empty(),
+            ),
+          ],
+        );
+        addTearDown(testContainer.dispose);
 
-      final notifier = testContainer.read(chatListStateProvider.notifier);
-      await notifier.loadChats();
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
 
-      // Manually apply the event (since we disabled ws)
-      final stateBefore = testContainer.read(chatListStateProvider);
-      expect(stateBefore.chats.map((c) => c.id).toList(), ['1', '2']);
-    });
+        notifier.applyRealtimeEvent(
+          _messageEvent(
+            chatId: '1',
+            messageId: 301,
+            text: 'thread reply',
+            createdAt: DateTime.parse('2026-01-03T00:00:00Z'),
+            replyRootId: 10,
+          ),
+        );
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(state.chats.map((c) => c.id).toList(), ['2', '1']);
+        expect(state.chats.last.lastMessage?.message, 'old one');
+        expect(state.chats.last.unreadCount, 0);
+      },
+    );
+
+    test(
+      'duplicate confirmed root message does not increment unread twice',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
+          ),
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+            wsEventsProvider.overrideWith(
+              (ref) => const Stream<ApiWsEvent>.empty(),
+            ),
+          ],
+        );
+        addTearDown(testContainer.dispose);
+
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
+
+        final event = _messageEvent(
+          chatId: '1',
+          messageId: 300,
+          text: 'latest one',
+          createdAt: DateTime.parse('2026-01-03T00:00:00Z'),
+        );
+        notifier.applyRealtimeEvent(event);
+        notifier.applyRealtimeEvent(event);
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(state.chats.single.lastMessage?.message, 'latest one');
+        expect(state.chats.single.unreadCount, 1);
+      },
+    );
+
+    test(
+      'confirmed root delete refreshes when preview fallback is unknown',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fakeService = _FakeChatApiService([
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: _messageItem(id: 100, chatId: 1, text: 'old one'),
+                lastMessageAt: DateTime.parse('2026-01-01T00:00:00Z'),
+              ),
+            ],
+          ),
+          ListChatsResponseDto(
+            chats: [
+              _chatListItem(
+                id: 1,
+                name: 'one',
+                lastMessage: null,
+                lastMessageAt: null,
+              ),
+            ],
+          ),
+        ]);
+        final testContainer = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(
+              await SharedPreferences.getInstance(),
+            ),
+            chatApiServiceProvider.overrideWithValue(fakeService),
+            wsEventsProvider.overrideWith(
+              (ref) => const Stream<ApiWsEvent>.empty(),
+            ),
+          ],
+        );
+        addTearDown(testContainer.dispose);
+
+        final notifier = testContainer.read(chatListStateProvider.notifier);
+        await notifier.loadChats();
+
+        notifier.applyRealtimeEvent(
+          MessageDeletedWsEvent(
+            payload: _messageItem(
+              id: 100,
+              chatId: 1,
+              text: 'old one',
+              isDeleted: true,
+            ),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        final state = testContainer.read(chatListStateProvider);
+        expect(fakeService.fetchChatsCalls, 2);
+        expect(state.chats.single.lastMessage, isNull);
+      },
+    );
   });
 }
 
@@ -75,21 +247,58 @@ class _FakeChatApiService extends ChatApiService {
   }
 }
 
-// ignore: unused_element
-ApiWsEvent _messageEvent({required String chatId, required int messageId}) {
+MessageCreatedWsEvent _messageEvent({
+  required String chatId,
+  required int messageId,
+  required String text,
+  required DateTime createdAt,
+  int? replyRootId,
+}) {
   return MessageCreatedWsEvent(
-    payload: MessageItemDto(
+    payload: _messageItem(
       id: messageId,
-      message: 'hello',
-      messageType: 'text',
-      sender: const SenderDto(uid: 999, name: 'sender', gender: 0),
       chatId: int.parse(chatId),
-      createdAt: DateTime.parse('2026-01-01T00:00:00Z'),
-      isEdited: false,
-      isDeleted: false,
-      clientGeneratedId: 'cg-$messageId',
-      hasAttachments: false,
-      attachments: const [],
+      text: text,
+      createdAt: createdAt,
+      replyRootId: replyRootId,
     ),
+  );
+}
+
+ChatListItemDto _chatListItem({
+  required int id,
+  required String name,
+  MessageItemDto? lastMessage,
+  DateTime? lastMessageAt,
+}) {
+  return ChatListItemDto(
+    id: id,
+    name: name,
+    lastMessage: lastMessage,
+    lastMessageAt: lastMessageAt,
+  );
+}
+
+MessageItemDto _messageItem({
+  required int id,
+  required int chatId,
+  required String text,
+  DateTime? createdAt,
+  bool isDeleted = false,
+  int? replyRootId,
+}) {
+  return MessageItemDto(
+    id: id,
+    message: text,
+    messageType: 'text',
+    sender: const SenderDto(uid: 999, name: 'sender', gender: 0),
+    chatId: chatId,
+    createdAt: createdAt,
+    isEdited: false,
+    isDeleted: isDeleted,
+    clientGeneratedId: 'cg-$id',
+    replyRootId: replyRootId,
+    hasAttachments: false,
+    attachments: const [],
   );
 }

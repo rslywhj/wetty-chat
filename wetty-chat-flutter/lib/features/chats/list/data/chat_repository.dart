@@ -7,10 +7,10 @@ import '../../../../core/api/models/websocket_api_models.dart';
 import '../../../../core/network/websocket_service.dart';
 import '../../../../core/notifications/unread_badge_provider.dart';
 import '../../../../core/session/dev_session_store.dart';
+import '../../list_projection/domain/list_projection_helpers.dart';
 import '../../models/chat_api_mapper.dart';
 import '../../models/chat_models.dart';
 import '../../models/message_api_mapper.dart';
-import '../../models/message_models.dart';
 import '../../conversation/data/message_api_service.dart';
 import '../../conversation/domain/conversation_message.dart';
 import 'chat_api_service.dart';
@@ -31,7 +31,7 @@ class ChatListNotifier extends Notifier<ChatListState> {
     // Subscribe to WebSocket events for realtime updates.
     ref.listen<AsyncValue<ApiWsEvent>>(wsEventsProvider, (_, next) {
       final event = next.value;
-      if (event != null) _applyRealtimeEvent(event);
+      if (event != null) applyRealtimeEvent(event);
     });
     return (chats: const [], nextCursor: null, hasMore: false);
   }
@@ -181,35 +181,8 @@ class ChatListNotifier extends Notifier<ChatListState> {
   }
 
   void recordOutgoingMessage(ConversationMessage message) {
-    final index = state.chats.indexWhere(
-      (chat) => chat.id == message.scope.chatId,
-    );
-    if (index < 0) {
-      return;
-    }
-
-    final previous = state.chats[index];
-    final updated = previous.copyWith(
-      lastMessage: _toMessageItem(message),
-      lastMessageAt: message.createdAt,
-      unreadCount: 0,
-      lastReadMessageId: message.serverMessageId?.toString(),
-    );
-    final chats = [...state.chats]
-      ..removeAt(index)
-      ..insert(0, updated);
-    state = (
-      chats: chats,
-      nextCursor: state.nextCursor,
-      hasMore: state.hasMore,
-    );
-    _applyBadgeDelta(
-      previousUnreadCount: previous.unreadCount,
-      previousMutedUntil: previous.mutedUntil,
-      nextUnreadCount: updated.unreadCount,
-      nextMutedUntil: updated.mutedUntil,
-    );
-    ref.read(unreadBadgeProvider.notifier).scheduleReconcile();
+    // Chat list projection is confirmation-driven. Optimistic sends only affect
+    // the conversation runtime and the list waits for websocket or refresh.
   }
 
   Future<void> markChatReadViaSwipe({required String chatId}) async {
@@ -345,7 +318,7 @@ class ChatListNotifier extends Notifier<ChatListState> {
     }
   }
 
-  void _applyRealtimeEvent(ApiWsEvent event) {
+  void applyRealtimeEvent(ApiWsEvent event) {
     final (type, payload) = switch (event) {
       MessageCreatedWsEvent(:final payload) => ('message', payload),
       MessageUpdatedWsEvent(:final payload) => ('messageUpdated', payload),
@@ -367,6 +340,12 @@ class ChatListNotifier extends Notifier<ChatListState> {
     final previous = chats[index];
     final message = payload.toDomain();
     if (type == 'message') {
+      if (!isEligibleChatPreviewMessage(message)) {
+        return;
+      }
+      if (matchesChatPreview(previous.lastMessage, payload)) {
+        return;
+      }
       final senderUid = payload.sender.uid;
       final currentUserId = ref.read(authSessionProvider).currentUserId;
       final createdAt = payload.createdAt;
@@ -377,9 +356,7 @@ class ChatListNotifier extends Notifier<ChatListState> {
             ? previous.unreadCount + 1
             : previous.unreadCount,
       );
-      final newChats = [...chats]
-        ..removeAt(index)
-        ..insert(0, updated);
+      final newChats = moveChatToFront(chats, index, updated);
       state = (
         chats: newChats,
         nextCursor: state.nextCursor,
@@ -397,9 +374,24 @@ class ChatListNotifier extends Notifier<ChatListState> {
     }
 
     if (type == 'messageUpdated' || type == 'messageDeleted') {
-      if (previous.lastMessage?.id != message.id) return;
-      final newChats = [...chats];
-      newChats[index] = previous.copyWith(lastMessage: message);
+      if (payload.replyRootId != null) {
+        return;
+      }
+      if (!matchesChatPreview(previous.lastMessage, payload)) {
+        return;
+      }
+      if (payload.isDeleted) {
+        unawaited(_refreshForRealtimeMiss());
+        return;
+      }
+      final newChats = replaceChatAt(
+        chats,
+        index,
+        previous.copyWith(
+          lastMessage: message,
+          lastMessageAt: message.createdAt,
+        ),
+      );
       state = (
         chats: newChats,
         nextCursor: state.nextCursor,
@@ -420,28 +412,6 @@ class ChatListNotifier extends Notifier<ChatListState> {
     } finally {
       _isRealtimeRefreshing = false;
     }
-  }
-
-  MessageItem _toMessageItem(ConversationMessage message) {
-    return MessageItem(
-      id: message.serverMessageId ?? 0,
-      message: message.message,
-      messageType: message.messageType,
-      sticker: message.sticker,
-      sender: message.sender,
-      chatId: message.scope.chatId,
-      createdAt: message.createdAt,
-      isEdited: message.isEdited,
-      isDeleted: message.isDeleted,
-      clientGeneratedId: message.clientGeneratedId,
-      replyRootId: message.replyRootId,
-      hasAttachments: message.hasAttachments,
-      replyToMessage: message.replyToMessage,
-      attachments: message.attachments,
-      reactions: message.reactions,
-      mentions: message.mentions,
-      threadInfo: message.threadInfo,
-    );
   }
 
   void _applyBadgeDelta({
