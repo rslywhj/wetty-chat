@@ -14,7 +14,7 @@ import '../application/conversation_composer_view_model.dart';
 import '../application/conversation_timeline_view_model.dart';
 import '../domain/conversation_scope.dart';
 import '../domain/launch_request.dart';
-import 'conversation_composer_bar.dart';
+import 'compose/conversation_composer_bar.dart';
 import 'timeline/conversation_timeline.dart';
 import '../../../../features/stickers/presentation/sticker_picker_panel.dart';
 import '../../../../features/stickers/presentation/sticker_preview_modal.dart';

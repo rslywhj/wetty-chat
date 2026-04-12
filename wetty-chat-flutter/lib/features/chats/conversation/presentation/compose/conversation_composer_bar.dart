@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/theme/style_config.dart';
-import '../../../../l10n/app_localizations.dart';
-import '../../../groups/members/data/group_member_models.dart';
-import '../../../groups/members/data/group_member_repository.dart';
-import '../application/conversation_composer_view_model.dart';
-import '../data/attachment_picker_service.dart';
-import '../domain/conversation_scope.dart';
-import 'widgets/composer_attachment_menu.dart';
-import 'widgets/composer_audio_controls.dart';
-import 'widgets/composer_input_area.dart';
-import 'widgets/composer_mention_autocomplete.dart';
-import 'widgets/composer_mentions.dart';
+import '../../../../../app/theme/style_config.dart';
+import '../../../../../l10n/app_localizations.dart';
+import '../../../../groups/members/data/group_member_models.dart';
+import '../../../../groups/members/data/group_member_repository.dart';
+import '../../application/conversation_composer_view_model.dart';
+import '../../data/attachment_picker_service.dart';
+import '../../domain/conversation_scope.dart';
+import 'composer_attachment_menu.dart';
+import 'composer_audio_controls.dart';
+import 'composer_input_area.dart';
+import 'composer_mention_autocomplete.dart';
+import 'composer_mentions.dart';
 
 class ConversationComposerBar extends ConsumerStatefulWidget {
   const ConversationComposerBar({

@@ -12,7 +12,7 @@ import '../domain/launch_request.dart';
 import '../../threads/data/thread_api_service.dart';
 import '../../threads/data/thread_repository.dart';
 import '../../threads/data/thread_subscription_provider.dart';
-import 'conversation_composer_bar.dart';
+import 'compose/conversation_composer_bar.dart';
 import 'timeline/conversation_timeline.dart';
 import '../../../../features/stickers/presentation/sticker_preview_modal.dart';
 
