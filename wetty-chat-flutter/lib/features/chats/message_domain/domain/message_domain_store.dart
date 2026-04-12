@@ -164,6 +164,25 @@ class MessageDomainStore {
     }
   }
 
+  ConversationMessage retryFailedSend(ConversationMessage message) {
+    final retried = message.copyWith(
+      deliveryState: ConversationDeliveryState.sending,
+    );
+    _upsertCanonical(retried);
+    if (_isThreadReply(retried) &&
+        retried.clientGeneratedId.isNotEmpty &&
+        !_pendingOptimisticThreadReplyClientIds.contains(
+          retried.clientGeneratedId,
+        )) {
+      _pendingOptimisticThreadReplyClientIds.add(retried.clientGeneratedId);
+      _incrementThreadAnchorReplyCount(
+        retried.replyRootId!,
+        chatId: retried.scope.chatId,
+      );
+    }
+    return retried;
+  }
+
   ConversationMessage? applyOptimisticDelete(int messageId) {
     final stableKey = _stableKeyByServerId[messageId];
     if (stableKey == null) {
@@ -276,6 +295,16 @@ class MessageDomainStore {
     _ensureThreadWindowContainsAnchor(chatId: chatId, anchorId: threadAnchorId);
   }
 
+  void replaceWindowMembership({
+    required ConversationScope scope,
+    required List<String> stableKeys,
+  }) {
+    _windowMemberships[scope.storageKey] = _normalizeWindowMembership(
+      scope,
+      stableKeys,
+    );
+  }
+
   void reconcileFetchedWindow({
     required ConversationScope scope,
     required List<ConversationMessage> messages,
@@ -319,7 +348,10 @@ class MessageDomainStore {
       final stableKey = existing[patch.index];
       _insertStableKey(nextWindow, stableKey, patch.index);
     }
-    _windowMemberships[scope.storageKey] = nextWindow;
+    _windowMemberships[scope.storageKey] = _normalizeWindowMembership(
+      scope,
+      nextWindow,
+    );
 
     if (scope.threadRootId case final String threadRootId) {
       _ensureThreadWindowContainsAnchor(
@@ -329,6 +361,235 @@ class MessageDomainStore {
     }
   }
 
+  void mergeFetchedWindowPage({
+    required ConversationScope scope,
+    required List<ConversationMessage> messages,
+    required MessageWindowPageDirection direction,
+  }) {
+    final incomingKeys = <String>[];
+    for (final message in messages) {
+      final scoped = message.copyWith(
+        scope: _canonicalScopeForFetchedMessage(scope, message),
+        deliveryState: ConversationDeliveryState.sent,
+      );
+      final merged = _mergeIncoming(scoped);
+      incomingKeys.add(merged.stableKey);
+      if (_isThreadReply(merged)) {
+        _ensureThreadWindowContainsAnchor(
+          chatId: scope.chatId,
+          anchorId: merged.replyRootId!,
+        );
+      } else {
+        _syncThreadAnchorStateFromMessage(merged);
+      }
+    }
+
+    final existing = List<String>.from(
+      _windowMemberships[scope.storageKey] ?? const <String>[],
+    );
+    final mergedKeys = direction == MessageWindowPageDirection.older
+        ? <String>[...incomingKeys, ...existing]
+        : <String>[...existing, ...incomingKeys];
+    _windowMemberships[scope.storageKey] = _normalizeWindowMembership(
+      scope,
+      mergedKeys,
+    );
+  }
+
+  List<String> latestVisibleStableKeys(
+    ConversationScope scope, {
+    required int limit,
+  }) {
+    final visibleKeys = selectVisibleStableKeys(scope);
+    if (visibleKeys.isEmpty || visibleKeys.length <= limit) {
+      return visibleKeys;
+    }
+    if (!scope.isThread) {
+      final start = (visibleKeys.length - limit).clamp(0, visibleKeys.length);
+      return visibleKeys.sublist(start);
+    }
+
+    final anchorKey = _threadAnchorStableKey(scope);
+    final replyKeys = visibleKeys
+        .where((stableKey) => stableKey != anchorKey)
+        .toList(growable: false);
+    if (limit <= 1) {
+      return anchorKey == null ? const <String>[] : <String>[anchorKey];
+    }
+    final start = (replyKeys.length - (limit - 1)).clamp(0, replyKeys.length);
+    return <String>[?anchorKey, ...replyKeys.sublist(start)];
+  }
+
+  List<String> visibleStableKeysAroundServerMessage(
+    ConversationScope scope,
+    int messageId, {
+    required int before,
+    required int after,
+  }) {
+    final stableKey = _stableKeyByServerId[messageId];
+    if (stableKey == null) {
+      return const <String>[];
+    }
+    final visibleKeys = selectVisibleStableKeys(scope);
+    if (!scope.isThread) {
+      final index = visibleKeys.indexOf(stableKey);
+      if (index < 0) {
+        return const <String>[];
+      }
+      final start = (index - before).clamp(0, visibleKeys.length);
+      final end = (index + after + 1).clamp(0, visibleKeys.length);
+      return visibleKeys.sublist(start, end);
+    }
+
+    final anchorKey = _threadAnchorStableKey(scope);
+    final replyKeys = visibleKeys
+        .where((candidateKey) => candidateKey != anchorKey)
+        .toList(growable: false);
+    if (stableKey == anchorKey) {
+      final replyEnd = after.clamp(0, replyKeys.length);
+      return <String>[?anchorKey, ...replyKeys.sublist(0, replyEnd)];
+    }
+
+    final replyIndex = replyKeys.indexOf(stableKey);
+    if (replyIndex < 0) {
+      return const <String>[];
+    }
+    final replyStart = (replyIndex - before).clamp(0, replyKeys.length);
+    final replyEnd = (replyIndex + after + 1).clamp(0, replyKeys.length);
+    return <String>[?anchorKey, ...replyKeys.sublist(replyStart, replyEnd)];
+  }
+
+  bool hasVisibleWindowAroundServerMessage(
+    ConversationScope scope,
+    int messageId, {
+    required int before,
+    required int after,
+  }) {
+    final stableKey = _stableKeyByServerId[messageId];
+    if (stableKey == null) {
+      return false;
+    }
+    if (!scope.isThread) {
+      final visibleKeys = selectVisibleStableKeys(scope);
+      final index = visibleKeys.indexOf(stableKey);
+      if (index < 0) {
+        return false;
+      }
+      final availableBefore = index;
+      final availableAfter = visibleKeys.length - index - 1;
+      return availableBefore >= before && availableAfter >= after;
+    }
+
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (stableKey == anchorKey) {
+      return true;
+    }
+    final replyKeys = _paginatableStableKeys(scope);
+    final replyIndex = replyKeys.indexOf(stableKey);
+    if (replyIndex < 0) {
+      return false;
+    }
+    final availableBefore = replyIndex;
+    final availableAfter = replyKeys.length - replyIndex - 1;
+    return availableBefore >= before && availableAfter >= after;
+  }
+
+  bool hasOlderOutsideWindow(
+    ConversationScope scope,
+    List<String> windowStableKeys,
+  ) {
+    if (windowStableKeys.isEmpty) {
+      return false;
+    }
+    final visibleKeys = _paginatableStableKeys(scope);
+    final windowKeys = _paginatableSubset(scope, windowStableKeys);
+    if (windowKeys.isEmpty) {
+      return false;
+    }
+    final oldestIndex = visibleKeys.indexOf(windowKeys.first);
+    return oldestIndex > 0;
+  }
+
+  bool hasNewerOutsideWindow(
+    ConversationScope scope,
+    List<String> windowStableKeys,
+  ) {
+    if (windowStableKeys.isEmpty) {
+      return false;
+    }
+    final visibleKeys = _paginatableStableKeys(scope);
+    final windowKeys = _paginatableSubset(scope, windowStableKeys);
+    if (windowKeys.isEmpty) {
+      return false;
+    }
+    final newestIndex = visibleKeys.indexOf(windowKeys.last);
+    return newestIndex >= 0 && newestIndex < visibleKeys.length - 1;
+  }
+
+  List<String> prependWindowPage(
+    ConversationScope scope,
+    List<String> currentWindow,
+    String oldestStableKey, {
+    required int pageSize,
+  }) {
+    final visibleKeys = _paginatableStableKeys(scope);
+    final currentKeys = _paginatableSubset(scope, currentWindow);
+    if (visibleKeys.isEmpty || currentKeys.isEmpty) {
+      return currentWindow;
+    }
+
+    final requestedKey = _resolvePagingStableKey(
+      scope,
+      currentWindow,
+      requestedStableKey: oldestStableKey,
+      preferOldest: true,
+    );
+    if (requestedKey == null) {
+      return currentWindow;
+    }
+    final oldestIndex = visibleKeys.indexOf(requestedKey);
+    if (oldestIndex <= 0) {
+      return currentWindow;
+    }
+    final start = (oldestIndex - pageSize).clamp(0, oldestIndex);
+    return _composeWindowWithAnchor(scope, <String>[
+      ...visibleKeys.sublist(start, oldestIndex),
+      ...currentKeys,
+    ]);
+  }
+
+  List<String> appendWindowPage(
+    ConversationScope scope,
+    List<String> currentWindow,
+    String newestStableKey, {
+    required int pageSize,
+  }) {
+    final visibleKeys = _paginatableStableKeys(scope);
+    final currentKeys = _paginatableSubset(scope, currentWindow);
+    if (visibleKeys.isEmpty || currentKeys.isEmpty) {
+      return currentWindow;
+    }
+
+    final requestedKey = _resolvePagingStableKey(
+      scope,
+      currentWindow,
+      requestedStableKey: newestStableKey,
+      preferOldest: false,
+    );
+    if (requestedKey == null) {
+      return currentWindow;
+    }
+    final newestIndex = visibleKeys.indexOf(requestedKey);
+    if (newestIndex < 0 || newestIndex >= visibleKeys.length - 1) {
+      return currentWindow;
+    }
+    final end = (newestIndex + 1 + pageSize).clamp(0, visibleKeys.length);
+    return _composeWindowWithAnchor(scope, <String>[
+      ...currentKeys,
+      ...visibleKeys.sublist(newestIndex + 1, end),
+    ]);
+  }
+
   List<ConversationMessage> selectVisibleWindow(ConversationScope scope) {
     final keys = _windowMemberships[scope.storageKey] ?? const <String>[];
     return keys
@@ -336,6 +597,76 @@ class MessageDomainStore {
         .whereType<ConversationMessage>()
         .where((message) => _isVisibleInWindow(message, scope))
         .toList(growable: false);
+  }
+
+  List<String> selectVisibleStableKeys(ConversationScope scope) {
+    return selectVisibleWindow(
+      scope,
+    ).map((message) => message.stableKey).toList(growable: false);
+  }
+
+  bool isVisibleInWindow({
+    required ConversationScope scope,
+    required String stableKey,
+  }) {
+    final message = _messagesByStableKey[stableKey];
+    if (message == null) {
+      return false;
+    }
+    return _isVisibleInWindow(message, scope);
+  }
+
+  ConversationMessage? messageForStableKey(String stableKey) {
+    return _messagesByStableKey[stableKey];
+  }
+
+  ConversationMessage? messageForServerId(int messageId) {
+    final stableKey = _stableKeyByServerId[messageId];
+    if (stableKey == null) {
+      return null;
+    }
+    return _messagesByStableKey[stableKey];
+  }
+
+  ConversationMessage? messageForClientGeneratedId(String clientGeneratedId) {
+    final stableKey = _stableKeyByClientGeneratedId[clientGeneratedId];
+    if (stableKey == null) {
+      return null;
+    }
+    return _messagesByStableKey[stableKey];
+  }
+
+  String? stableKeyForServerId(int messageId) {
+    return _stableKeyByServerId[messageId];
+  }
+
+  String? stableKeyForClientGeneratedId(String clientGeneratedId) {
+    return _stableKeyByClientGeneratedId[clientGeneratedId];
+  }
+
+  bool containsServerMessage(int messageId) {
+    return _stableKeyByServerId.containsKey(messageId);
+  }
+
+  void upsertCanonicalMessage(ConversationMessage message) {
+    _upsertCanonical(message);
+  }
+
+  void removeMessageByStableKey(String stableKey) {
+    final message = _messagesByStableKey.remove(stableKey);
+    if (message == null) {
+      return;
+    }
+    if (message.serverMessageId case final int serverMessageId) {
+      _stableKeyByServerId.remove(serverMessageId);
+    }
+    if (message.clientGeneratedId.isNotEmpty) {
+      _stableKeyByClientGeneratedId.remove(message.clientGeneratedId);
+      _pendingOptimisticThreadReplyClientIds.remove(message.clientGeneratedId);
+    }
+    for (final window in _windowMemberships.values) {
+      window.remove(stableKey);
+    }
   }
 
   ConversationMessage? selectChatPreview(String chatId) {
@@ -457,6 +788,100 @@ class MessageDomainStore {
       }
     }
     return false;
+  }
+
+  String? _threadAnchorStableKey(ConversationScope scope) {
+    final threadRootId = scope.threadRootId;
+    if (threadRootId == null) {
+      return null;
+    }
+    return _stableKeyByServerId[int.parse(threadRootId)];
+  }
+
+  List<String> _paginatableStableKeys(ConversationScope scope) {
+    final visibleKeys = selectVisibleStableKeys(scope);
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (anchorKey == null) {
+      return visibleKeys;
+    }
+    return visibleKeys
+        .where((stableKey) => stableKey != anchorKey)
+        .toList(growable: false);
+  }
+
+  List<String> _paginatableSubset(
+    ConversationScope scope,
+    List<String> stableKeys,
+  ) {
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (anchorKey == null) {
+      return List<String>.from(stableKeys);
+    }
+    return stableKeys
+        .where((stableKey) => stableKey != anchorKey)
+        .toList(growable: false);
+  }
+
+  String? _resolvePagingStableKey(
+    ConversationScope scope,
+    List<String> currentWindow, {
+    required String requestedStableKey,
+    required bool preferOldest,
+  }) {
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (anchorKey == null || requestedStableKey != anchorKey) {
+      return requestedStableKey;
+    }
+    final paginatableKeys = _paginatableSubset(scope, currentWindow);
+    if (paginatableKeys.isEmpty) {
+      return null;
+    }
+    return preferOldest ? paginatableKeys.first : paginatableKeys.last;
+  }
+
+  List<String> _composeWindowWithAnchor(
+    ConversationScope scope,
+    List<String> paginatableKeys,
+  ) {
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (anchorKey == null) {
+      return paginatableKeys;
+    }
+    return <String>[
+      if (_messagesByStableKey.containsKey(anchorKey) &&
+          isVisibleInWindow(scope: scope, stableKey: anchorKey))
+        anchorKey,
+      ...paginatableKeys,
+    ];
+  }
+
+  List<String> _normalizeWindowMembership(
+    ConversationScope scope,
+    List<String> stableKeys,
+  ) {
+    final deduped = <String>[];
+    final seen = <String>{};
+    for (final stableKey in stableKeys) {
+      if (!seen.add(stableKey)) {
+        continue;
+      }
+      final message = _messagesByStableKey[stableKey];
+      if (message == null || !_isVisibleInWindow(message, scope)) {
+        continue;
+      }
+      deduped.add(stableKey);
+    }
+
+    final anchorKey = _threadAnchorStableKey(scope);
+    if (anchorKey == null) {
+      return deduped;
+    }
+    final next = deduped.where((stableKey) => stableKey != anchorKey).toList();
+    if (_messagesByStableKey.containsKey(anchorKey) &&
+        isVisibleInWindow(scope: scope, stableKey: anchorKey)) {
+      next.insert(0, anchorKey);
+    }
+    return next;
   }
 
   ConversationMessage _mergeIncoming(ConversationMessage incoming) {

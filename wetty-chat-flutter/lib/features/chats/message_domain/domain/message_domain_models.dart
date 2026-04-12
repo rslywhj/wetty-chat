@@ -46,6 +46,8 @@ class MessageThreadAnchorState {
   }
 }
 
+enum MessageWindowPageDirection { older, newer }
+
 /// Helpers for normalizing domain messages from backend models.
 abstract final class MessageDomainMessageFactory {
   static ConversationScope inferScope(MessageItem message) {

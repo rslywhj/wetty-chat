@@ -354,6 +354,33 @@ void main() {
         );
       },
     );
+
+    test('retrying a failed thread reply reapplies optimistic reply count', () {
+      final store = MessageDomainStore();
+      _seedAnchorThread(store);
+
+      store.applyOptimisticThreadReplySend(
+        const MessageDomainDraftMessage(
+          scope: threadScope,
+          clientGeneratedId: 'optimistic-thread-3',
+          sender: otherSender,
+          message: 'retry me',
+        ),
+      );
+      store.applySendFailed('optimistic-thread-3');
+
+      expect(store.selectThreadAnchorState(10)?.replyCount, 1);
+
+      final failedReply = store.messageForClientGeneratedId(
+        'optimistic-thread-3',
+      );
+      expect(failedReply?.deliveryState, ConversationDeliveryState.failed);
+
+      final retried = store.retryFailedSend(failedReply!);
+
+      expect(retried.deliveryState, ConversationDeliveryState.sending);
+      expect(store.selectThreadAnchorState(10)?.replyCount, 2);
+    });
   });
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/api/models/messages_api_models.dart';
 import '../../../../core/api/models/websocket_api_models.dart';
+import '../../message_domain/domain/message_domain.dart';
 import '../../models/message_api_mapper.dart';
 import '../../models/message_models.dart';
 import '../domain/conversation_message.dart';
@@ -14,7 +15,9 @@ class ConversationRepository {
   ConversationRepository({
     required this.scope,
     required MessageApiService service,
-  }) : _service = service;
+    required MessageDomainStore store,
+  }) : _service = service,
+       _store = store;
 
   static const int defaultWindowSize = 100;
   static const int pageSize = 50;
@@ -34,11 +37,7 @@ class ConversationRepository {
 
   final ConversationScope scope;
   final MessageApiService _service;
-
-  final Map<String, ConversationMessage> _messagesByStableKey = {};
-  final Map<int, String> _stableKeyByServerId = {};
-  final Map<String, String> _stableKeyByClientGeneratedId = {};
-  final List<String> _orderedStableKeys = <String>[];
+  final MessageDomainStore _store;
   final Map<String, ConversationMessage> _optimisticSnapshots = {};
 
   bool _hasReachedOldest = false;
@@ -51,10 +50,10 @@ class ConversationRepository {
       scope,
       max: limit,
     );
-    _mergeDtos(response.messages);
+    _reconcileDtos(response.messages);
     _hasReachedNewest = true;
     _hasReachedOldest = response.messages.length < limit;
-    final keys = _latestWindowStableKeys(limit);
+    final keys = _store.latestVisibleStableKeys(scope, limit: limit);
     return _messagesForWindow(keys);
   }
 
@@ -65,10 +64,10 @@ class ConversationRepository {
       scope,
       max: limit,
     );
-    _mergeDtos(response.messages);
+    _reconcileDtos(response.messages);
     _hasReachedNewest = true;
     _hasReachedOldest = response.messages.length < limit;
-    final keys = _latestWindowStableKeys(limit);
+    final keys = _store.latestVisibleStableKeys(scope, limit: limit);
     return _messagesForWindow(keys);
   }
 
@@ -87,7 +86,7 @@ class ConversationRepository {
       'loadAroundMessage: msgId=$messageId, '
       'alreadyCached=$alreadyCached, '
       'hasCachedWindow=$hasCachedWindow, '
-      'stableKey=${_stableKeyByServerId[messageId]}',
+      'stableKey=${_store.stableKeyForServerId(messageId)}',
       name: 'ConvRepo',
     );
     if (!hasCachedWindow) {
@@ -96,15 +95,16 @@ class ConversationRepository {
         around: messageId,
         max: before + after + 1,
       );
-      _mergeDtos(response.messages);
+      _reconcileDtos(response.messages);
       developer.log(
         'loadAroundMessage: fetched ${response.messages.length} msgs, '
-        'stableKey after merge=${_stableKeyByServerId[messageId]}, '
+        'stableKey after merge=${_store.stableKeyForServerId(messageId)}, '
         'containsNow=${_containsServerMessage(messageId)}',
         name: 'ConvRepo',
       );
     }
-    final keys = _windowKeysAroundServerMessage(
+    final keys = _store.visibleStableKeysAroundServerMessage(
+      scope,
       messageId,
       before: before,
       after: after,
@@ -121,7 +121,13 @@ class ConversationRepository {
     required String anchorStableKey,
     int pageSize = ConversationRepository.pageSize,
   }) async {
-    final anchor = _messagesByStableKey[anchorStableKey];
+    final resolvedAnchorStableKey = _resolvePagingAnchorStableKey(
+      anchorStableKey,
+      preferOldest: true,
+    );
+    final anchor = resolvedAnchorStableKey == null
+        ? null
+        : _store.messageForStableKey(resolvedAnchorStableKey);
     final oldestId = anchor?.serverMessageId;
     if (oldestId == null) {
       return const <ConversationMessage>[];
@@ -132,7 +138,10 @@ class ConversationRepository {
       before: oldestId,
       max: pageSize,
     );
-    _mergeDtos(response.messages);
+    _mergeWindowPageDtos(
+      response.messages,
+      direction: MessageWindowPageDirection.older,
+    );
     if (response.messages.length < pageSize) {
       _hasReachedOldest = true;
     }
@@ -146,7 +155,13 @@ class ConversationRepository {
     required String anchorStableKey,
     int pageSize = ConversationRepository.pageSize,
   }) async {
-    final anchor = _messagesByStableKey[anchorStableKey];
+    final resolvedAnchorStableKey = _resolvePagingAnchorStableKey(
+      anchorStableKey,
+      preferOldest: false,
+    );
+    final anchor = resolvedAnchorStableKey == null
+        ? null
+        : _store.messageForStableKey(resolvedAnchorStableKey);
     final newestId = anchor?.serverMessageId;
     if (newestId == null) {
       return const <ConversationMessage>[];
@@ -157,7 +172,10 @@ class ConversationRepository {
       after: newestId,
       max: pageSize,
     );
-    _mergeDtos(response.messages);
+    _mergeWindowPageDtos(
+      response.messages,
+      direction: MessageWindowPageDirection.newer,
+    );
     if (response.messages.length < pageSize) {
       _hasReachedNewest = true;
     }
@@ -171,28 +189,28 @@ class ConversationRepository {
     if (windowStableKeys.isEmpty) {
       return false;
     }
-    final oldestIndex = _orderedStableKeys.indexOf(windowStableKeys.first);
-    return oldestIndex > 0 || !_hasReachedOldest;
+    return _store.hasOlderOutsideWindow(scope, windowStableKeys) ||
+        !_hasReachedOldest;
   }
 
   bool hasNewerOutsideWindow(List<String> windowStableKeys) {
     if (windowStableKeys.isEmpty) {
       return false;
     }
-    final newestIndex = _orderedStableKeys.indexOf(windowStableKeys.last);
-    return newestIndex >= 0 && newestIndex < _orderedStableKeys.length - 1 ||
+    return _store.hasNewerOutsideWindow(scope, windowStableKeys) ||
         !_hasReachedNewest;
   }
 
   List<String> latestWindowStableKeys({int limit = defaultWindowSize}) =>
-      _latestWindowStableKeys(limit);
+      _store.latestVisibleStableKeys(scope, limit: limit);
 
   List<ConversationMessage> cachedWindowAroundMessage(
     int messageId, {
     int before = defaultWindowSize ~/ 2,
     int after = defaultWindowSize ~/ 2,
   }) {
-    final keys = _windowKeysAroundServerMessage(
+    final keys = _store.visibleStableKeysAroundServerMessage(
+      scope,
       messageId,
       before: before,
       after: after,
@@ -210,11 +228,12 @@ class ConversationRepository {
       around: messageId,
       max: before + after + 1,
     );
+    _reconcileDtos(response.messages);
     if (response.messages.isEmpty) {
       return const <ConversationMessage>[];
     }
-    _mergeDtos(response.messages);
-    final keys = _windowKeysAroundServerMessage(
+    final keys = _store.visibleStableKeysAroundServerMessage(
+      scope,
       messageId,
       before: before,
       after: after,
@@ -269,32 +288,25 @@ class ConversationRepository {
   List<String> prependWindowPage(
     List<String> currentWindow,
     String oldestStableKey,
-  ) {
-    final oldestIndex = _orderedStableKeys.indexOf(oldestStableKey);
-    if (oldestIndex <= 0) {
-      return currentWindow;
-    }
-    final start = (oldestIndex - pageSize).clamp(0, oldestIndex);
-    return _orderedStableKeys.sublist(start, oldestIndex) + currentWindow;
-  }
+  ) => _store.prependWindowPage(
+    scope,
+    currentWindow,
+    oldestStableKey,
+    pageSize: pageSize,
+  );
 
   List<String> appendWindowPage(
     List<String> currentWindow,
     String newestStableKey,
-  ) {
-    final newestIndex = _orderedStableKeys.indexOf(newestStableKey);
-    if (newestIndex < 0 || newestIndex >= _orderedStableKeys.length - 1) {
-      return currentWindow;
-    }
-    final end = (newestIndex + 1 + pageSize).clamp(
-      0,
-      _orderedStableKeys.length,
-    );
-    return currentWindow + _orderedStableKeys.sublist(newestIndex + 1, end);
-  }
+  ) => _store.appendWindowPage(
+    scope,
+    currentWindow,
+    newestStableKey,
+    pageSize: pageSize,
+  );
 
   int? findWindowIndex(List<String> windowStableKeys, int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
+    final stableKey = _store.stableKeyForServerId(messageId);
     if (stableKey == null) {
       return null;
     }
@@ -303,7 +315,7 @@ class ConversationRepository {
   }
 
   ConversationMessage? messageForStableKey(String stableKey) =>
-      _messagesByStableKey[stableKey];
+      _store.messageForStableKey(stableKey);
 
   Future<void> markAsRead(int messageId) {
     return _service.markMessagesAsRead(scope.chatId, messageId);
@@ -313,11 +325,11 @@ class ConversationRepository {
     required int messageId,
     required String emoji,
   }) async {
-    final stableKey = _stableKeyByServerId[messageId];
+    final stableKey = _store.stableKeyForServerId(messageId);
     if (stableKey == null) {
       throw StateError('Message not found: $messageId');
     }
-    final message = _messagesByStableKey[stableKey];
+    final message = _store.messageForStableKey(stableKey);
     if (message == null) {
       throw StateError('Message not found: $messageId');
     }
@@ -329,7 +341,7 @@ class ConversationRepository {
     _optimisticSnapshots[stableKey] = snapshot;
     final updatedReactions = _toggleReactionLocal(message, emoji);
     final optimistic = message.copyWith(reactions: updatedReactions);
-    _messagesByStableKey[stableKey] = optimistic;
+    _store.upsertCanonicalMessage(optimistic);
 
     try {
       final currentlyReacted = message.reactions.any(
@@ -343,7 +355,7 @@ class ConversationRepository {
       _optimisticSnapshots.remove(stableKey);
       return optimistic;
     } catch (_) {
-      _messagesByStableKey[stableKey] = snapshot;
+      _store.upsertCanonicalMessage(snapshot);
       _optimisticSnapshots.remove(stableKey);
       rethrow;
     }
@@ -358,27 +370,19 @@ class ConversationRepository {
     int? replyToId,
     StickerSummary? sticker,
   }) {
-    final localMessage = ConversationMessage(
+    final draft = MessageDomainDraftMessage(
       scope: scope,
-      localMessageId: 'local-${DateTime.now().microsecondsSinceEpoch}',
       clientGeneratedId: clientGeneratedId,
       sender: sender,
       message: text,
       messageType: messageType,
       sticker: sticker,
-      createdAt: DateTime.now().toUtc(),
-      isEdited: false,
-      isDeleted: false,
-      replyRootId: replyToId,
-      hasAttachments: attachments.isNotEmpty,
       replyToMessage: _replyToMessageForId(replyToId),
       attachments: attachments,
-      reactions: const <ReactionSummary>[],
-      mentions: const <MentionInfo>[],
-      threadInfo: null,
-      deliveryState: ConversationDeliveryState.sending,
     );
-    _upsertMessage(localMessage, appendLocalOnly: true);
+    final localMessage = scope.isThread
+        ? _store.applyOptimisticThreadReplySend(draft)
+        : _store.applyOptimisticNormalMessageSend(draft);
     return localMessage;
   }
 
@@ -399,33 +403,17 @@ class ConversationRepository {
       clientGeneratedId: clientGeneratedId,
       stickerId: stickerId,
     );
-    return _mergeMessage(
-      response.toConversation(scope),
-      preferredState: ConversationDeliveryState.sent,
-    );
+    return _applyServerCreated(_messageFromDto(response));
   }
 
   void markSendFailed(String clientGeneratedId) {
-    final stableKey = _stableKeyByClientGeneratedId[clientGeneratedId];
-    if (stableKey == null) {
-      return;
-    }
-    final message = _messagesByStableKey[stableKey];
-    if (message == null) {
-      return;
-    }
-    _messagesByStableKey[stableKey] = message.copyWith(
-      deliveryState: ConversationDeliveryState.failed,
-    );
+    _store.applySendFailed(clientGeneratedId);
   }
 
   Future<ConversationMessage> retryFailedSend(
     ConversationMessage message,
   ) async {
-    final optimistic = message.copyWith(
-      deliveryState: ConversationDeliveryState.sending,
-    );
-    _messagesByStableKey[optimistic.stableKey] = optimistic;
+    final optimistic = _store.retryFailedSend(message);
     return commitSend(
       clientGeneratedId: optimistic.clientGeneratedId,
       text: optimistic.message ?? '',
@@ -440,11 +428,11 @@ class ConversationRepository {
   }
 
   ConversationMessage? beginOptimisticEdit(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
+    final stableKey = _store.stableKeyForServerId(messageId);
     if (stableKey == null) {
       return null;
     }
-    final message = _messagesByStableKey[stableKey];
+    final message = _store.messageForStableKey(stableKey);
     if (message == null) {
       return null;
     }
@@ -452,7 +440,7 @@ class ConversationRepository {
     final updating = message.copyWith(
       deliveryState: ConversationDeliveryState.editing,
     );
-    _messagesByStableKey[stableKey] = updating;
+    _store.upsertCanonicalMessage(updating);
     return updating;
   }
 
@@ -462,54 +450,31 @@ class ConversationRepository {
       messageId,
       newText,
     );
-    return _mergeMessage(
-      response.toConversation(scope),
-      preferredState: ConversationDeliveryState.sent,
-    );
+    return _applyServerUpdated(_messageFromDto(response));
   }
 
   void rollbackEdit(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
+    final stableKey = _store.stableKeyForServerId(messageId);
     if (stableKey == null) {
       return;
     }
     final snapshot = _optimisticSnapshots.remove(stableKey);
     if (snapshot != null) {
-      _messagesByStableKey[stableKey] = snapshot;
+      _store.upsertCanonicalMessage(snapshot);
     }
   }
 
   ConversationMessage? beginOptimisticDelete(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
-    if (stableKey == null) {
-      return null;
-    }
-    final message = _messagesByStableKey[stableKey];
-    if (message == null) {
-      return null;
-    }
-    _optimisticSnapshots[stableKey] = message;
-    final deleting = message.copyWith(
-      deliveryState: ConversationDeliveryState.deleting,
-    );
-    _messagesByStableKey[stableKey] = deleting;
-    return deleting;
+    return _store.applyOptimisticDelete(messageId);
   }
 
   Future<void> commitDelete(int messageId) async {
     await _service.deleteMessage(scope.chatId, messageId);
-    _tombstoneMessage(messageId);
+    _store.applyDeleteConfirmed(messageId);
   }
 
   void rollbackDelete(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
-    if (stableKey == null) {
-      return;
-    }
-    final snapshot = _optimisticSnapshots.remove(stableKey);
-    if (snapshot != null) {
-      _messagesByStableKey[stableKey] = snapshot;
-    }
+    _store.rollbackOptimisticDelete(messageId);
   }
 
   bool applyRealtimeEvent(ApiWsEvent event) {
@@ -537,74 +502,39 @@ class ConversationRepository {
   ConversationMessage? messageForServerId(int messageId) =>
       _messageForServerId(messageId);
 
-  ConversationMessage _mergeMessage(
-    ConversationMessage incoming, {
-    required ConversationDeliveryState preferredState,
-  }) {
-    final stableKey = _stableKeyByServerId[incoming.serverMessageId ?? -1];
-    if (stableKey != null) {
-      final previous = _messagesByStableKey[stableKey];
-      final merged = incoming.copyWith(
-        localMessageId: previous?.localMessageId,
-        reactions: _mergeReactions(previous?.reactions, incoming.reactions),
-        deliveryState: preferredState,
-      );
-      _messagesByStableKey[stableKey] = merged;
-      _optimisticSnapshots.remove(stableKey);
-      return merged;
-    }
-
-    final optimisticKey =
-        _stableKeyByClientGeneratedId[incoming.clientGeneratedId];
-    if (optimisticKey != null) {
-      final previous = _messagesByStableKey[optimisticKey];
-      final merged = incoming.copyWith(
-        localMessageId: previous?.localMessageId,
-        reactions: _mergeReactions(previous?.reactions, incoming.reactions),
-        deliveryState: preferredState,
-      );
-      final previousIndex = _orderedStableKeys.indexOf(optimisticKey);
-      if (previousIndex >= 0) {
-        _orderedStableKeys[previousIndex] = merged.stableKey;
-      } else {
-        _insertOrderedStableKey(merged.stableKey, merged.serverMessageId);
-      }
-      _messagesByStableKey.remove(optimisticKey);
-      _messagesByStableKey[merged.stableKey] = merged;
-      _stableKeyByServerId[merged.serverMessageId!] = merged.stableKey;
-      _stableKeyByClientGeneratedId[merged.clientGeneratedId] =
-          merged.stableKey;
-      _optimisticSnapshots.remove(optimisticKey);
-      return merged;
-    }
-
-    final merged = incoming.copyWith(deliveryState: preferredState);
-    _upsertMessage(merged);
-    return merged;
-  }
-
   bool _applyMessageEvent(MessageItemDto payload, {required bool deleted}) {
     if (payload.chatId.toString() != scope.chatId) {
       return false;
     }
     if (scope.threadRootId != null &&
+        payload.id.toString() != scope.threadRootId &&
         payload.replyRootId?.toString() != scope.threadRootId) {
       return false;
     }
+    if (scope.threadRootId == null && payload.replyRootId != null) {
+      return false;
+    }
 
+    final message = _messageFromDto(payload);
     if (deleted) {
-      _mergeMessage(
-        payload.toConversation(scope),
-        preferredState: ConversationDeliveryState.sent,
+      _store.applyWebsocketMessageDeleted(
+        _mergeIncomingSnapshot(
+          message,
+          deliveryState: ConversationDeliveryState.sent,
+        ),
       );
-      _tombstoneMessage(payload.id);
       return true;
     }
 
-    _mergeMessage(
-      payload.toConversation(scope),
-      preferredState: ConversationDeliveryState.sent,
+    final merged = _mergeIncomingSnapshot(
+      message,
+      deliveryState: ConversationDeliveryState.sent,
     );
+    if (payload.replyRootId != null) {
+      _store.applyWebsocketMessageCreated(merged);
+    } else {
+      _store.applyWebsocketMessageUpdated(merged);
+    }
     return true;
   }
 
@@ -613,19 +543,21 @@ class ConversationRepository {
       return false;
     }
 
-    final stableKey = _stableKeyByServerId[payload.messageId];
+    final stableKey = _store.stableKeyForServerId(payload.messageId);
     if (stableKey == null) {
       return false;
     }
-    final message = _messagesByStableKey[stableKey];
+    final message = _store.messageForStableKey(stableKey);
     if (message == null || !_messageBelongsToScope(message)) {
       return false;
     }
 
-    _messagesByStableKey[stableKey] = message.copyWith(
-      reactions: _mergeReactions(
-        message.reactions,
-        payload.reactions.map((reaction) => reaction.toDomain()).toList(),
+    _store.upsertCanonicalMessage(
+      message.copyWith(
+        reactions: _mergeReactions(
+          message.reactions,
+          payload.reactions.map((reaction) => reaction.toDomain()).toList(),
+        ),
       ),
     );
     _optimisticSnapshots.remove(stableKey);
@@ -706,92 +638,74 @@ class ConversationRepository {
         .toList(growable: false);
   }
 
-  void _mergeDtos(List<MessageItemDto> messages) {
-    for (final dto in messages) {
-      _mergeMessage(
-        dto.toConversation(scope),
-        preferredState: ConversationDeliveryState.sent,
-      );
-    }
+  void _reconcileDtos(List<MessageItemDto> messages) {
+    _store.reconcileFetchedWindow(
+      scope: scope,
+      messages: messages.map(_messageFromDto).toList(growable: false),
+    );
   }
 
-  void _upsertMessage(
-    ConversationMessage message, {
-    bool appendLocalOnly = false,
+  void _mergeWindowPageDtos(
+    List<MessageItemDto> messages, {
+    required MessageWindowPageDirection direction,
   }) {
-    _messagesByStableKey[message.stableKey] = message;
-    _stableKeyByClientGeneratedId[message.clientGeneratedId] =
-        message.stableKey;
-    final serverMessageId = message.serverMessageId;
-    if (serverMessageId != null) {
-      _stableKeyByServerId[serverMessageId] = message.stableKey;
-      _insertOrderedStableKey(message.stableKey, serverMessageId);
-      return;
-    }
-    if (appendLocalOnly && !_orderedStableKeys.contains(message.stableKey)) {
-      _orderedStableKeys.add(message.stableKey);
-    }
+    _store.mergeFetchedWindowPage(
+      scope: scope,
+      messages: messages.map(_messageFromDto).toList(),
+      direction: direction,
+    );
   }
 
-  void _insertOrderedStableKey(String stableKey, int? serverMessageId) {
-    final existingIndex = _orderedStableKeys.indexOf(stableKey);
-    if (existingIndex >= 0) {
-      return;
+  ConversationMessage _applyServerCreated(ConversationMessage incoming) {
+    final message = _store.applySendConfirmed(
+      _mergeIncomingSnapshot(
+        incoming,
+        deliveryState: ConversationDeliveryState.sent,
+      ),
+    );
+    _optimisticSnapshots.remove(message.stableKey);
+    return message;
+  }
+
+  ConversationMessage _applyServerUpdated(ConversationMessage incoming) {
+    final message = _store.applyEditConfirmed(
+      _mergeIncomingSnapshot(
+        incoming,
+        deliveryState: ConversationDeliveryState.sent,
+      ),
+    );
+    _optimisticSnapshots.remove(message.stableKey);
+    return message;
+  }
+
+  ConversationMessage _mergeIncomingSnapshot(
+    ConversationMessage incoming, {
+    required ConversationDeliveryState deliveryState,
+  }) {
+    final previous = incoming.serverMessageId != null
+        ? _store.messageForServerId(incoming.serverMessageId!)
+        : _store.messageForClientGeneratedId(incoming.clientGeneratedId);
+    return incoming.copyWith(
+      localMessageId: previous?.localMessageId,
+      reactions: _mergeReactions(previous?.reactions, incoming.reactions),
+      deliveryState: deliveryState,
+    );
+  }
+
+  ConversationMessage _messageFromDto(MessageItemDto dto) {
+    if (scope.threadRootId == null) {
+      return dto.toConversation(scope);
     }
-    if (serverMessageId == null || _orderedStableKeys.isEmpty) {
-      _orderedStableKeys.add(stableKey);
-      return;
-    }
-    final insertAt = _orderedStableKeys.indexWhere((candidateKey) {
-      final candidateId = _messagesByStableKey[candidateKey]?.serverMessageId;
-      return candidateId != null && candidateId > serverMessageId;
-    });
-    if (insertAt < 0) {
-      _orderedStableKeys.add(stableKey);
-    } else {
-      _orderedStableKeys.insert(insertAt, stableKey);
-    }
+    final isAnchorMessage =
+        dto.replyRootId == null && dto.id.toString() == scope.threadRootId;
+    final messageScope = isAnchorMessage
+        ? ConversationScope.chat(chatId: scope.chatId)
+        : scope;
+    return dto.toConversation(messageScope);
   }
 
   void _removeStableKey(String stableKey) {
-    final message = _messagesByStableKey.remove(stableKey);
-    if (message == null) {
-      return;
-    }
-    _orderedStableKeys.remove(stableKey);
-    if (message.serverMessageId != null) {
-      _stableKeyByServerId.remove(message.serverMessageId);
-    }
-    _stableKeyByClientGeneratedId.remove(message.clientGeneratedId);
-  }
-
-  List<String> _latestWindowStableKeys(int limit) {
-    if (_orderedStableKeys.isEmpty) {
-      return const <String>[];
-    }
-    final start = (_orderedStableKeys.length - limit).clamp(
-      0,
-      _orderedStableKeys.length,
-    );
-    return _orderedStableKeys.sublist(start);
-  }
-
-  List<String> _windowKeysAroundServerMessage(
-    int messageId, {
-    required int before,
-    required int after,
-  }) {
-    final stableKey = _stableKeyByServerId[messageId];
-    if (stableKey == null) {
-      return const <String>[];
-    }
-    final index = _orderedStableKeys.indexOf(stableKey);
-    if (index < 0) {
-      return const <String>[];
-    }
-    final start = (index - before).clamp(0, _orderedStableKeys.length);
-    final end = (index + after + 1).clamp(0, _orderedStableKeys.length);
-    return _orderedStableKeys.sublist(start, end);
+    _store.removeMessageByStableKey(stableKey);
   }
 
   bool _hasWindowAroundServerMessage(
@@ -799,38 +713,99 @@ class ConversationRepository {
     required int before,
     required int after,
   }) {
-    final stableKey = _stableKeyByServerId[messageId];
+    if (_store.hasVisibleWindowAroundServerMessage(
+      scope,
+      messageId,
+      before: before,
+      after: after,
+    )) {
+      return true;
+    }
+
+    final stableKey = _store.stableKeyForServerId(messageId);
     if (stableKey == null) {
       return false;
     }
-    final index = _orderedStableKeys.indexOf(stableKey);
-    if (index < 0) {
+
+    if (!scope.isThread) {
+      final visibleKeys = _store.selectVisibleStableKeys(scope);
+      final index = visibleKeys.indexOf(stableKey);
+      if (index < 0) {
+        return false;
+      }
+      final availableBefore = index;
+      final availableAfter = visibleKeys.length - index - 1;
+      return (availableBefore >= before || _hasReachedOldest) &&
+          (availableAfter >= after || _hasReachedNewest);
+    }
+
+    final anchorKey = _threadAnchorStableKey();
+    if (anchorKey == null) {
       return false;
     }
-    final availableBefore = index;
-    final availableAfter = _orderedStableKeys.length - index - 1;
-    final hasEnoughBefore = availableBefore >= before || _hasReachedOldest;
-    final hasEnoughAfter = availableAfter >= after || _hasReachedNewest;
-    return hasEnoughBefore && hasEnoughAfter;
+    final replyKeys = _paginatableVisibleKeys();
+    if (stableKey == anchorKey) {
+      return _hasReachedOldest &&
+          (replyKeys.length >= after || _hasReachedNewest);
+    }
+
+    final replyIndex = replyKeys.indexOf(stableKey);
+    if (replyIndex < 0) {
+      return false;
+    }
+    final availableBefore = replyIndex;
+    final availableAfter = replyKeys.length - replyIndex - 1;
+    return (availableBefore >= before || _hasReachedOldest) &&
+        (availableAfter >= after || _hasReachedNewest);
+  }
+
+  String? _resolvePagingAnchorStableKey(
+    String requestedStableKey, {
+    required bool preferOldest,
+  }) {
+    final anchorKey = _threadAnchorStableKey();
+    if (anchorKey == null || requestedStableKey != anchorKey) {
+      return requestedStableKey;
+    }
+    final replyKeys = _paginatableVisibleKeys();
+    if (replyKeys.isEmpty) {
+      return null;
+    }
+    return preferOldest ? replyKeys.first : replyKeys.last;
+  }
+
+  String? _threadAnchorStableKey() {
+    final threadRootId = scope.threadRootId;
+    if (threadRootId == null) {
+      return null;
+    }
+    return _store.stableKeyForServerId(int.parse(threadRootId));
+  }
+
+  List<String> _paginatableVisibleKeys() {
+    final visibleKeys = _store.selectVisibleStableKeys(scope);
+    final anchorKey = _threadAnchorStableKey();
+    if (anchorKey == null) {
+      return visibleKeys;
+    }
+    return visibleKeys
+        .where((stableKey) => stableKey != anchorKey)
+        .toList(growable: false);
   }
 
   List<ConversationMessage> _messagesForWindow(List<String> stableKeys) {
     return stableKeys
-        .map((stableKey) => _messagesByStableKey[stableKey])
+        .map((stableKey) => _store.messageForStableKey(stableKey))
         .whereType<ConversationMessage>()
         .toList(growable: false);
   }
 
   ConversationMessage? _messageForServerId(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
-    if (stableKey == null) {
-      return null;
-    }
-    return _messagesByStableKey[stableKey];
+    return _store.messageForServerId(messageId);
   }
 
   bool _containsServerMessage(int messageId) =>
-      _stableKeyByServerId.containsKey(messageId);
+      _store.containsServerMessage(messageId);
 
   ReplyToMessage? _replyToMessageForId(int? replyToId) {
     if (replyToId == null) {
@@ -854,24 +829,6 @@ class ConversationRepository {
       mentions: message.mentions,
     );
   }
-
-  void _tombstoneMessage(int messageId) {
-    final stableKey = _stableKeyByServerId[messageId];
-    if (stableKey == null) {
-      return;
-    }
-    final current = _messagesByStableKey[stableKey];
-    if (current == null) {
-      return;
-    }
-    _messagesByStableKey[stableKey] = current.copyWith(
-      isDeleted: true,
-      message: null,
-      attachments: const <AttachmentItem>[],
-      hasAttachments: false,
-      deliveryState: ConversationDeliveryState.sent,
-    );
-  }
 }
 
 final conversationRepositoryProvider =
@@ -879,5 +836,6 @@ final conversationRepositoryProvider =
       return ConversationRepository(
         scope: scope,
         service: ref.read(messageApiServiceProvider),
+        store: ref.read(messageDomainStoreProvider),
       );
     });
