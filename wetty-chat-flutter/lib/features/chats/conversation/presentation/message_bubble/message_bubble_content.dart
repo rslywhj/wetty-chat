@@ -260,7 +260,7 @@ class MessageBubbleContent extends StatelessWidget {
     AttachmentItem attachment, {
     required double maxAttachmentWidth,
   }) {
-    final viewerRequest = buildImageAttachmentViewerRequest(
+    final viewerRequest = buildAttachmentViewerRequest(
       message: message,
       tappedAttachment: attachment,
     );
@@ -277,8 +277,12 @@ class MessageBubbleContent extends StatelessWidget {
     if (attachment.isVideo && attachment.url.isNotEmpty) {
       return VideoAttachmentPreview(
         attachment: attachment,
+        maxWidth: maxAttachmentWidth,
         onTap: () => onOpenAttachment?.call(
-          MessageAttachmentOpenRequest(attachment: attachment),
+          MessageAttachmentOpenRequest(
+            attachment: attachment,
+            viewerRequest: viewerRequest,
+          ),
         ),
       );
     }

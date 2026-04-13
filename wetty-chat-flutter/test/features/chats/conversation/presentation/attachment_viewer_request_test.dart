@@ -6,13 +6,20 @@ import 'package:chahua/features/chats/conversation/presentation/attachment_viewe
 import 'package:chahua/features/chats/models/message_models.dart';
 
 void main() {
-  test('buildImageAttachmentViewerRequest keeps only message images', () {
+  test('buildAttachmentViewerRequest keeps only supported media', () {
     const imageOne = AttachmentItem(
       id: 'image-1',
       url: 'https://example.com/image-1.png',
       kind: 'image/png',
       size: 100,
       fileName: 'image-1.png',
+    );
+    const video = AttachmentItem(
+      id: 'video-1',
+      url: 'https://example.com/video-1.mp4',
+      kind: 'video/mp4',
+      size: 300,
+      fileName: 'video-1.mp4',
     );
     const document = AttachmentItem(
       id: 'doc-1',
@@ -32,10 +39,10 @@ void main() {
       scope: ConversationScope.chat(chatId: 'chat-1'),
       clientGeneratedId: 'client-1',
       sender: Sender(uid: 7, name: 'Alex'),
-      attachments: <AttachmentItem>[imageOne, document, imageTwo],
+      attachments: <AttachmentItem>[imageOne, video, document, imageTwo],
     );
 
-    final request = buildImageAttachmentViewerRequest(
+    final request = buildAttachmentViewerRequest(
       message: message,
       tappedAttachment: imageTwo,
     );
@@ -43,11 +50,13 @@ void main() {
     expect(request, isNotNull);
     expect(request!.items.map((item) => item.attachment.id), <String>[
       'image-1',
+      'video-1',
       'image-2',
     ]);
-    expect(request.initialIndex, 1);
+    expect(request.initialIndex, 2);
+    expect(request.items[1].isVideo, isTrue);
     expect(
-      request.items[1].heroTag,
+      request.items[2].heroTag,
       attachmentViewerHeroTag(
         messageStableKey: message.stableKey,
         attachment: imageTwo,
@@ -55,7 +64,7 @@ void main() {
     );
   });
 
-  test('buildImageAttachmentViewerRequest falls back to url matching', () {
+  test('buildAttachmentViewerRequest falls back to url matching', () {
     const tapped = AttachmentItem(
       id: '',
       url: 'https://example.com/untagged.png',
@@ -70,7 +79,7 @@ void main() {
       attachments: <AttachmentItem>[tapped],
     );
 
-    final request = buildImageAttachmentViewerRequest(
+    final request = buildAttachmentViewerRequest(
       message: message,
       tappedAttachment: tapped,
     );

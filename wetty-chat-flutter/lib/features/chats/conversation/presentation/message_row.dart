@@ -16,7 +16,6 @@ import 'message_bubble/message_bubble_presentation.dart';
 import 'message_bubble/message_render_spec.dart';
 import 'message_bubble/voice_message_bubble.dart';
 import 'reply_swipe_action.dart';
-import 'video_popup_player.dart';
 
 class MessageLongPressDetails {
   const MessageLongPressDetails({
@@ -159,19 +158,13 @@ class _MessageRowState extends State<MessageRow> {
       return;
     }
 
-    if (attachment.isImage) {
+    if (attachment.isImage || attachment.isVideo) {
       final viewerRequest = request.viewerRequest;
       if (viewerRequest == null) {
         return;
       }
       if (!mounted) return;
       await context.push(AppRoutes.attachmentViewer, extra: viewerRequest);
-      return;
-    }
-
-    if (attachment.isVideo) {
-      if (!mounted) return;
-      await showVideoPlayerPopup(context, attachment);
       return;
     }
 

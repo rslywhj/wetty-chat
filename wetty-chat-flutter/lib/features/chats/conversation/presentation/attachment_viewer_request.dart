@@ -15,6 +15,7 @@ class AttachmentViewerItem {
   final AttachmentViewerMediaKind mediaKind;
 
   bool get isImage => mediaKind == AttachmentViewerMediaKind.image;
+  bool get isVideo => mediaKind == AttachmentViewerMediaKind.video;
 }
 
 class AttachmentViewerRequest {
@@ -49,18 +50,22 @@ String attachmentViewerHeroTag({
   return 'attachment-viewer:$messageStableKey:$attachmentKey';
 }
 
-AttachmentViewerRequest? buildImageAttachmentViewerRequest({
+AttachmentViewerRequest? buildAttachmentViewerRequest({
   required ConversationMessage message,
   required AttachmentItem tappedAttachment,
 }) {
-  final imageAttachments = message.attachments
-      .where((attachment) => attachment.isImage && attachment.url.isNotEmpty)
+  final mediaAttachments = message.attachments
+      .where(
+        (attachment) =>
+            attachment.url.isNotEmpty &&
+            (attachment.isImage || attachment.isVideo),
+      )
       .toList(growable: false);
-  if (imageAttachments.isEmpty) {
+  if (mediaAttachments.isEmpty) {
     return null;
   }
 
-  final initialIndex = imageAttachments.indexWhere(
+  final initialIndex = mediaAttachments.indexWhere(
     (attachment) =>
         (attachment.id.isNotEmpty && attachment.id == tappedAttachment.id) ||
         attachment.url == tappedAttachment.url,
@@ -70,7 +75,7 @@ AttachmentViewerRequest? buildImageAttachmentViewerRequest({
   }
 
   return AttachmentViewerRequest(
-    items: imageAttachments
+    items: mediaAttachments
         .map(
           (attachment) => AttachmentViewerItem(
             attachment: attachment,
@@ -78,7 +83,9 @@ AttachmentViewerRequest? buildImageAttachmentViewerRequest({
               messageStableKey: message.stableKey,
               attachment: attachment,
             ),
-            mediaKind: AttachmentViewerMediaKind.image,
+            mediaKind: attachment.isVideo
+                ? AttachmentViewerMediaKind.video
+                : AttachmentViewerMediaKind.image,
           ),
         )
         .toList(growable: false),
