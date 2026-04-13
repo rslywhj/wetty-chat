@@ -2,7 +2,7 @@ name: chahua
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 0.1.0+6
+version: 0.1.0+8
 
 environment:
   sdk: ^3.11.1
@@ -29,6 +29,7 @@ dependencies:
   extended_image: ^10.0.1
   path_provider: ^2.1.5
   path: ^1.9.1
+  package_info_plus: ^9.0.0
   record: ^6.1.1
   just_audio: ^0.10.5
   freezed_annotation: ^3.1.0

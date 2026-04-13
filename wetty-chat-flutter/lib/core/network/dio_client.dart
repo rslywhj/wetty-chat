@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_version.dart';
 import '../session/dev_session_store.dart';
 import 'api_config.dart';
 
@@ -58,6 +59,7 @@ final dioProvider = Provider<Dio>((ref) {
       headers: <String, String>{
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'X-App-Version': ?AppVersionHeader.value,
       },
     ),
   );
