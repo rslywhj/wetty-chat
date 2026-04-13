@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
-import '../../../../../core/cache/app_cached_network_image.dart';
+import '../../../../../shared/presentation/app_avatar.dart';
 import '../../data/group_member_models.dart';
 
 class GroupMemberRow extends StatelessWidget {
@@ -70,49 +70,16 @@ class _GroupMemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = member.avatarUrl;
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
-      return ClipOval(
-        child: AppCachedNetworkImage(
-          imageUrl: avatarUrl,
-          width: _size,
-          height: _size,
-          memCacheWidth: 112,
-          fit: BoxFit.cover,
-          errorWidget: (context, url, error) =>
-              _FallbackAvatar(displayName: displayName),
-        ),
-      );
-    }
-
-    return _FallbackAvatar(displayName: displayName);
-  }
-}
-
-class _FallbackAvatar extends StatelessWidget {
-  const _FallbackAvatar({required this.displayName});
-
-  final String displayName;
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor = CupertinoColors.systemGrey4.resolveFrom(context);
-    final initial = displayName.isEmpty
-        ? '?'
-        : displayName.characters.first.toUpperCase();
-
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: CupertinoColors.white,
-        ),
+    return AppAvatar(
+      name: displayName,
+      imageUrl: member.avatarUrl,
+      size: _size,
+      memCacheWidth: 112,
+      fallbackBackgroundColor: CupertinoColors.systemGrey4.resolveFrom(context),
+      fallbackTextStyle: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: CupertinoColors.white,
       ),
     );
   }

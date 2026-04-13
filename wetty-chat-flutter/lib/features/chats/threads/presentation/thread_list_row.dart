@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
-import '../../../../core/cache/app_cached_network_image.dart';
 import '../../../../app/theme/style_config.dart';
+import '../../../../shared/presentation/app_avatar.dart';
 import '../../chat_timestamp_formatter.dart';
 import '../../models/message_models.dart';
 import '../../models/message_preview_formatter.dart';
@@ -283,44 +283,16 @@ class _OverlayAvatar extends StatelessWidget {
     String? imageUrl,
     double fontSize = 14,
   }) {
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      return ClipOval(
-        child: AppCachedNetworkImage(
-          imageUrl: imageUrl,
-          width: size,
-          height: size,
-          memCacheWidth: (size * 2).toInt(),
-          fit: BoxFit.cover,
-          errorWidget: (context, url, error) =>
-              _fallbackAvatar(context, size, name, fontSize),
-        ),
-      );
-    }
-    return _fallbackAvatar(context, size, name, fontSize);
-  }
-
-  Widget _fallbackAvatar(
-    BuildContext context,
-    double size,
-    String name,
-    double fontSize,
-  ) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(
-        color: CupertinoColors.systemGrey4,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: appOnDarkTextStyle(
-          context,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-        ),
+    return AppAvatar(
+      name: name,
+      imageUrl: imageUrl,
+      size: size,
+      memCacheWidth: (size * 2).toInt(),
+      fallbackBackgroundColor: CupertinoColors.systemGrey4.resolveFrom(context),
+      fallbackTextStyle: appOnDarkTextStyle(
+        context,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

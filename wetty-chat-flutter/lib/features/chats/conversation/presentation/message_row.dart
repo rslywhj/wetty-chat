@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/routing/route_names.dart';
 import '../../../../app/theme/style_config.dart';
 import '../../../../core/network/api_config.dart';
+import '../../../../shared/presentation/app_avatar.dart';
 import '../../models/message_models.dart';
 import '../domain/conversation_message.dart';
 import 'attachment_viewer_request.dart';
-import 'message_avatar.dart';
 import 'message_bubble/message_bubble.dart';
 import 'message_bubble/message_bubble_presentation.dart';
 import 'message_bubble/voice_message_bubble.dart';
@@ -289,34 +289,15 @@ class _MessageRowState extends State<MessageRow> {
   }
 
   Widget _buildAvatar(BuildContext context, String senderName) {
-    final avatarUrl = widget.message.sender.avatarUrl;
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
-      return MessageAvatar(
-        avatarUrl: avatarUrl,
-        fallbackBuilder: () => _buildFallbackAvatar(context, senderName),
-      );
-    }
-    final initial = (senderName.isNotEmpty ? senderName[0] : '?').toUpperCase();
-    return _buildFallbackAvatar(context, initial);
-  }
-
-  // Build fallback avatar from user's initial
-  Widget _buildFallbackAvatar(BuildContext context, String initial) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: context.appColors.avatarBackground,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: appOnDarkTextStyle(
-          context,
-          fontSize: AppFontSizes.bodySmall,
-          fontWeight: FontWeight.w500,
-        ),
+    return AppAvatar(
+      name: senderName,
+      imageUrl: widget.message.sender.avatarUrl,
+      size: 36,
+      memCacheWidth: 96,
+      fallbackTextStyle: appOnDarkTextStyle(
+        context,
+        fontSize: AppFontSizes.bodySmall,
+        fontWeight: FontWeight.w500,
       ),
     );
   }

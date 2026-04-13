@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
-import '../../../../../core/cache/app_cached_network_image.dart';
 import '../../../../../app/theme/style_config.dart';
+import '../../../../../shared/presentation/app_avatar.dart';
 import '../../../models/message_models.dart';
 
 class MessageReactions extends StatelessWidget {
@@ -284,12 +284,6 @@ class _ReactionReactorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = reactor.avatarUrl;
-    final fallback = _ReactionReactorAvatarFallback(
-      reactor: reactor,
-      size: size,
-    );
-
     return Container(
       width: size,
       height: size,
@@ -297,48 +291,12 @@ class _ReactionReactorAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: borderColor, width: 1),
       ),
-      child: ClipOval(
-        child: avatarUrl != null && avatarUrl.isNotEmpty
-            ? AppCachedNetworkImage(
-                imageUrl: avatarUrl,
-                width: size,
-                height: size,
-                memCacheWidth: 64,
-                fit: BoxFit.cover,
-                errorWidget: (context, url, error) => fallback,
-              )
-            : fallback,
-      ),
-    );
-  }
-}
-
-class _ReactionReactorAvatarFallback extends StatelessWidget {
-  const _ReactionReactorAvatarFallback({
-    required this.reactor,
-    required this.size,
-  });
-
-  final ReactionReactor reactor;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = reactor.name?.trim();
-    final initial = (label != null && label.isNotEmpty ? label[0] : '?')
-        .toUpperCase();
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: context.appColors.avatarBackground,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: appOnDarkTextStyle(
+      child: AppAvatar(
+        name: reactor.name,
+        imageUrl: reactor.avatarUrl,
+        size: size,
+        memCacheWidth: 64,
+        fallbackTextStyle: appOnDarkTextStyle(
           context,
           fontSize: 10,
           fontWeight: FontWeight.w600,

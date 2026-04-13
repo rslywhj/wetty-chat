@@ -9,6 +9,7 @@ abstract class ChatListItem with _$ChatListItem {
   const factory ChatListItem({
     required String id,
     String? name,
+    String? avatarUrl,
     DateTime? lastMessageAt,
     @Default(0) int unreadCount,
     String? lastReadMessageId,

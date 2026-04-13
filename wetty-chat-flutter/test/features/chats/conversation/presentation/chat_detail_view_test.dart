@@ -24,22 +24,25 @@ void main() {
       );
     });
 
-    test('shows FAB when newer pages can still be loaded away from live edge', () {
-      final state = ConversationTimelineState(
-        entries: const <TimelineEntry>[],
-        windowStableKeys: const <String>[],
-        windowMode: ConversationWindowMode.anchoredTarget,
-        viewportPlacement: ConversationViewportPlacement.topPreferred,
-        canLoadOlder: true,
-        canLoadNewer: true,
-        anchorEntryIndex: 0,
-      );
+    test(
+      'shows FAB when newer pages can still be loaded away from live edge',
+      () {
+        final state = ConversationTimelineState(
+          entries: const <TimelineEntry>[],
+          windowStableKeys: const <String>[],
+          windowMode: ConversationWindowMode.anchoredTarget,
+          viewportPlacement: ConversationViewportPlacement.topPreferred,
+          canLoadOlder: true,
+          canLoadNewer: true,
+          anchorEntryIndex: 0,
+        );
 
-      expect(
-        shouldShowJumpToLatestFab(state: state, isAtLiveEdge: false),
-        isTrue,
-      );
-    });
+        expect(
+          shouldShowJumpToLatestFab(state: state, isAtLiveEdge: false),
+          isTrue,
+        );
+      },
+    );
 
     test(
       'hides FAB when pending count exists but viewport is at live edge',

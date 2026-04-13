@@ -11,6 +11,7 @@ ChatListItemDto _$ChatListItemDtoFromJson(
 ) => ChatListItemDto(
   id: const FlexibleIntConverter().fromJson(json['id']),
   name: json['name'] as String?,
+  avatar: json['avatar'] as String?,
   lastMessageAt: const NullableDateTimeConverter().fromJson(
     json['lastMessageAt'],
   ),
@@ -27,6 +28,7 @@ Map<String, dynamic> _$ChatListItemDtoToJson(
 ) => <String, dynamic>{
   'id': const FlexibleIntConverter().toJson(instance.id),
   'name': instance.name,
+  'avatar': instance.avatar,
   'lastMessageAt': const NullableDateTimeConverter().toJson(
     instance.lastMessageAt,
   ),

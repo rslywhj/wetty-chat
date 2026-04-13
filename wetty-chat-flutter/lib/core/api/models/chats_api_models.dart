@@ -11,6 +11,7 @@ class ChatListItemDto {
   const ChatListItemDto({
     required this.id,
     this.name,
+    this.avatar,
     this.lastMessageAt,
     this.unreadCount = 0,
     this.lastReadMessageId,
@@ -21,6 +22,7 @@ class ChatListItemDto {
   @FlexibleIntConverter()
   final int id;
   final String? name;
+  final String? avatar;
   @NullableDateTimeConverter()
   final DateTime? lastMessageAt;
   @JsonKey(defaultValue: 0)

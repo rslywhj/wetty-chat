@@ -434,7 +434,8 @@ class MessageOverlay extends StatelessWidget {
       );
     }
 
-    final isPureAudio = message.messageType == 'audio' &&
+    final isPureAudio =
+        message.messageType == 'audio' &&
         message.attachments.length == 1 &&
         message.attachments.first.isAudio;
 
@@ -457,10 +458,7 @@ class MessageOverlay extends StatelessWidget {
     return ClipRect(
       child: Transform.translate(
         offset: -previewPlacement.contentOffset,
-        child: SizedBox(
-          width: details.bubbleRect.width,
-          child: bubble,
-        ),
+        child: SizedBox(width: details.bubbleRect.width, child: bubble),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../../app/theme/style_config.dart';
+import '../../../../../shared/presentation/app_avatar.dart';
 
 class ChatListRow extends StatelessWidget {
   const ChatListRow({
@@ -9,6 +10,7 @@ class ChatListRow extends StatelessWidget {
     required this.timestampText,
     required this.unreadCount,
     required this.onTap,
+    this.avatarUrl,
     this.senderName,
     this.lastMessageText,
     this.draftText,
@@ -19,6 +21,7 @@ class ChatListRow extends StatelessWidget {
   final String? timestampText;
   final int unreadCount;
   final VoidCallback onTap;
+  final String? avatarUrl;
   final String? senderName;
   final String? lastMessageText;
   final String? draftText;
@@ -36,22 +39,15 @@ class ChatListRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: CupertinoColors.systemGrey4,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  // TODO: use image instead of text
-                  child: Text(
-                    chatName.isNotEmpty ? chatName[0].toUpperCase() : '?',
-                    style: appOnDarkTextStyle(
-                      context,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
+                AppAvatar(
+                  name: chatName,
+                  imageUrl: avatarUrl,
+                  size: 52,
+                  memCacheWidth: 128,
+                  fallbackTextStyle: appOnDarkTextStyle(
+                    context,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(width: 12),

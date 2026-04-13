@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../../app/theme/style_config.dart';
+import '../../../../../shared/presentation/app_avatar.dart';
 import '../../../../groups/members/data/group_member_models.dart';
 
 class ComposerMentionAutocomplete extends StatelessWidget {
@@ -93,49 +94,15 @@ class _MentionAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarImage = avatarUrl?.trim();
-    if (avatarImage != null && avatarImage.isNotEmpty) {
-      return ClipOval(
-        child: Image.network(
-          avatarImage,
-          width: 30,
-          height: 30,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _MentionAvatarFallback(displayName: displayName);
-          },
-        ),
-      );
-    }
-    return _MentionAvatarFallback(displayName: displayName);
-  }
-}
-
-class _MentionAvatarFallback extends StatelessWidget {
-  const _MentionAvatarFallback({required this.displayName});
-
-  final String displayName;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final initial = (displayName.isNotEmpty ? displayName[0] : '?')
-        .toUpperCase();
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        color: colors.avatarBackground,
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: appOnDarkTextStyle(
-          context,
-          fontSize: AppFontSizes.bodySmall,
-          fontWeight: FontWeight.w600,
-        ),
+    return AppAvatar(
+      name: displayName,
+      imageUrl: avatarUrl,
+      size: 30,
+      memCacheWidth: 72,
+      fallbackTextStyle: appOnDarkTextStyle(
+        context,
+        fontSize: AppFontSizes.bodySmall,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

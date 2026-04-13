@@ -268,6 +268,7 @@ class _ChatListRowBuilder extends ConsumerWidget {
       },
       child: ChatListRow(
         chatName: chatName,
+        avatarUrl: chat.avatarUrl,
         timestampText: dateText,
         unreadCount: chat.unreadCount,
         senderName: lastMessage?.sender.name,

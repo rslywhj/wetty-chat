@@ -6,6 +6,7 @@ extension ChatListItemDtoMapper on ChatListItemDto {
   ChatListItem toDomain() => ChatListItem(
     id: id.toString(),
     name: name,
+    avatarUrl: avatar,
     lastMessageAt: lastMessageAt,
     unreadCount: unreadCount,
     lastReadMessageId: lastReadMessageId,
