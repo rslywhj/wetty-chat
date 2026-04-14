@@ -40,6 +40,10 @@ export function isChatFontSizeOption(value: unknown): value is ChatFontSizeOptio
   return typeof value === 'string' && chatFontSizeOptions.includes(value as ChatFontSizeOption);
 }
 
+function normalizePinnedReactions(reactions: string[]): string[] {
+  return Array.from(new Set(reactions)).slice(0, MAX_PINNED_REACTIONS);
+}
+
 function persistSettings(state: SettingsState) {
   const currentState = current(state);
   void kvSet('settings', {
@@ -64,7 +68,7 @@ const defaultSettings: SettingsState = {
   locale: null,
   messageFontSize: defaultChatFontSize,
   showAllTab: true,
-  pinnedReactions: ['👍'],
+  pinnedReactions: normalizePinnedReactions(['👍']),
   recentReactions: ['❤️', '😂', '😮', '😢', '🎉'],
 };
 
@@ -73,7 +77,7 @@ export function hydrateSettings(saved: Partial<SettingsState> | null | undefined
     ...defaultSettings,
     ...saved,
     messageFontSize: isChatFontSizeOption(saved?.messageFontSize) ? saved.messageFontSize : defaultChatFontSize,
-    pinnedReactions: saved?.pinnedReactions ?? defaultSettings.pinnedReactions,
+    pinnedReactions: normalizePinnedReactions(saved?.pinnedReactions ?? defaultSettings.pinnedReactions),
     recentReactions: saved?.recentReactions ?? defaultSettings.recentReactions,
   };
 }
@@ -96,7 +100,7 @@ const settingsSlice = createSlice({
       persistSettings(state);
     },
     setPinnedReactions(state, action: PayloadAction<string[]>) {
-      state.pinnedReactions = action.payload.slice(0, MAX_PINNED_REACTIONS);
+      state.pinnedReactions = normalizePinnedReactions(action.payload);
       persistSettings(state);
     },
     addRecentReaction(state, action: PayloadAction<string>) {

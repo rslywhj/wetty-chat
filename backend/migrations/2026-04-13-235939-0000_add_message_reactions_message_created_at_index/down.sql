@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_message_reactions_msg_created_at;
