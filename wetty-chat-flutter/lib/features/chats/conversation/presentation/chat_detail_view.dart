@@ -232,7 +232,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                       controller: _timelineController,
                       logTag: 'ChatDetailView',
                       onOpenThread: (message) => context.push(
-                        AppRoutes.threadDetail(
+                        AppRoutes.nestedThreadDetail(
                           widget.chatId,
                           message.serverMessageId.toString(),
                         ),

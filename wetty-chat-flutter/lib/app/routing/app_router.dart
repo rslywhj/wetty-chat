@@ -96,63 +96,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(
-        path: '/chats/:chatId',
-        pageBuilder: (context, state) {
-          final chatId = state.pathParameters['chatId']!;
-          final extra = state.extra as Map<String, dynamic>?;
-          return CupertinoPage(
-            key: state.pageKey,
-            child: ChatDetailPage(
-              chatId: chatId,
-              launchRequest:
-                  extra?['launchRequest'] as LaunchRequest? ??
-                  const LaunchRequest.latest(),
-            ),
-          );
-        },
-        routes: [
-          GoRoute(
-            path: 'members',
-            pageBuilder: (context, state) {
-              final chatId = state.pathParameters['chatId']!;
-              return CupertinoPage(
-                key: state.pageKey,
-                child: GroupMembersPage(chatId: chatId),
-              );
-            },
-          ),
-          GoRoute(
-            path: 'settings',
-            pageBuilder: (context, state) {
-              final chatId = state.pathParameters['chatId']!;
-              return CupertinoPage(
-                key: state.pageKey,
-                child: GroupSettingsPage(chatId: chatId),
-              );
-            },
-          ),
-          GoRoute(
-            path: 'thread/:threadId',
-            pageBuilder: (context, state) {
-              final chatId = state.pathParameters['chatId']!;
-              final threadId = state.pathParameters['threadId']!;
-              final extra = state.extra as Map<String, dynamic>?;
-              return CupertinoPage(
-                key: state.pageKey,
-                child: ThreadDetailPage(
-                  chatId: chatId,
-                  threadRootId: threadId,
-                  launchRequest:
-                      extra?['launchRequest'] as LaunchRequest? ??
-                      const LaunchRequest.latest(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             HomeShell(navigationShell: navigationShell),
@@ -161,9 +104,85 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/chats',
+                path: AppRoutes.chats,
                 pageBuilder: (context, state) =>
                     CupertinoPage(key: state.pageKey, child: const ChatPage()),
+                routes: [
+                  GoRoute(
+                    path: 'chat/:chatId',
+                    pageBuilder: (context, state) {
+                      final chatId = state.pathParameters['chatId']!;
+                      final extra = state.extra as Map<String, dynamic>?;
+                      return CupertinoPage(
+                        key: state.pageKey,
+                        child: ChatDetailPage(
+                          chatId: chatId,
+                          launchRequest:
+                              extra?['launchRequest'] as LaunchRequest? ??
+                              const LaunchRequest.latest(),
+                        ),
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'members',
+                        pageBuilder: (context, state) {
+                          final chatId = state.pathParameters['chatId']!;
+                          return CupertinoPage(
+                            key: state.pageKey,
+                            child: GroupMembersPage(chatId: chatId),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'settings',
+                        pageBuilder: (context, state) {
+                          final chatId = state.pathParameters['chatId']!;
+                          return CupertinoPage(
+                            key: state.pageKey,
+                            child: GroupSettingsPage(chatId: chatId),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'thread/:threadId',
+                        pageBuilder: (context, state) {
+                          final chatId = state.pathParameters['chatId']!;
+                          final threadId = state.pathParameters['threadId']!;
+                          final extra = state.extra as Map<String, dynamic>?;
+                          return CupertinoPage(
+                            key: state.pageKey,
+                            child: ThreadDetailPage(
+                              chatId: chatId,
+                              threadRootId: threadId,
+                              launchRequest:
+                                  extra?['launchRequest'] as LaunchRequest? ??
+                                  const LaunchRequest.latest(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'thread/:chatId/:threadId',
+                    pageBuilder: (context, state) {
+                      final chatId = state.pathParameters['chatId']!;
+                      final threadId = state.pathParameters['threadId']!;
+                      final extra = state.extra as Map<String, dynamic>?;
+                      return CupertinoPage(
+                        key: state.pageKey,
+                        child: ThreadDetailPage(
+                          chatId: chatId,
+                          threadRootId: threadId,
+                          launchRequest:
+                              extra?['launchRequest'] as LaunchRequest? ??
+                              const LaunchRequest.latest(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

@@ -44,23 +44,21 @@ class NotificationTapHandler {
     final threadRootId = payload['threadRootId'] as String?;
     final messageIdStr = payload['messageId'] as String?;
     final messageId = messageIdStr != null ? int.tryParse(messageIdStr) : null;
+    final extra = _launchExtraForMessage(messageId);
 
     if (threadRootId != null && threadRootId.isNotEmpty) {
       developer.log(
-        'Navigating to thread $threadRootId in chat $chatId',
+        'Resetting navigation directly to thread $threadRootId in chat '
+        '$chatId from notification tap',
         name: 'NotificationTap',
       );
-      _router.push(AppRoutes.threadDetail(chatId, threadRootId));
+      _router.go(AppRoutes.threadDetail(chatId, threadRootId), extra: extra);
     } else {
-      developer.log('Navigating to chat $chatId', name: 'NotificationTap');
-      final extra = <String, dynamic>{};
-      if (messageId != null) {
-        extra['launchRequest'] = LaunchRequest.message(messageId: messageId);
-      }
-      _router.push(
-        AppRoutes.chatDetail(chatId),
-        extra: extra.isNotEmpty ? extra : null,
+      developer.log(
+        'Resetting navigation to chat $chatId from notification tap',
+        name: 'NotificationTap',
       );
+      _router.go(AppRoutes.chatDetail(chatId), extra: extra);
     }
 
     final refresh = onNotificationHandled;
@@ -71,5 +69,14 @@ class NotificationTapHandler {
 
   void dispose() {
     _sub?.cancel();
+  }
+
+  Map<String, dynamic>? _launchExtraForMessage(int? messageId) {
+    if (messageId == null) {
+      return null;
+    }
+    return <String, dynamic>{
+      'launchRequest': LaunchRequest.message(messageId: messageId),
+    };
   }
 }
