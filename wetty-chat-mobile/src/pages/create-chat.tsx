@@ -8,44 +8,84 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonListHeader,
   IonPage,
+  IonText,
   IonTitle,
   IonToolbar,
   useIonAlert,
 } from '@ionic/react';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { useDispatch } from 'react-redux';
 import { Redirect, useHistory } from 'react-router-dom';
-import { createChat } from '@/api/chats';
+import { createChat, getChats } from '@/api/chats';
 import { BackButton } from '@/components/BackButton';
 import { PermissionGate } from '@/components/permissions/PermissionGate';
+import { InsetContent } from '@/components/shared/InsetContent';
+import { useIsDesktop } from '@/hooks/platformHooks';
+import { setChatInList, setChatMeta, setChatsList } from '@/store/chatsSlice';
 import type { BackAction } from '@/types/back-action';
+import styles from './create-chat.module.scss';
 
 interface CreateChatCoreProps {
   backAction?: BackAction;
 }
 
 export default function CreateChatCore({ backAction }: CreateChatCoreProps) {
+  const dispatch = useDispatch();
   const history = useHistory();
+  const isDesktop = useIsDesktop();
   const [presentAlert] = useIonAlert();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [hasTouchedName, setHasTouchedName] = useState(false);
 
-  const handleSubmit = () => {
-    const trimmed = name.trim() || undefined;
+  const trimmedName = name.trim();
+  const validationError = hasTouchedName && trimmedName.length === 0 ? t`Chat name is required.` : null;
+  const createDisabled = trimmedName.length === 0 || submitting;
+
+  const handleSubmit = async () => {
+    if (trimmedName.length === 0 || submitting) {
+      setHasTouchedName(true);
+      return;
+    }
+
     setSubmitting(true);
-    createChat({ name: trimmed })
-      .then(() => {
-        history.replace('/chats');
-      })
-      .catch((err: { message?: string }) => {
-        presentAlert({
-          header: 'Error',
-          message: err?.message ?? 'Failed to create chat',
-          buttons: ['OK'],
-        });
-      })
-      .finally(() => {
-        setSubmitting(false);
+
+    try {
+      const response = await createChat({ name: trimmedName });
+      const createdChat = response.data;
+
+      dispatch(
+        setChatMeta({
+          chatId: createdChat.id,
+          meta: {
+            name: createdChat.name,
+            createdAt: createdChat.createdAt,
+          },
+        }),
+      );
+      dispatch(setChatInList({ chatId: createdChat.id, inList: true }));
+
+      try {
+        const chatsResponse = await getChats();
+        dispatch(setChatsList(chatsResponse.data.chats || []));
+      } catch (refreshError) {
+        console.warn('Failed to refresh chats after creation', refreshError);
+      }
+
+      history.replace(`/chats/chat/${createdChat.id}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t`Failed to create chat`;
+      presentAlert({
+        header: t`Error`,
+        message,
+        buttons: [t`OK`],
       });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -54,29 +94,55 @@ export default function CreateChatCore({ backAction }: CreateChatCoreProps) {
         <IonHeader>
           <IonToolbar>
             <IonButtons slot="start">{backAction && <BackButton action={backAction} />}</IonButtons>
-            <IonTitle>New Chat</IonTitle>
+            <IonTitle>
+              <Trans>New Chat</Trans>
+            </IonTitle>
+            <IonButtons slot="end">
+              <IonButton disabled={createDisabled} onClick={handleSubmit}>
+                {submitting ? t`Creating…` : t`Create`}
+              </IonButton>
+            </IonButtons>
           </IonToolbar>
         </IonHeader>
-        <IonContent>
-          <div style={{ padding: '16px' }}>
-            <IonList>
-              <IonItem>
-                <IonLabel position="stacked">Chat name</IonLabel>
-                <IonInput
-                  type="text"
-                  placeholder="Optional"
-                  value={name}
-                  onIonInput={(e) => setName(e.detail.value ?? '')}
-                  clearInput
-                />
-              </IonItem>
-            </IonList>
-            <div style={{ marginTop: '16px' }}>
-              <IonButton expand="block" disabled={submitting} onClick={handleSubmit}>
-                {submitting ? 'Creating...' : 'Create'}
+        <IonContent color="light" className="ion-no-padding">
+          <IonListHeader>
+            <IonLabel>
+              <Trans>Chat Details</Trans>
+            </IonLabel>
+          </IonListHeader>
+          <IonList inset>
+            <IonItem className={styles.nameInputRow}>
+              <IonLabel className={styles.nameInputLabel}>
+                <Trans>Name</Trans>
+              </IonLabel>
+              <IonInput
+                placeholder={t`Enter chat name`}
+                value={name}
+                onIonInput={(event) => setName(event.detail.value ?? '')}
+                onIonBlur={() => setHasTouchedName(true)}
+                clearInput
+                enterkeyhint="done"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                  }
+                }}
+              />
+            </IonItem>
+          </IonList>
+          {validationError ? (
+            <InsetContent className={styles.validationError}>
+              <IonText color="danger">{validationError}</IonText>
+            </InsetContent>
+          ) : null}
+
+          {isDesktop ? (
+            <InsetContent className={styles.desktopActions}>
+              <IonButton expand="block" disabled={createDisabled} onClick={handleSubmit}>
+                {submitting ? t`Creating…` : t`Create`}
               </IonButton>
-            </div>
-          </div>
+            </InsetContent>
+          ) : null}
         </IonContent>
       </div>
     </PermissionGate>
