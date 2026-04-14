@@ -201,6 +201,40 @@
   }
 }
 
+.mediaRemaining {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 2px 6px;
+  color: #fff;
+  font-size: 11px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.videoPlayButton {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 34px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.remainingMuteIcon {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
 .attachmentImageButton {
   display: block;
   width: fit-content;

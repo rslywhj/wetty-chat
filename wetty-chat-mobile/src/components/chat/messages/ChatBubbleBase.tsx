@@ -25,6 +25,7 @@ import { InviteLinkInline } from './InviteLinkInline';
 import { PermalinkInline } from './PermalinkInline';
 import { SingleMediaAttachment } from './media/SingleMediaAttachment';
 import { JustifiedMediaGallery } from './media/JustifiedMediaGallery';
+import { VideoPreview } from './media/VideoPreview';
 import {
   parseChatBubbleContentToRichItems,
   getMessageLayoutStats,
@@ -310,17 +311,17 @@ export function ChatBubbleBase({
     });
   }
 
+  const isOnlyAttachment = attachments?.length === 1;
+
   const renderMediaItem = (att: Attachment, style?: CSSProperties) => {
     if (att.kind.startsWith('video/')) {
       return (
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
+        <VideoPreview
           src={att.url}
           style={style}
-          onLoadedMetadata={(e) => logAttachmentLoad('video', att, e.currentTarget)}
+          autoPlay={isOnlyAttachment}
+          showPlayButton={!isOnlyAttachment}
+          onLoaded={(el) => logAttachmentLoad('video', att, el)}
         />
       );
     }
@@ -386,17 +387,13 @@ export function ChatBubbleBase({
       };
 
       const video = (
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
+        <VideoPreview
           src={att.url}
           className={styles.attachmentImage}
           style={imageLayoutStyle ? undefined : { maxHeight: maxImageHeight }}
-          onLoadedMetadata={(event) => {
-            logAttachmentLoad('video', att, event.currentTarget);
-          }}
+          autoPlay={isOnlyAttachment}
+          showPlayButton={!isOnlyAttachment}
+          onLoaded={(el) => logAttachmentLoad('video', att, el)}
         />
       );
 
