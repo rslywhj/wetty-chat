@@ -215,7 +215,7 @@ void main() {
     await _pumpViewer(
       tester,
       request: AttachmentViewerRequest(
-        items: [_videoViewerItem('video-0')],
+        items: [_videoViewerItem('video-portrait', width: 720, height: 1280)],
         initialIndex: 0,
       ),
     );
@@ -256,6 +256,249 @@ void main() {
     expect(contentRect.center.dx, closeTo(viewportRect.center.dx, 1));
     expect(contentRect.center.dy, closeTo(viewportRect.center.dy, 1));
   });
+
+  testWidgets('video returns to its original placement at base scale', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-0')],
+        initialIndex: 0,
+      ),
+    );
+
+    final contentFinder = find.byKey(
+      const Key('attachment-viewer-video-content'),
+    );
+    final initialRect = tester.getRect(contentFinder);
+    final controller = _videoTransformationController(tester);
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(-180, -120, 0, 1)
+      ..scaleByDouble(2, 2, 1, 1);
+    await tester.pump();
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(160, 90, 0, 1)
+      ..scaleByDouble(1, 1, 1, 1);
+    await tester.pump();
+
+    expect(tester.getRect(contentFinder), initialRect);
+  });
+
+  testWidgets('zoomed landscape video stays clamped to viewport edges', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-0')],
+        initialIndex: 0,
+      ),
+    );
+
+    final viewportFinder = find.byKey(
+      const Key('attachment-viewer-video-viewport'),
+    );
+    final contentFinder = find.byKey(
+      const Key('attachment-viewer-video-content'),
+    );
+    final controller = _videoTransformationController(tester);
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(2000, 0, 0, 1)
+      ..scaleByDouble(2, 2, 1, 1);
+    await tester.pump();
+
+    var viewportRect = tester.getRect(viewportFinder);
+    var contentRect = tester.getRect(contentFinder);
+    expect(contentRect.left, closeTo(viewportRect.left, 1));
+    expect(contentRect.right, greaterThanOrEqualTo(viewportRect.right - 1));
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(-4000, 0, 0, 1)
+      ..scaleByDouble(2, 2, 1, 1);
+    await tester.pump();
+
+    viewportRect = tester.getRect(viewportFinder);
+    contentRect = tester.getRect(contentFinder);
+    expect(contentRect.left, lessThanOrEqualTo(viewportRect.left + 1));
+    expect(contentRect.right, closeTo(viewportRect.right, 1));
+  });
+
+  testWidgets('video page swipe only works at original scale', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-0'), _videoViewerItem('video-1')],
+        initialIndex: 0,
+      ),
+    );
+
+    await _doubleTapViewport(tester);
+    await tester.pumpAndSettle();
+
+    await _dragFromViewport(
+      tester,
+      delta: const Offset(-420, 0),
+      startOffsetFromCenter: const Offset(0, -120),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('1/2'), findsOneWidget);
+
+    await _doubleTapViewport(tester);
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('attachment-viewer-media-0')),
+      const Offset(-420, 0),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('2/2'), findsOneWidget);
+  });
+
+  testWidgets('double-tap zoom enables one-finger video pan', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-0')],
+        initialIndex: 0,
+      ),
+    );
+
+    final contentFinder = find.byKey(
+      const Key('attachment-viewer-video-content'),
+    );
+    final beforeZoomRect = tester.getRect(contentFinder);
+
+    await _doubleTapViewport(tester, offsetFromCenter: const Offset(-80, 0));
+    await tester.pumpAndSettle();
+
+    final zoomedRect = tester.getRect(contentFinder);
+    expect(zoomedRect.left, lessThan(beforeZoomRect.left));
+
+    await _dragFromViewport(
+      tester,
+      delta: const Offset(90, 0),
+      startOffsetFromCenter: const Offset(-80, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final pannedRect = tester.getRect(contentFinder);
+    expect(pannedRect.left, greaterThan(zoomedRect.left));
+  });
+
+  testWidgets('zoomed portrait video stays clamped to viewport edges', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-portrait', width: 720, height: 1280)],
+        initialIndex: 0,
+      ),
+    );
+
+    final viewportFinder = find.byKey(
+      const Key('attachment-viewer-video-viewport'),
+    );
+    final contentFinder = find.byKey(
+      const Key('attachment-viewer-video-content'),
+    );
+    final controller = _videoTransformationController(tester);
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(0, 2000, 0, 1)
+      ..scaleByDouble(2, 2, 1, 1);
+    await tester.pump();
+
+    var viewportRect = tester.getRect(viewportFinder);
+    var contentRect = tester.getRect(contentFinder);
+    expect(contentRect.top, closeTo(viewportRect.top, 1));
+    expect(contentRect.bottom, greaterThanOrEqualTo(viewportRect.bottom - 1));
+
+    controller.value = Matrix4.identity()
+      ..translateByDouble(0, -4000, 0, 1)
+      ..scaleByDouble(2, 2, 1, 1);
+    await tester.pump();
+
+    viewportRect = tester.getRect(viewportFinder);
+    contentRect = tester.getRect(contentFinder);
+    expect(contentRect.top, lessThanOrEqualTo(viewportRect.top + 1));
+    expect(contentRect.bottom, closeTo(viewportRect.bottom, 1));
+  });
+
+  testWidgets(
+    'landscape pinch keeps the short axis continuous at the pannable threshold',
+    (WidgetTester tester) async {
+      await _pumpViewer(
+        tester,
+        request: AttachmentViewerRequest(
+          items: [_videoViewerItem('video-0')],
+          initialIndex: 0,
+        ),
+      );
+
+      final contentFinder = find.byKey(
+        const Key('attachment-viewer-video-content'),
+      );
+      final initialTop = tester.getRect(contentFinder).top;
+      final recordedTops = await _pinchFromViewportFocalPoint(
+        tester,
+        focalOffsetFromCenter: const Offset(0, -80),
+        halfSpreads: const [50, 70, 75, 78, 80],
+        axis: Axis.horizontal,
+      );
+
+      expect(recordedTops[0], closeTo(initialTop, 1));
+      for (var index = 1; index < recordedTops.length; index++) {
+        expect(
+          (recordedTops[index] - recordedTops[index - 1]).abs(),
+          lessThan(20),
+        );
+      }
+    },
+  );
+
+  testWidgets('portrait pinch progresses smoothly on the short axis', (
+    WidgetTester tester,
+  ) async {
+    await _pumpViewer(
+      tester,
+      request: AttachmentViewerRequest(
+        items: [_videoViewerItem('video-portrait', width: 720, height: 1280)],
+        initialIndex: 0,
+      ),
+    );
+
+    final contentFinder = find.byKey(
+      const Key('attachment-viewer-video-content'),
+    );
+    final initialLeft = tester.getRect(contentFinder).left;
+    final recordedLefts = await _pinchFromViewportFocalPoint(
+      tester,
+      focalOffsetFromCenter: const Offset(-80, 0),
+      halfSpreads: const [28, 36, 44, 52, 60],
+      axis: Axis.vertical,
+      measure: (tester, finder) => tester.getRect(finder).left,
+    );
+
+    expect(recordedLefts.last, lessThan(initialLeft));
+    for (var index = 1; index < recordedLefts.length; index++) {
+      expect(
+        (recordedLefts[index] - recordedLefts[index - 1]).abs(),
+        lessThan(35),
+      );
+    }
+  });
 }
 
 Future<void> _pumpViewer(
@@ -284,6 +527,100 @@ Future<void> _pumpViewer(
 Future<void> _settleChromeToggle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 220));
+}
+
+TransformationController _videoTransformationController(WidgetTester tester) {
+  final interactiveViewer = tester.widget<InteractiveViewer>(
+    find.byType(InteractiveViewer),
+  );
+  return interactiveViewer.transformationController!;
+}
+
+Future<void> _doubleTapViewport(
+  WidgetTester tester, {
+  Offset offsetFromCenter = Offset.zero,
+}) async {
+  final viewportFinder = find.byKey(
+    const Key('attachment-viewer-video-viewport'),
+  );
+  final tapPosition = tester.getCenter(viewportFinder) + offsetFromCenter;
+  await tester.tapAt(tapPosition);
+  await tester.pump(const Duration(milliseconds: 50));
+  await tester.tapAt(tapPosition);
+  await tester.pump();
+}
+
+Future<void> _dragFromViewport(
+  WidgetTester tester, {
+  required Offset delta,
+  Offset startOffsetFromCenter = Offset.zero,
+}) async {
+  final viewportFinder = find.byKey(
+    const Key('attachment-viewer-video-viewport'),
+  );
+  final startPosition =
+      tester.getCenter(viewportFinder) + startOffsetFromCenter;
+  final gesture = await tester.startGesture(startPosition);
+  await tester.pump();
+  await gesture.moveBy(delta);
+  await tester.pump();
+  await gesture.up();
+  await tester.pump();
+}
+
+Future<List<double>> _pinchFromViewportFocalPoint(
+  WidgetTester tester, {
+  required Offset focalOffsetFromCenter,
+  required List<double> halfSpreads,
+  required Axis axis,
+  double Function(WidgetTester tester, Finder finder)? measure,
+}) async {
+  final viewportFinder = find.byKey(
+    const Key('attachment-viewer-video-viewport'),
+  );
+  final contentFinder = find.byKey(
+    const Key('attachment-viewer-video-content'),
+  );
+  final viewportCenter = tester.getCenter(viewportFinder);
+  final focalPoint = viewportCenter + focalOffsetFromCenter;
+  final metric = measure ?? ((tester, finder) => tester.getRect(finder).top);
+  final firstSpread = halfSpreads.first;
+  final gestureA = await tester.startGesture(
+    axis == Axis.horizontal
+        ? focalPoint - Offset(firstSpread, 0)
+        : focalPoint - Offset(0, firstSpread),
+    pointer: 100,
+  );
+  await tester.pump();
+  final gestureB = await tester.startGesture(
+    axis == Axis.horizontal
+        ? focalPoint + Offset(firstSpread, 0)
+        : focalPoint + Offset(0, firstSpread),
+    pointer: 101,
+  );
+  await tester.pump();
+
+  final values = <double>[metric(tester, contentFinder)];
+  for (final spread in halfSpreads.skip(1)) {
+    await gestureA.moveTo(
+      axis == Axis.horizontal
+          ? focalPoint - Offset(spread, 0)
+          : focalPoint - Offset(0, spread),
+    );
+    await gestureB.moveTo(
+      axis == Axis.horizontal
+          ? focalPoint + Offset(spread, 0)
+          : focalPoint + Offset(0, spread),
+    );
+    await tester.pump();
+    values.add(metric(tester, contentFinder));
+  }
+
+  await gestureA.up();
+  await gestureB.up();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+  return values;
 }
 
 void _expectThumbnailCentered(

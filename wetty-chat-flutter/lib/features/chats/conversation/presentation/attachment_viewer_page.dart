@@ -734,7 +734,6 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   static const double _videoMaxScale = 4;
   static const double _videoDoubleTapScale = 2.5;
   static const double _videoScaleTolerance = 0.02;
-  static const double _videoPanBoundaryMargin = 100000;
   static const double _reservedBottomGap = 12;
   static const double _dismissGestureMinDelta = 10;
   static const double _dismissDirectionBias = 1.2;
@@ -751,7 +750,11 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   Offset? _verticalDismissStart;
   Offset? _verticalDismissLastGlobalPosition;
   Rect? _mediaViewportRect;
+  Size _videoViewportSize = Size.zero;
+  Size _videoContentSize = Size.zero;
   bool _isTrackingVerticalDismiss = false;
+  bool _isApplyingTransform = false;
+  double _lastGestureScale = 1;
 
   @override
   void initState() {
@@ -799,9 +802,61 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   }
 
   void _handleTransformChanged() {
-    final nextIsAtBaseScale =
-        (_transformationController.value.getMaxScaleOnAxis() - 1).abs() <=
-        _videoScaleTolerance;
+    if (_isApplyingTransform) {
+      return;
+    }
+
+    final normalizedTransform = _normalizedVideoTransform(
+      transform: _transformationController.value,
+      viewportSize: _videoViewportSize,
+      contentSize: _videoContentSize,
+      scaleTolerance: _videoScaleTolerance,
+    );
+
+    if (!_matrixCloseTo(_transformationController.value, normalizedTransform)) {
+      _applyTransform(normalizedTransform);
+      return;
+    }
+
+    _syncBaseScaleState(normalizedTransform);
+  }
+
+  void _applyTransform(Matrix4 transform) {
+    final normalizedTransform = _normalizedVideoTransform(
+      transform: transform,
+      viewportSize: _videoViewportSize,
+      contentSize: _videoContentSize,
+      scaleTolerance: _videoScaleTolerance,
+    );
+    _isApplyingTransform = true;
+    _transformationController.value = normalizedTransform;
+    _isApplyingTransform = false;
+    _syncBaseScaleState(normalizedTransform);
+  }
+
+  void _normalizeTransform() {
+    if (_videoViewportSize.isEmpty || _videoContentSize.isEmpty) {
+      return;
+    }
+    final normalizedTransform = _normalizedVideoTransform(
+      transform: _transformationController.value,
+      viewportSize: _videoViewportSize,
+      contentSize: _videoContentSize,
+      scaleTolerance: _videoScaleTolerance,
+    );
+    if (_matrixCloseTo(_transformationController.value, normalizedTransform)) {
+      return;
+    }
+    _applyTransform(normalizedTransform);
+  }
+
+  void _syncBaseScaleState(Matrix4 transform) {
+    final nextIsAtBaseScale = _isVideoAtBaseScale(
+      transform: transform,
+      viewportSize: _videoViewportSize,
+      contentSize: _videoContentSize,
+      scaleTolerance: _videoScaleTolerance,
+    );
     if (_isAtBaseScale == nextIsAtBaseScale) {
       return;
     }
@@ -832,13 +887,33 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
     _verticalDismissSamples.add(
       _PointerSample(event.timeStamp, event.position),
     );
-    if (!_isAtBaseScale || _activePointers.length != 1) {
+    if (_activePointers.length != 1) {
+      return;
+    }
+
+    final lastGlobalPosition = _verticalDismissLastGlobalPosition;
+    if (!_isAtBaseScale) {
+      if (lastGlobalPosition == null) {
+        _verticalDismissLastGlobalPosition = event.position;
+        return;
+      }
+      final delta = event.position - lastGlobalPosition;
+      final nextTransform = Matrix4.copy(_transformationController.value)
+        ..translateByDouble(delta.dx, delta.dy, 0, 1);
+      _applyTransform(
+        _normalizedVideoTransform(
+          transform: nextTransform,
+          viewportSize: _videoViewportSize,
+          contentSize: _videoContentSize,
+          scaleTolerance: _videoScaleTolerance,
+        ),
+      );
+      _verticalDismissLastGlobalPosition = event.position;
       return;
     }
 
     final slidePageState = _slidePageState;
     final start = _verticalDismissStart;
-    final lastGlobalPosition = _verticalDismissLastGlobalPosition;
     if (slidePageState == null || start == null || lastGlobalPosition == null) {
       return;
     }
@@ -924,11 +999,68 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   }
 
   void _resetTransform() {
-    _transformationController.value = Matrix4.identity();
+    _applyTransform(
+      _videoBaseTransform(
+        viewportSize: _videoViewportSize,
+        contentSize: _videoContentSize,
+      ),
+    );
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
     _doubleTapDetails = details;
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    if (_activePointers.length < 2) {
+      return;
+    }
+    _lastGestureScale = 1;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount < 2 ||
+        _videoViewportSize.isEmpty ||
+        _videoContentSize.isEmpty) {
+      return;
+    }
+
+    final mediaViewportRect = _mediaViewportRect;
+    if (mediaViewportRect == null) {
+      return;
+    }
+
+    final scaleDelta = details.scale / _lastGestureScale;
+    _lastGestureScale = details.scale;
+    if (scaleDelta <= 0) {
+      return;
+    }
+
+    final currentTransform = _transformationController.value;
+    final currentScale = currentTransform.getMaxScaleOnAxis();
+    final targetScale = (currentScale * scaleDelta).clamp(1.0, _videoMaxScale);
+    if ((targetScale - currentScale).abs() <= _videoScaleTolerance / 4 &&
+        details.focalPointDelta.distance <= 0) {
+      return;
+    }
+
+    final viewportFocalPoint =
+        details.localFocalPoint - mediaViewportRect.topLeft;
+    _applyTransform(
+      _anchoredVideoTransform(
+        baseTransform: currentTransform,
+        viewportFocalPoint: viewportFocalPoint,
+        targetScale: targetScale,
+        viewportSize: _videoViewportSize,
+        contentSize: _videoContentSize,
+        scaleTolerance: _videoScaleTolerance,
+      ),
+    );
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    _lastGestureScale = 1;
+    _normalizeTransform();
   }
 
   void _handleDoubleTap() {
@@ -942,14 +1074,33 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
       _resetTransform();
       return;
     }
-    _transformationController.value = Matrix4.identity()
-      ..translateByDouble(
-        -tapPosition.dx * (_videoDoubleTapScale - 1),
-        -tapPosition.dy * (_videoDoubleTapScale - 1),
-        0,
-        1,
-      )
-      ..scaleByDouble(_videoDoubleTapScale, _videoDoubleTapScale, 1, 1);
+    final baseTranslation = _videoBaseTranslation(
+      viewportSize: _videoViewportSize,
+      contentSize: _videoContentSize,
+    );
+    final clampedTapPosition = Offset(
+      tapPosition.dx.clamp(
+        baseTranslation.dx,
+        baseTranslation.dx + _videoContentSize.width,
+      ),
+      tapPosition.dy.clamp(
+        baseTranslation.dy,
+        baseTranslation.dy + _videoContentSize.height,
+      ),
+    );
+    _applyTransform(
+      _anchoredVideoTransform(
+        baseTransform: _videoBaseTransform(
+          viewportSize: _videoViewportSize,
+          contentSize: _videoContentSize,
+        ),
+        viewportFocalPoint: clampedTapPosition,
+        targetScale: _videoDoubleTapScale,
+        viewportSize: _videoViewportSize,
+        contentSize: _videoContentSize,
+        scaleTolerance: _videoScaleTolerance,
+      ),
+    );
   }
 
   Future<void> _ensureInitialized() async {
@@ -1069,51 +1220,49 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
             viewportSize: mediaViewportRect.size,
             aspectRatio: aspectRatio,
           );
+          final viewportSize = mediaViewportRect.size;
+          final geometryChanged =
+              viewportSize != _videoViewportSize ||
+              fittedSize != _videoContentSize;
+          _videoViewportSize = viewportSize;
+          _videoContentSize = fittedSize;
+          if (geometryChanged) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) {
+                return;
+              }
+              _normalizeTransform();
+            });
+          }
 
           return Stack(
             fit: StackFit.expand,
             children: [
               Positioned.fromRect(
                 rect: mediaViewportRect,
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: _handlePointerDown,
-                  onPointerMove: _handlePointerMove,
-                  onPointerUp: _handlePointerUp,
-                  onPointerCancel: _handlePointerCancel,
-                  child: ClipRect(
-                    key: const Key('attachment-viewer-video-viewport'),
-                    child: InteractiveViewer(
-                      transformationController: _transformationController,
-                      panEnabled: !_isAtBaseScale,
-                      scaleEnabled: true,
-                      minScale: 1,
-                      maxScale: _videoMaxScale,
-                      constrained: false,
-                      alignment: Alignment.center,
-                      boundaryMargin: const EdgeInsets.all(
-                        _videoPanBoundaryMargin,
-                      ),
-                      clipBehavior: Clip.hardEdge,
-                      child: SizedBox(
-                        width: mediaViewportRect.width,
-                        height: mediaViewportRect.height,
-                        child: Center(
+                child: ClipRect(
+                  key: const Key('attachment-viewer-video-viewport'),
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    panEnabled: false,
+                    scaleEnabled: false,
+                    minScale: 1,
+                    maxScale: _videoMaxScale,
+                    constrained: false,
+                    alignment: Alignment.topLeft,
+                    clipBehavior: Clip.hardEdge,
+                    child: SizedBox(
+                      key: const Key('attachment-viewer-video-content'),
+                      width: fittedSize.width,
+                      height: fittedSize.height,
+                      child: ColoredBox(
+                        color: CupertinoColors.black,
+                        child: FittedBox(
+                          fit: BoxFit.fill,
                           child: SizedBox(
-                            key: const Key('attachment-viewer-video-content'),
-                            width: fittedSize.width,
-                            height: fittedSize.height,
-                            child: ColoredBox(
-                              color: CupertinoColors.black,
-                              child: FittedBox(
-                                fit: BoxFit.fill,
-                                child: SizedBox(
-                                  width: controller.value.size.width,
-                                  height: controller.value.size.height,
-                                  child: VideoPlayer(controller),
-                                ),
-                              ),
-                            ),
+                            width: controller.value.size.width,
+                            height: controller.value.size.height,
+                            child: VideoPlayer(controller),
                           ),
                         ),
                       ),
@@ -1122,11 +1271,21 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
                 ),
               ),
               Positioned.fill(
-                child: GestureDetector(
+                child: Listener(
                   behavior: HitTestBehavior.translucent,
-                  onTap: widget.onSurfaceTap,
-                  onDoubleTapDown: _handleDoubleTapDown,
-                  onDoubleTap: _handleDoubleTap,
+                  onPointerDown: _handlePointerDown,
+                  onPointerMove: _handlePointerMove,
+                  onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerCancel,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: widget.onSurfaceTap,
+                    onScaleStart: _handleScaleStart,
+                    onScaleUpdate: _handleScaleUpdate,
+                    onScaleEnd: _handleScaleEnd,
+                    onDoubleTapDown: _handleDoubleTapDown,
+                    onDoubleTap: _handleDoubleTap,
+                  ),
                 ),
               ),
               Positioned.fill(
@@ -1360,6 +1519,177 @@ Size _fittedVideoSize({
 
   final width = viewportSize.width;
   return Size(width, width / aspectRatio);
+}
+
+Matrix4 _normalizedVideoTransform({
+  required Matrix4 transform,
+  required Size viewportSize,
+  required Size contentSize,
+  required double scaleTolerance,
+}) {
+  if (viewportSize.isEmpty || contentSize.isEmpty) {
+    return Matrix4.identity();
+  }
+
+  final scale = transform.getMaxScaleOnAxis();
+  if ((scale - 1).abs() <= scaleTolerance) {
+    return _videoBaseTransform(
+      viewportSize: viewportSize,
+      contentSize: contentSize,
+    );
+  }
+
+  final translationX = transform.storage[12];
+  final translationY = transform.storage[13];
+  final clampedTranslation = Offset(
+    _clampedVideoAxisTranslation(
+      translation: translationX,
+      scale: scale,
+      viewportExtent: viewportSize.width,
+      contentExtent: contentSize.width,
+    ),
+    _clampedVideoAxisTranslation(
+      translation: translationY,
+      scale: scale,
+      viewportExtent: viewportSize.height,
+      contentExtent: contentSize.height,
+    ),
+  );
+
+  return Matrix4.identity()
+    ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
+    ..scaleByDouble(scale, scale, 1, 1);
+}
+
+Matrix4 _anchoredVideoTransform({
+  required Matrix4 baseTransform,
+  required Offset viewportFocalPoint,
+  required double targetScale,
+  required Size viewportSize,
+  required Size contentSize,
+  required double scaleTolerance,
+}) {
+  if (viewportSize.isEmpty || contentSize.isEmpty) {
+    return Matrix4.identity();
+  }
+
+  final clampedScale = targetScale.clamp(
+    1.0,
+    _VideoViewerPageState._videoMaxScale,
+  );
+  if ((clampedScale - 1).abs() <= scaleTolerance) {
+    return _videoBaseTransform(
+      viewportSize: viewportSize,
+      contentSize: contentSize,
+    );
+  }
+
+  final contentAnchor = _contentPointForViewportPoint(
+    transform: baseTransform,
+    viewportPoint: viewportFocalPoint,
+  );
+  final anchoredTranslation = Offset(
+    viewportFocalPoint.dx - (contentAnchor.dx * clampedScale),
+    viewportFocalPoint.dy - (contentAnchor.dy * clampedScale),
+  );
+  final anchoredTransform = Matrix4.identity()
+    ..translateByDouble(anchoredTranslation.dx, anchoredTranslation.dy, 0, 1)
+    ..scaleByDouble(clampedScale, clampedScale, 1, 1);
+
+  return _normalizedVideoTransform(
+    transform: anchoredTransform,
+    viewportSize: viewportSize,
+    contentSize: contentSize,
+    scaleTolerance: scaleTolerance,
+  );
+}
+
+double _clampedVideoAxisTranslation({
+  required double translation,
+  required double scale,
+  required double viewportExtent,
+  required double contentExtent,
+}) {
+  if (viewportExtent <= 0 || contentExtent <= 0) {
+    return 0;
+  }
+
+  final scaledContentExtent = contentExtent * scale;
+  if (scaledContentExtent <= viewportExtent) {
+    return (viewportExtent - scaledContentExtent) / 2;
+  }
+
+  final minTranslation = viewportExtent - scaledContentExtent;
+  final maxTranslation = 0.0;
+  return translation.clamp(minTranslation, maxTranslation).toDouble();
+}
+
+Matrix4 _videoBaseTransform({
+  required Size viewportSize,
+  required Size contentSize,
+}) {
+  final translation = _videoBaseTranslation(
+    viewportSize: viewportSize,
+    contentSize: contentSize,
+  );
+  return Matrix4.identity()
+    ..translateByDouble(translation.dx, translation.dy, 0, 1);
+}
+
+Offset _videoBaseTranslation({
+  required Size viewportSize,
+  required Size contentSize,
+}) {
+  if (viewportSize.isEmpty || contentSize.isEmpty) {
+    return Offset.zero;
+  }
+
+  return Offset(
+    ((viewportSize.width - contentSize.width) / 2).toDouble(),
+    ((viewportSize.height - contentSize.height) / 2).toDouble(),
+  );
+}
+
+Offset _contentPointForViewportPoint({
+  required Matrix4 transform,
+  required Offset viewportPoint,
+}) {
+  final scale = transform.getMaxScaleOnAxis();
+  if (scale <= 0) {
+    return viewportPoint;
+  }
+
+  final translationX = transform.storage[12];
+  final translationY = transform.storage[13];
+  return Offset(
+    (viewportPoint.dx - translationX) / scale,
+    (viewportPoint.dy - translationY) / scale,
+  );
+}
+
+bool _matrixCloseTo(Matrix4 left, Matrix4 right, {double tolerance = 0.01}) {
+  for (var index = 0; index < left.storage.length; index++) {
+    if ((left.storage[index] - right.storage[index]).abs() > tolerance) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _isVideoAtBaseScale({
+  required Matrix4 transform,
+  required Size viewportSize,
+  required Size contentSize,
+  required double scaleTolerance,
+}) {
+  return (transform.getMaxScaleOnAxis() - 1).abs() <= scaleTolerance &&
+      _matrixCloseTo(
+        transform,
+        _videoBaseTransform(
+          viewportSize: viewportSize,
+          contentSize: contentSize,
+        ),
+      );
 }
 
 Rect _safeMediaViewportRect({
