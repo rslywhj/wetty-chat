@@ -88,24 +88,20 @@ pub fn get_chat_unread_count(
     last_read_message_id: Option<i64>,
 ) -> Result<i64, diesel::result::Error> {
     let query = sql_query(
-        "SELECT COUNT(unread_messages.marker)::bigint AS unread_count
-         FROM (
-             SELECT 1 AS marker
-             FROM messages
-             WHERE chat_id = $1
-               AND reply_root_id IS NULL
-               AND deleted_at IS NULL
-               AND is_published = TRUE
-               AND id > COALESCE($2, 0)
-             LIMIT 100
-         ) AS unread_messages",
+        "SELECT COUNT(*)::bigint AS unread_count
+         FROM messages
+         WHERE chat_id = $1
+           AND reply_root_id IS NULL
+           AND deleted_at IS NULL
+           AND is_published = TRUE
+           AND id > COALESCE($2, 0)",
     )
     .bind::<diesel::sql_types::BigInt, _>(chat_id)
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>, _>(last_read_message_id);
 
     query
         .get_result::<ChatUnreadCountRow>(conn)
-        .map(|row| row.unread_count.min(MAX_UNREAD_COUNT))
+        .map(|row| row.unread_count)
 }
 
 pub fn mark_chat_as_read(
