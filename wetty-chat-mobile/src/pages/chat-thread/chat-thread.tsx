@@ -46,10 +46,12 @@ import {
   sendThreadMessage,
   updateMessage,
 } from '@/api/messages';
+import { getChatUnreadCount } from '@/api/chats';
 import {
   selectChatLastReadMessageId,
   selectChatMeta,
   selectChatName,
+  selectChatUnreadCount,
   selectIsChatMuted,
   setChatLastReadMessageId,
   setChatMeta,
@@ -209,6 +211,9 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const storedName = useSelector((state: RootState) => selectChatName(state, chatId));
   const isMuted = useSelector((state: RootState) => selectIsChatMuted(state, chatId));
   const lastReadMessageId = useSelector((state: RootState) => selectChatLastReadMessageId(state, chatId));
+  const scrollToBottomUnreadCount = useSelector((state: RootState) =>
+    threadId ? 0 : selectChatUnreadCount(state, chatId),
+  );
   const pinnedReactions = useSelector(selectPinnedReactions);
   const recentReactions = useSelector(selectRecentReactions);
   const QUICK_REACTION_EMOJIS = useMemo(() => {
@@ -218,6 +223,23 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
     );
   }, [pinnedReactions, recentReactions]);
   const chatName = threadId ? t`Thread` : (storedName ?? t`Loading...`);
+
+  useEffect(() => {
+    if (threadId || !chatId) return;
+
+    let canceled = false;
+    getChatUnreadCount(chatId)
+      .then((res) => {
+        if (canceled) return;
+        dispatch(setChatLastReadMessageId({ chatId, lastReadMessageId: res.data.lastReadMessageId }));
+        dispatch(setChatUnreadCount({ chatId, unreadCount: res.data.unreadCount }));
+      })
+      .catch(() => {});
+
+    return () => {
+      canceled = true;
+    };
+  }, [chatId, dispatch, threadId]);
 
   useEffect(() => {
     if (!chatId || hasLoadedThreadChatMeta(cachedMeta)) return;
@@ -531,6 +553,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
 
   useEffect(() => {
     if (threadId || !chatId) return;
+    if (initialResumeMessageId == null && lastReadMessageId == null && atBottom) return;
 
     if (readRequestTimerRef.current) {
       clearTimeout(readRequestTimerRef.current);
@@ -566,7 +589,15 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
         readRequestTimerRef.current = null;
       }
     };
-  }, [chatId, flushPendingReadTarget, lastFullyVisibleMessageId, lastReadMessageId, threadId]);
+  }, [
+    atBottom,
+    chatId,
+    flushPendingReadTarget,
+    initialResumeMessageId,
+    lastFullyVisibleMessageId,
+    lastReadMessageId,
+    threadId,
+  ]);
 
   // Thread-specific mark-as-read: fires when viewing a thread and messages become visible.
   // Unlike chat read tracking (which is purely scroll-based), this also fires on mount
@@ -1687,6 +1718,11 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
             horizontal="end"
             className={`scroll-to-bottom-fab ${atBottom ? 'scroll-to-bottom-fab--hidden' : ''}`}
           >
+            {scrollToBottomUnreadCount > 0 && (
+              <span className="scroll-to-bottom-fab__badge">
+                {scrollToBottomUnreadCount > 99 ? '99+' : scrollToBottomUnreadCount}
+              </span>
+            )}
             <IonFabButton
               size="small"
               onClick={() => {

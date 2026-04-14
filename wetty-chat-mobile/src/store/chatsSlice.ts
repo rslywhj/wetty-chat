@@ -85,10 +85,14 @@ function getEffectiveListMeta(entry?: ChatStateEntry): ChatListMeta {
   };
 }
 
-function reconcileAuthoritativeListFields(entry: ChatStateEntry): void {
+function reconcileAuthoritativeListFields(entry: ChatStateEntry, snapshotUnreadCount: number): void {
   if (!entry.liveProjection) return;
 
-  delete entry.liveProjection.unreadCount;
+  const liveUnreadCount = entry.liveProjection.unreadCount;
+  // Chat list counts are capped at 100 for badge queries; keep exact per-chat counts while they are fresher.
+  if (liveUnreadCount == null || snapshotUnreadCount < 100 || liveUnreadCount <= snapshotUnreadCount) {
+    delete entry.liveProjection.unreadCount;
+  }
   delete entry.liveProjection.lastReadMessageId;
 }
 
@@ -122,7 +126,7 @@ const chatsSlice = createSlice({
           inList: true,
           mutedUntil: chat.mutedUntil,
         };
-        reconcileAuthoritativeListFields(entry);
+        reconcileAuthoritativeListFields(entry, chat.unreadCount);
       }
     },
     setChatMutedUntil(state, action: PayloadAction<{ chatId: string; mutedUntil: string | null }>) {

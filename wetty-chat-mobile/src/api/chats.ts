@@ -24,6 +24,11 @@ interface CreateChatResponse {
   createdAt: string;
 }
 
+export interface ChatUnreadCountResponse {
+  lastReadMessageId: string | null;
+  unreadCount: number;
+}
+
 export function getChats(params: { limit?: number; after?: string } = {}): Promise<AxiosResponse<ListChatsResponse>> {
   return apiClient.get('/chats', { params });
 }
@@ -34,4 +39,8 @@ export function createChat(body: { name?: string } = {}): Promise<AxiosResponse<
 
 export function getUnreadCount(): Promise<AxiosResponse<{ unreadCount: number }>> {
   return apiClient.get('/chats/unread');
+}
+
+export function getChatUnreadCount(chatId: string | number): Promise<AxiosResponse<ChatUnreadCountResponse>> {
+  return apiClient.get(`/chats/${chatId}/unread`);
 }

@@ -1450,6 +1450,43 @@ async fn mark_as_unread(
     }))
 }
 
+/// GET /chats/:chat_id/unread — Get capped unread count for a single chat.
+#[utoipa::path(
+    get,
+    path = "/unread",
+    tag = "chats",
+    params(
+        ("chat_id" = i64, Path, description = "Chat ID"),
+    ),
+    responses(
+        (status = 200, description = "Capped chat unread count", body = MarkChatReadStateResponse),
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = [])),
+)]
+async fn get_chat_unread_count(
+    CurrentUid(uid): CurrentUid,
+    Path(ChatIdPath { chat_id }): Path<ChatIdPath>,
+    mut conn: DbConn,
+) -> Result<Json<MarkChatReadStateResponse>, AppError> {
+    let conn = &mut *conn;
+
+    check_membership(conn, chat_id, uid)?;
+
+    use crate::schema::group_membership::dsl as gm_dsl;
+    let last_read_message_id: Option<i64> = group_membership::table
+        .filter(gm_dsl::chat_id.eq(chat_id).and(gm_dsl::uid.eq(uid)))
+        .select(gm_dsl::last_read_message_id)
+        .first(conn)?;
+
+    let unread_count =
+        crate::services::chat::get_chat_unread_count(conn, chat_id, last_read_message_id)?;
+
+    Ok(Json(MarkChatReadStateResponse {
+        last_read_message_id,
+        unread_count,
+    }))
+}
+
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UnreadCountResponse {
@@ -1543,6 +1580,7 @@ pub fn router() -> OpenApiRouter<crate::AppState> {
                 )
                 .routes(utoipa_axum::routes!(mark_as_read))
                 .routes(utoipa_axum::routes!(mark_as_unread))
+                .routes(utoipa_axum::routes!(get_chat_unread_count))
                 .routes(utoipa_axum::routes!(self::messages::post_thread_message))
                 .nest(
                     "/threads/{thread_root_id}",

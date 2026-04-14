@@ -20,13 +20,56 @@
 /* Scroll-to-bottom FAB */
 .scroll-to-bottom-fab {
   opacity: 1;
+  overflow: visible;
   transition: opacity 0.2s ease;
   margin-right: 16px;
+
+  ion-fab-button {
+    width: 48px;
+    height: 48px;
+    --background: #fff;
+    --background-activated: var(--ion-color-light-shade, #d7d8da);
+    --background-hover: var(--ion-color-light, #f4f5f8);
+    --box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    --color: var(--ion-color-medium, #92949c);
+    transition: transform 120ms ease;
+
+    &::part(native) {
+      transition: transform 120ms ease;
+    }
+
+    &:active::part(native) {
+      transform: scale(0.94);
+    }
+  }
 
   &--hidden {
     opacity: 0;
     pointer-events: none;
   }
+}
+
+.scroll-to-bottom-fab__badge {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%);
+  z-index: 2;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--ion-color-primary, #3880ff);
+  color: var(--ion-color-primary-contrast, #fff);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  text-align: center;
 }
 
 .messages-scroll-container {
