@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 enum ComposerAttachmentKind { image, gif, video, file }
 
@@ -83,8 +86,8 @@ class AttachmentPickerService {
   ) async {
     final mimeType = _detectMimeType(file, source);
     final kind = _detectKind(file, mimeType, source);
-    final previewBytes = _previewBytesFor(file, kind);
-    final dimensions = await _dimensionsFor(kind, previewBytes);
+    final previewBytes = await _previewBytesFor(file, kind);
+    final dimensions = await _dimensionsFor(file, kind, previewBytes);
 
     return PickedComposerAttachment(
       localId: _createLocalId(),
@@ -134,22 +137,32 @@ class AttachmentPickerService {
     };
   }
 
-  Uint8List? _previewBytesFor(PlatformFile file, ComposerAttachmentKind kind) {
+  Future<Uint8List?> _previewBytesFor(
+    PlatformFile file,
+    ComposerAttachmentKind kind,
+  ) async {
     return switch (kind) {
       ComposerAttachmentKind.image || ComposerAttachmentKind.gif => file.bytes,
-      ComposerAttachmentKind.video || ComposerAttachmentKind.file => null,
+      ComposerAttachmentKind.video => _videoPreviewBytesFor(file),
+      ComposerAttachmentKind.file => null,
     };
   }
 
   Future<(int?, int?)> _dimensionsFor(
+    PlatformFile file,
     ComposerAttachmentKind kind,
     Uint8List? previewBytes,
   ) async {
+    return switch (kind) {
+      ComposerAttachmentKind.image ||
+      ComposerAttachmentKind.gif => _imageDimensionsFor(previewBytes),
+      ComposerAttachmentKind.video => _videoDimensionsFor(file),
+      ComposerAttachmentKind.file => (null, null),
+    };
+  }
+
+  Future<(int?, int?)> _imageDimensionsFor(Uint8List? previewBytes) async {
     if (previewBytes == null) {
-      return (null, null);
-    }
-    if (kind != ComposerAttachmentKind.image &&
-        kind != ComposerAttachmentKind.gif) {
       return (null, null);
     }
     try {
@@ -162,6 +175,55 @@ class AttachmentPickerService {
     } catch (_) {
       return (null, null);
     }
+  }
+
+  Future<Uint8List?> _videoPreviewBytesFor(PlatformFile file) async {
+    final filePath = _localFilePath(file);
+    if (filePath == null) {
+      return null;
+    }
+    try {
+      return await VideoThumbnail.thumbnailData(
+        video: filePath,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 512,
+        quality: 70,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<(int?, int?)> _videoDimensionsFor(PlatformFile file) async {
+    final filePath = _localFilePath(file);
+    if (filePath == null) {
+      return (null, null);
+    }
+
+    final controller = VideoPlayerController.file(File(filePath));
+    try {
+      await controller.initialize().timeout(const Duration(seconds: 3));
+      final size = controller.value.size;
+      if (size.width <= 0 || size.height <= 0) {
+        return (null, null);
+      }
+      return (size.width.round(), size.height.round());
+    } catch (_) {
+      return (null, null);
+    } finally {
+      await controller.dispose();
+    }
+  }
+
+  String? _localFilePath(PlatformFile file) {
+    if (file.path case final path? when path.isNotEmpty) {
+      return path;
+    }
+    final xFilePath = file.xFile.path;
+    if (xFilePath.isEmpty) {
+      return null;
+    }
+    return xFilePath;
   }
 
   String _createLocalId() {

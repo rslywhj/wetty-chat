@@ -375,7 +375,7 @@ class MessageOverlay extends StatelessWidget {
     final multiImageDelta = _imageAttachments.length > 1
         ? _multiImageHeightSafetyMargin
         : 0.0;
-    if (_usesPreservedImageOverlay()) {
+    if (_usesPreservedAttachmentOverlay()) {
       return bubbleRect.height + injectedHeaderHeight + multiImageDelta;
     }
     return bubbleRect.height + injectedHeaderHeight + multiImageDelta;
@@ -413,17 +413,17 @@ class MessageOverlay extends StatelessWidget {
         _fullBubbleHeightSafetyMargin;
   }
 
-  bool _usesPreservedImageOverlay() {
+  bool _usesPreservedAttachmentOverlay() {
     final renderSpec = MessageRenderSpec.overlay(
       message: details.message,
       sourceShowsSenderName: details.sourceShowsSenderName,
       compact: false,
     );
-    return renderSpec.showAttachments && _imageAttachments.isNotEmpty;
+    return renderSpec.showAttachments && details.message.attachments.isNotEmpty;
   }
 
   bool _prefersClippedFullBubbleOverlay() {
-    return _usesPreservedImageOverlay() && _imageAttachments.length > 1;
+    return _usesPreservedAttachmentOverlay();
   }
 
   bool _shouldForceCompactPreviewForImageOverlay({required Rect bubbleRect}) {
@@ -569,7 +569,7 @@ class MessageOverlay extends StatelessWidget {
         message.messageType == 'audio' &&
         message.attachments.length == 1 &&
         message.attachments.first.isAudio;
-    final attachmentMaxWidthOverride = _usesPreservedImageOverlay()
+    final attachmentMaxWidthOverride = _usesPreservedAttachmentOverlay()
         ? _sourceAttachmentMaxWidth(bubbleWidth: details.bubbleRect.width)
         : null;
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show CircularProgressIndicator;
@@ -233,6 +234,10 @@ class _AttachmentCard extends StatelessWidget {
     required this.onRetry,
   });
 
+  static const double _fallbackExtent = 116;
+  static const double _maxVisualWidth = 180;
+  static const double _maxVisualHeight = 116;
+
   final ComposerAttachment attachment;
   final VoidCallback onRemove;
   final VoidCallback onRetry;
@@ -240,9 +245,11 @@ class _AttachmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = CupertinoColors.systemGrey4.resolveFrom(context);
+    final previewSize = _previewSizeFor(attachment);
     return Container(
-      width: 116,
-      height: 116,
+      key: ValueKey('composer-attachment-card-${attachment.localId}'),
+      width: previewSize.width,
+      height: previewSize.height,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
@@ -289,6 +296,40 @@ class _AttachmentCard extends StatelessWidget {
       ),
     );
   }
+
+  static Size _previewSizeFor(ComposerAttachment attachment) {
+    if (!_usesVisualPreview(attachment) ||
+        attachment.width == null ||
+        attachment.height == null ||
+        attachment.width! <= 0 ||
+        attachment.height! <= 0) {
+      return const Size(_fallbackExtent, _fallbackExtent);
+    }
+
+    final aspectRatio = attachment.width! / attachment.height!;
+    var resolvedWidth = attachment.width!.toDouble();
+    var resolvedHeight = attachment.height!.toDouble();
+
+    if (resolvedHeight > _maxVisualHeight) {
+      resolvedHeight = _maxVisualHeight;
+      resolvedWidth = resolvedHeight * aspectRatio;
+    }
+
+    if (resolvedWidth > _maxVisualWidth) {
+      resolvedWidth = _maxVisualWidth;
+      resolvedHeight = resolvedWidth / aspectRatio;
+    }
+
+    resolvedWidth = math.max(resolvedWidth, 1);
+    resolvedHeight = math.max(resolvedHeight, 1);
+    return Size(resolvedWidth, resolvedHeight);
+  }
+
+  static bool _usesVisualPreview(ComposerAttachment attachment) {
+    return attachment.kind == ComposerAttachmentKind.image ||
+        attachment.kind == ComposerAttachmentKind.gif ||
+        attachment.kind == ComposerAttachmentKind.video;
+  }
 }
 
 class _AttachmentPreviewThumb extends StatelessWidget {
@@ -306,7 +347,22 @@ class _AttachmentPreviewThumb extends StatelessWidget {
     };
 
     if (attachment.previewBytes != null) {
-      return Image.memory(attachment.previewBytes!, fit: BoxFit.cover);
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(attachment.previewBytes!, fit: BoxFit.cover),
+          if (attachment.kind == ComposerAttachmentKind.video)
+            Container(color: CupertinoColors.black.withAlpha(36)),
+          if (attachment.kind == ComposerAttachmentKind.video)
+            const Center(
+              child: Icon(
+                CupertinoIcons.play_fill,
+                color: CupertinoColors.white,
+                size: 28,
+              ),
+            ),
+        ],
+      );
     }
 
     return DecoratedBox(

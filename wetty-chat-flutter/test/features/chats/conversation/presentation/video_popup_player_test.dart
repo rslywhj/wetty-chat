@@ -96,6 +96,120 @@ void main() {
     expect(tallSize.height, greaterThan(tallSize.width));
     expect(wideSize.width, greaterThan(wideSize.height));
   });
+
+  testWidgets('wide video preview fits the real bubble width and height box', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          videoThumbnailServiceProvider.overrideWithValue(
+            _FakeVideoThumbnailService(),
+          ),
+        ],
+        child: CupertinoApp(
+          home: Center(
+            child: VideoAttachmentPreview(
+              key: const ValueKey('wide-preview-box'),
+              attachment: _videoAttachment(
+                id: 'wide-video-box',
+                fileName: 'wide-box.mp4',
+                width: 600,
+                height: 200,
+              ),
+              maxWidth: 500,
+              maxHeight: 300,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final previewSize = tester.getSize(
+      find.byKey(const ValueKey('wide-preview-box')),
+    );
+
+    expect(previewSize.width, 500);
+    expect(previewSize.height, closeTo(500 / 3, 0.01));
+  });
+
+  testWidgets('wide video preview respects a tighter width cap', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          videoThumbnailServiceProvider.overrideWithValue(
+            _FakeVideoThumbnailService(),
+          ),
+        ],
+        child: CupertinoApp(
+          home: Center(
+            child: VideoAttachmentPreview(
+              key: const ValueKey('tight-wide-preview'),
+              attachment: _videoAttachment(
+                id: 'tight-wide-video',
+                fileName: 'tight-wide.mp4',
+                width: 600,
+                height: 200,
+              ),
+              maxWidth: 300,
+              maxHeight: 300,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final previewSize = tester.getSize(
+      find.byKey(const ValueKey('tight-wide-preview')),
+    );
+
+    expect(previewSize.width, 300);
+    expect(previewSize.height, 100);
+  });
+
+  testWidgets('tall video preview respects the height cap', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          videoThumbnailServiceProvider.overrideWithValue(
+            _FakeVideoThumbnailService(),
+          ),
+        ],
+        child: CupertinoApp(
+          home: Center(
+            child: VideoAttachmentPreview(
+              key: const ValueKey('tall-preview-box'),
+              attachment: _videoAttachment(
+                id: 'tall-video-box',
+                fileName: 'tall-box.mp4',
+                width: 200,
+                height: 600,
+              ),
+              maxWidth: 500,
+              maxHeight: 300,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final previewSize = tester.getSize(
+      find.byKey(const ValueKey('tall-preview-box')),
+    );
+
+    expect(previewSize.width, 100);
+    expect(previewSize.height, 300);
+  });
 }
 
 AttachmentItem _videoAttachment({

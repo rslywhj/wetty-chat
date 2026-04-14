@@ -451,6 +451,7 @@ class _AttachmentViewerPageState extends ConsumerState<AttachmentViewerPage> {
         attachment: item.attachment,
         isActive: index == _currentIndex,
         shouldInitialize: (index - _currentIndex).abs() <= 1,
+        hasThumbnailRail: _hasMultipleItems,
         showControls: _isChromeVisible,
         onSurfaceTap: _toggleChrome,
         onBaseScaleChanged: (isAtBaseScale) =>
@@ -703,6 +704,7 @@ class _VideoViewerPage extends StatefulWidget {
     required this.attachment,
     required this.isActive,
     required this.shouldInitialize,
+    required this.hasThumbnailRail,
     required this.showControls,
     required this.onSurfaceTap,
     required this.onBaseScaleChanged,
@@ -713,6 +715,7 @@ class _VideoViewerPage extends StatefulWidget {
   final AttachmentItem attachment;
   final bool isActive;
   final bool shouldInitialize;
+  final bool hasThumbnailRail;
   final bool showControls;
   final VoidCallback onSurfaceTap;
   final ValueChanged<bool> onBaseScaleChanged;
@@ -727,6 +730,10 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   static const double _videoMaxScale = 4;
   static const double _videoDoubleTapScale = 2.5;
   static const double _videoScaleTolerance = 0.02;
+  static const double _videoPanBoundaryMargin = 100000;
+  static const double _reservedTopChromeHeight = 60;
+  static const double _reservedBottomVideoControlsHeight = 52;
+  static const double _reservedBottomGap = 12;
   static const double _dismissGestureMinDelta = 10;
   static const double _dismissDirectionBias = 1.2;
 
@@ -741,6 +748,7 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   final List<_PointerSample> _verticalDismissSamples = <_PointerSample>[];
   Offset? _verticalDismissStart;
   Offset? _verticalDismissLastGlobalPosition;
+  Rect? _mediaViewportRect;
   bool _isTrackingVerticalDismiss = false;
 
   @override
@@ -922,10 +930,12 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
   }
 
   void _handleDoubleTap() {
-    final tapPosition = _doubleTapDetails?.localPosition;
-    if (tapPosition == null) {
+    final details = _doubleTapDetails;
+    final mediaViewportRect = _mediaViewportRect;
+    if (details == null || mediaViewportRect == null) {
       return;
     }
+    final tapPosition = details.globalPosition - mediaViewportRect.topLeft;
     if (!_isAtBaseScale) {
       _resetTransform();
       return;
@@ -1045,24 +1055,33 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
       final aspectRatio = controller.value.isInitialized
           ? controller.value.aspectRatio
           : _preferredAspectRatio(widget.attachment);
-      child = Center(
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: _handlePointerDown,
-          onPointerMove: _handlePointerMove,
-          onPointerUp: _handlePointerUp,
-          onPointerCancel: _handlePointerCancel,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final fittedSize = _fittedVideoSize(
-                viewportSize: Size(constraints.maxWidth, constraints.maxHeight),
-                aspectRatio: aspectRatio,
-              );
+      child = LayoutBuilder(
+        builder: (context, constraints) {
+          final mediaPadding = MediaQuery.paddingOf(context);
+          final mediaViewportRect = _videoViewportRect(
+            availableSize: Size(constraints.maxWidth, constraints.maxHeight),
+            mediaPadding: mediaPadding,
+            hasThumbnailRail: widget.hasThumbnailRail,
+          );
+          _mediaViewportRect = mediaViewportRect;
+          final fittedSize = _fittedVideoSize(
+            viewportSize: mediaViewportRect.size,
+            aspectRatio: aspectRatio,
+          );
 
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRect(
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fromRect(
+                rect: mediaViewportRect,
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _handlePointerDown,
+                  onPointerMove: _handlePointerMove,
+                  onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerCancel,
+                  child: ClipRect(
+                    key: const Key('attachment-viewer-video-viewport'),
                     child: InteractiveViewer(
                       transformationController: _transformationController,
                       panEnabled: !_isAtBaseScale,
@@ -1071,8 +1090,12 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
                       maxScale: _videoMaxScale,
                       constrained: false,
                       alignment: Alignment.center,
-                      clipBehavior: Clip.none,
+                      boundaryMargin: const EdgeInsets.all(
+                        _videoPanBoundaryMargin,
+                      ),
+                      clipBehavior: Clip.hardEdge,
                       child: SizedBox(
+                        key: const Key('attachment-viewer-video-content'),
                         width: fittedSize.width,
                         height: fittedSize.height,
                         child: ColoredBox(
@@ -1089,88 +1112,127 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: widget.onSurfaceTap,
-                      onDoubleTapDown: _handleDoubleTapDown,
-                      onDoubleTap: _handleDoubleTap,
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: ValueListenableBuilder<VideoPlayerValue>(
-                      valueListenable: controller,
-                      builder: (context, value, child) {
-                        return Stack(
-                          children: [
-                            if (widget.showControls)
-                              Center(
-                                child: CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: _togglePlayback,
-                                  child: Container(
-                                    width: 68,
-                                    height: 68,
-                                    decoration: BoxDecoration(
-                                      color: CupertinoColors.black.withAlpha(
-                                        130,
-                                      ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Icon(
-                                      value.isPlaying
-                                          ? CupertinoIcons.pause_fill
-                                          : CupertinoIcons.play_fill,
-                                      color: CupertinoColors.white,
-                                      size: 34,
-                                    ),
+                ),
+              ),
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: widget.onSurfaceTap,
+                  onDoubleTapDown: _handleDoubleTapDown,
+                  onDoubleTap: _handleDoubleTap,
+                ),
+              ),
+              Positioned.fill(
+                child: ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: controller,
+                  builder: (context, value, child) {
+                    final bottomControlsInset = _videoBottomControlsInset(
+                      mediaPadding: mediaPadding,
+                      hasThumbnailRail: widget.hasThumbnailRail,
+                    );
+
+                    return Stack(
+                      children: [
+                        if (widget.showControls)
+                          Positioned.fromRect(
+                            rect: mediaViewportRect,
+                            child: Center(
+                              child: CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: _togglePlayback,
+                                child: Container(
+                                  width: 68,
+                                  height: 68,
+                                  decoration: BoxDecoration(
+                                    color: CupertinoColors.black.withAlpha(130),
+                                    shape: BoxShape.circle,
                                   ),
-                                ),
-                              ),
-                            Align(
-                              alignment: Alignment.bottomCenter,
-                              child: AnimatedOpacity(
-                                key: const Key(
-                                  'attachment-viewer-video-progress',
-                                ),
-                                duration: const Duration(milliseconds: 180),
-                                opacity: widget.showControls ? 1 : 0,
-                                child: IgnorePointer(
-                                  ignoring: !widget.showControls,
-                                  child: Container(
-                                    color: CupertinoColors.black.withAlpha(68),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      8,
-                                      12,
-                                      12,
-                                    ),
-                                    child: VideoProgressIndicator(
-                                      controller,
-                                      allowScrubbing: true,
-                                      colors: VideoProgressColors(
-                                        playedColor: CupertinoColors.white,
-                                        bufferedColor:
-                                            CupertinoColors.systemGrey,
-                                        backgroundColor:
-                                            CupertinoColors.systemGrey4,
-                                      ),
-                                    ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    value.isPlaying
+                                        ? CupertinoIcons.pause_fill
+                                        : CupertinoIcons.play_fill,
+                                    color: CupertinoColors.white,
+                                    size: 34,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                          ),
+                        Positioned(
+                          left: 12,
+                          right: 12,
+                          bottom: bottomControlsInset,
+                          child: AnimatedOpacity(
+                            key: const Key('attachment-viewer-video-progress'),
+                            duration: const Duration(milliseconds: 180),
+                            opacity: widget.showControls ? 1 : 0,
+                            child: IgnorePointer(
+                              ignoring: !widget.showControls,
+                              child: Container(
+                                color: CupertinoColors.black.withAlpha(68),
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  8,
+                                  12,
+                                  12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _formatPlaybackTime(value.position),
+                                      key: const Key(
+                                        'attachment-viewer-video-elapsed',
+                                      ),
+                                      style: const TextStyle(
+                                        color: CupertinoColors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: VideoProgressIndicator(
+                                        controller,
+                                        allowScrubbing: true,
+                                        colors: VideoProgressColors(
+                                          playedColor: CupertinoColors.white,
+                                          bufferedColor:
+                                              CupertinoColors.systemGrey,
+                                          backgroundColor:
+                                              CupertinoColors.systemGrey4,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      _formatRemainingPlaybackTime(
+                                        value.position,
+                                        value.duration,
+                                      ),
+                                      key: const Key(
+                                        'attachment-viewer-video-remaining',
+                                      ),
+                                      style: const TextStyle(
+                                        color: CupertinoColors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
 
@@ -1291,4 +1353,52 @@ Size _fittedVideoSize({
 
   final width = viewportSize.width;
   return Size(width, width / aspectRatio);
+}
+
+Rect _videoViewportRect({
+  required Size availableSize,
+  required EdgeInsets mediaPadding,
+  required bool hasThumbnailRail,
+}) {
+  final topInset =
+      mediaPadding.top + _VideoViewerPageState._reservedTopChromeHeight;
+  final bottomInset =
+      _videoBottomControlsInset(
+        mediaPadding: mediaPadding,
+        hasThumbnailRail: hasThumbnailRail,
+      ) +
+      _VideoViewerPageState._reservedBottomVideoControlsHeight;
+  final height = math
+      .max(availableSize.height - topInset - bottomInset, 0.0)
+      .toDouble();
+  return Rect.fromLTWH(0, topInset, availableSize.width, height);
+}
+
+double _videoBottomControlsInset({
+  required EdgeInsets mediaPadding,
+  required bool hasThumbnailRail,
+}) {
+  final railHeight = hasThumbnailRail
+      ? _AttachmentViewerPageState._thumbnailRailHeight
+      : 0.0;
+  return mediaPadding.bottom +
+      railHeight +
+      _VideoViewerPageState._reservedBottomGap;
+}
+
+String _formatPlaybackTime(Duration duration) {
+  final totalSeconds = math.max(duration.inSeconds, 0);
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+  return '$minutes:${seconds.toString().padLeft(2, '0')}';
+}
+
+String _formatRemainingPlaybackTime(Duration position, Duration duration) {
+  final remaining = duration - position;
+  final clampedRemaining = remaining.isNegative ? Duration.zero : remaining;
+  return '-${_formatPlaybackTime(clampedRemaining)}';
 }

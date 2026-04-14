@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:chahua/core/cache/media_cache_service.dart';
+import 'package:chahua/features/chats/conversation/data/video_thumbnail_service.dart';
 import 'package:chahua/features/chats/conversation/domain/conversation_message.dart';
 import 'package:chahua/features/chats/conversation/domain/conversation_scope.dart';
 import 'package:chahua/features/chats/conversation/presentation/message_bubble/message_bubble.dart';
@@ -10,6 +16,7 @@ import 'package:chahua/features/chats/conversation/presentation/message_attachme
 import 'package:chahua/features/chats/conversation/presentation/message_overlay.dart';
 import 'package:chahua/features/chats/conversation/presentation/message_overlay_preview.dart';
 import 'package:chahua/features/chats/conversation/presentation/message_row.dart';
+import 'package:chahua/features/chats/conversation/presentation/video_popup_player.dart';
 import 'package:chahua/features/chats/models/message_models.dart';
 
 void main() {
@@ -409,6 +416,122 @@ void main() {
       },
     );
 
+    testWidgets(
+      'multiple video overlays clip the full bubble instead of using compact fallback',
+      (tester) async {
+        final message = _buildImageMessage(
+          isMe: false,
+          attachments: const <AttachmentItem>[
+            AttachmentItem(
+              id: 'video-1',
+              url: 'https://example.com/video-1.mp4',
+              kind: 'video/mp4',
+              size: 1024,
+              fileName: 'video-1.mp4',
+              width: 640,
+              height: 360,
+              durationMs: 4000,
+            ),
+            AttachmentItem(
+              id: 'video-2',
+              url: 'https://example.com/video-2.mp4',
+              kind: 'video/mp4',
+              size: 1024,
+              fileName: 'video-2.mp4',
+              width: 640,
+              height: 360,
+              durationMs: 4000,
+            ),
+          ],
+        );
+        final bubbleSize = await _measureTextBubble(
+          tester: tester,
+          message: message,
+          isMe: false,
+          showSenderName: false,
+        );
+
+        await _pumpOverlay(
+          tester: tester,
+          size: const Size(390, 420),
+          details: MessageLongPressDetails(
+            message: message,
+            bubbleRect: Rect.fromLTWH(
+              40,
+              120,
+              bubbleSize.width,
+              bubbleSize.height,
+            ),
+            isMe: false,
+            sourceShowsSenderName: false,
+          ),
+        );
+
+        expect(find.byType(MessageOverlayPreview), findsNothing);
+        expect(find.byType(MessageBubble), findsOneWidget);
+        expect(find.byType(VideoAttachmentPreview), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'mixed image and video overlays keep the full bubble preview path when height is tight',
+      (tester) async {
+        final message = _buildImageMessage(
+          isMe: false,
+          attachments: const <AttachmentItem>[
+            AttachmentItem(
+              id: 'image-1',
+              url: 'https://example.com/image-1.jpg',
+              kind: 'image/jpeg',
+              size: 1024,
+              fileName: 'image-1.jpg',
+              width: 400,
+              height: 400,
+            ),
+            AttachmentItem(
+              id: 'video-1',
+              url: 'https://example.com/video-1.mp4',
+              kind: 'video/mp4',
+              size: 1024,
+              fileName: 'video-1.mp4',
+              width: 640,
+              height: 360,
+              durationMs: 4000,
+            ),
+          ],
+        );
+        final bubbleSize = await _measureTextBubble(
+          tester: tester,
+          message: message,
+          isMe: false,
+          showSenderName: false,
+        );
+
+        await _pumpOverlay(
+          tester: tester,
+          size: const Size(390, 420),
+          details: MessageLongPressDetails(
+            message: message,
+            bubbleRect: Rect.fromLTWH(
+              40,
+              120,
+              bubbleSize.width,
+              bubbleSize.height,
+            ),
+            isMe: false,
+            sourceShowsSenderName: false,
+          ),
+        );
+
+        expect(find.byType(MessageOverlayPreview), findsNothing);
+        expect(find.byType(MessageBubble), findsOneWidget);
+        expect(find.byType(MessageImageAttachmentPreview), findsOneWidget);
+        expect(find.byType(VideoAttachmentPreview), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('tall image overlays use compact preview path', (tester) async {
       final message = _buildImageMessage(
         isMe: false,
@@ -455,7 +578,11 @@ void main() {
     testWidgets('image overlay keeps my confirm badge in full preview', (
       tester,
     ) async {
-      final message = _buildImageMessage(isMe: true, text: 'Caption');
+      final message = _buildImageMessage(
+        isMe: true,
+        text: 'Caption',
+        deliveryState: ConversationDeliveryState.confirmed,
+      );
       final bubbleSize = await _measureTextBubble(
         tester: tester,
         message: message,
@@ -547,19 +674,28 @@ Future<void> _pumpOverlay({
   required MessageLongPressDetails details,
 }) async {
   await tester.pumpWidget(
-    CupertinoApp(
-      home: CupertinoPageScaffold(
-        child: MediaQuery(
-          data: MediaQueryData(size: size),
-          child: SizedBox.expand(
-            child: MessageOverlay(
-              details: details,
-              visible: true,
-              chatMessageFontSize: 16,
-              actions: [MessageOverlayAction(label: 'Reply', onPressed: () {})],
-              quickReactionEmojis: const <String>['👍'],
-              onDismiss: () {},
-              onToggleReaction: (_) {},
+    ProviderScope(
+      overrides: [
+        videoThumbnailServiceProvider.overrideWithValue(
+          _FakeVideoThumbnailService(),
+        ),
+      ],
+      child: CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: MediaQuery(
+            data: MediaQueryData(size: size),
+            child: SizedBox.expand(
+              child: MessageOverlay(
+                details: details,
+                visible: true,
+                chatMessageFontSize: 16,
+                actions: [
+                  MessageOverlayAction(label: 'Reply', onPressed: () {}),
+                ],
+                quickReactionEmojis: const <String>['👍'],
+                onDismiss: () {},
+                onToggleReaction: (_) {},
+              ),
             ),
           ),
         ),
@@ -596,36 +732,43 @@ Future<void> _pumpTextBubble({
   bool showThreadIndicator = false,
 }) async {
   await tester.pumpWidget(
-    CupertinoApp(
-      home: CupertinoPageScaffold(
-        child: MediaQuery(
-          data: const MediaQueryData(size: Size(390, 844)),
-          child: Builder(
-            builder: (context) {
-              final presentation = MessageBubblePresentation.fromContext(
-                context: context,
-                message: message,
-                isMe: isMe,
-                chatMessageFontSize: 16,
-              );
-
-              return Center(
-                child: MessageBubble(
+    ProviderScope(
+      overrides: [
+        videoThumbnailServiceProvider.overrideWithValue(
+          _FakeVideoThumbnailService(),
+        ),
+      ],
+      child: CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(390, 844)),
+            child: Builder(
+              builder: (context) {
+                final presentation = MessageBubblePresentation.fromContext(
+                  context: context,
                   message: message,
-                  presentation: presentation,
-                  chatMessageFontSize: 16,
                   isMe: isMe,
-                  renderSpec: MessageRenderSpec.timeline(
+                  chatMessageFontSize: 16,
+                );
+
+                return Center(
+                  child: MessageBubble(
                     message: message,
-                    showSenderName: showSenderName,
-                    showThreadIndicator: showThreadIndicator,
-                    isInteractive: true,
+                    presentation: presentation,
+                    chatMessageFontSize: 16,
+                    isMe: isMe,
+                    renderSpec: MessageRenderSpec.timeline(
+                      message: message,
+                      showSenderName: showSenderName,
+                      showThreadIndicator: showThreadIndicator,
+                      isInteractive: true,
+                    ),
+                    currentUserId: 1,
+                    onOpenThread: showThreadIndicator ? () {} : null,
                   ),
-                  currentUserId: 1,
-                  onOpenThread: showThreadIndicator ? () {} : null,
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -662,6 +805,7 @@ ConversationMessage _buildImageMessage({
   String? text,
   ThreadInfo? threadInfo,
   List<AttachmentItem>? attachments,
+  ConversationDeliveryState deliveryState = ConversationDeliveryState.sent,
 }) {
   return ConversationMessage(
     scope: const ConversationScope.chat(chatId: 'chat-1'),
@@ -689,5 +833,85 @@ ConversationMessage _buildImageMessage({
           ),
         ],
     threadInfo: threadInfo,
+    deliveryState: deliveryState,
   );
 }
+
+class _FakeVideoThumbnailService extends VideoThumbnailService {
+  _FakeVideoThumbnailService() : super(MediaCacheService(), Dio());
+
+  @override
+  Future<Uint8List?> getThumbnailBytes(AttachmentItem attachment) async {
+    return Uint8List.fromList(_transparentImage);
+  }
+}
+
+const List<int> _transparentImage = <int>[
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
+  0x42,
+  0x60,
+  0x82,
+];

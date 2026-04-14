@@ -155,6 +155,46 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'video uses reserved viewport lane and shows elapsed and remaining labels',
+    (WidgetTester tester) async {
+      await _pumpViewer(
+        tester,
+        request: AttachmentViewerRequest(
+          items: [_videoViewerItem('video-0'), _videoViewerItem('video-1')],
+          initialIndex: 0,
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('attachment-viewer-video-viewport')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('attachment-viewer-video-content')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('attachment-viewer-video-elapsed')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('attachment-viewer-video-remaining')),
+        findsOneWidget,
+      );
+      expect(find.text('0:00'), findsOneWidget);
+      expect(find.text('-0:04'), findsOneWidget);
+
+      final viewportRect = tester.getRect(
+        find.byKey(const Key('attachment-viewer-video-viewport')),
+      );
+      final fullScreenRect = tester.getRect(find.byType(CupertinoPageScaffold));
+
+      expect(viewportRect.top, greaterThan(40));
+      expect(viewportRect.bottom, lessThan(fullScreenRect.bottom - 120));
+    },
+  );
 }
 
 Future<void> _pumpViewer(
