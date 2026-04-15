@@ -12,6 +12,7 @@ import {
 import { t } from '@lingui/core/macro';
 import { useSelector } from 'react-redux';
 import styles from './ChatBubble.module.scss';
+import reactionStyles from './ReactionPill.module.scss';
 import type { Attachment, MentionInfo, ReactionSummary, UserGroupInfo } from '@/api/messages';
 import { ImageViewer } from '@/components/chat/messages/media/ImageViewer';
 import { formatMessagePreview, type PreviewMessage, getNotificationPreviewLabels } from '@/utils/messagePreview';
@@ -23,6 +24,7 @@ import { decodePermalink } from '@/utils/permalinkUrl';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
 import { InviteLinkInline } from './InviteLinkInline';
 import { PermalinkInline } from './PermalinkInline';
+import { ReactionPill } from './ReactionPill';
 import { SingleMediaAttachment } from './media/SingleMediaAttachment';
 import { JustifiedMediaGallery } from './media/JustifiedMediaGallery';
 import { VideoPreview } from './media/VideoPreview';
@@ -578,61 +580,18 @@ export function ChatBubbleBase({
     : [];
 
   const reactionsContent = sortedReactions.length > 0 && (
-    <div className={styles.reactionsContainer}>
-      {sortedReactions.map((reaction) =>
-        interactive ? (
-          <button
-            key={reaction.emoji}
-            type="button"
-            className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onReactionToggle?.(reaction.emoji, !!reaction.reactedByMe);
-            }}
-          >
-            <span className={styles.reactionEmoji}>{reaction.emoji}</span>
-            {reaction.reactors && reaction.reactors.length > 0 ? (
-              <span className={styles.reactorAvatars}>
-                {reaction.reactors.slice(0, 5).map((reactor, i) => (
-                  <img
-                    key={reactor.uid}
-                    src={reactor.avatarUrl ?? undefined}
-                    alt=""
-                    className={styles.reactorAvatar}
-                    style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
-                  />
-                ))}
-                {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
-              </span>
-            ) : (
-              reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
-            )}
-          </button>
-        ) : (
-          <div
-            key={reaction.emoji}
-            className={`${styles.reactionPill} ${reaction.reactedByMe ? styles.reactionPillActive : ''}`}
-          >
-            <span className={styles.reactionEmoji}>{reaction.emoji}</span>
-            {reaction.reactors && reaction.reactors.length > 0 ? (
-              <span className={styles.reactorAvatars}>
-                {reaction.reactors.slice(0, 5).map((reactor, i) => (
-                  <img
-                    key={reactor.uid}
-                    src={reactor.avatarUrl ?? undefined}
-                    alt=""
-                    className={styles.reactorAvatar}
-                    style={{ marginLeft: i > 0 ? -9 : 0, zIndex: 5 - i }}
-                  />
-                ))}
-                {reaction.count > 5 && <span className={styles.reactorOverflow}>+{reaction.count - 5}</span>}
-              </span>
-            ) : (
-              reaction.count > 1 && <span className={styles.reactionCount}>{reaction.count}</span>
-            )}
-          </div>
-        ),
-      )}
+    <div
+      className={`${reactionStyles.reactionsContainer} ${isSent ? reactionStyles.reactionsContainerSent : ''}`.trim()}
+    >
+      {sortedReactions.map((reaction) => (
+        <ReactionPill
+          key={reaction.emoji}
+          reaction={reaction}
+          isSent={isSent}
+          interactive={interactive}
+          onToggle={onReactionToggle}
+        />
+      ))}
     </div>
   );
 
