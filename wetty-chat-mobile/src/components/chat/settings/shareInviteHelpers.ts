@@ -2,7 +2,7 @@ import { t } from '@lingui/core/macro';
 import type { InviteInfoResponse } from '@/api/invites';
 import { buildInviteUrl } from '@/utils/inviteUrl';
 
-export type InviteMode = 'public' | 'membership';
+export type InviteMode = 'public' | 'membership' | 'targeted';
 export type ModalStep = 'configure' | 'destination';
 export type InviteExpiryOption = 'never' | '1d' | '7d' | '30d';
 export type SelectorTarget = 'required' | 'destination';
@@ -34,6 +34,10 @@ export function getExpiresAt(expiryOption: InviteExpiryOption): string | null {
 export function getInviteDescription(mode: InviteMode): string {
   if (mode === 'membership') {
     return t`Only members of a selected group can use this invite link to join.`;
+  }
+
+  if (mode === 'targeted') {
+    return t`Only the selected user can redeem this invite link to join.`;
   }
 
   return t`Anyone with this invite link can use it until it expires or is revoked.`;

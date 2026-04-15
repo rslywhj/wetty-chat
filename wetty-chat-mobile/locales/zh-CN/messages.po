@@ -88,6 +88,10 @@ msgstr "全部"
 msgid "Allowed"
 msgstr "已允许"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Already in this chat"
+msgstr ""
+
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "Anyone with this invite link can use it until it expires or is revoked."
 msgstr "任何拥有此邀请链接的人都可以在链接过期或被撤销前使用它。"
@@ -239,6 +243,10 @@ msgid "Choose the member group first"
 msgstr "请先选择成员群组"
 
 #: src/components/chat/settings/ShareInviteModal.tsx
+msgid "Choose the target user first"
+msgstr "请先选择目标用户"
+
+#: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Clipboard is not available on this device"
 msgstr "此设备不支持剪贴板"
@@ -248,6 +256,7 @@ msgstr "此设备不支持剪贴板"
 #: src/components/chat/profiles/UserProfileModal.tsx
 #: src/components/chat/reactions/ReactionDetailsModal.tsx
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
+#: src/components/chat/settings/ShareInviteMemberSelectorModal.tsx
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/components/invites/InviteMessageModal.tsx
 msgid "Close"
@@ -449,6 +458,14 @@ msgstr "表情"
 msgid "Emojis & Stickers"
 msgstr "表情和贴纸"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Enter a user UID"
+msgstr "输入用户 UID"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Enter an exact UID to find a specific user."
+msgstr "输入精确 UID 以查找特定用户。"
+
 #: src/pages/join-chat.tsx
 msgid "Enter an invite code"
 msgstr "输入邀请码"
@@ -583,6 +600,10 @@ msgstr "加载贴纸包失败"
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Failed to load stickers"
 msgstr "加载表情失败"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Failed to load users"
+msgstr "加载用户失败"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Failed to mute"
@@ -855,6 +876,10 @@ msgstr "管理"
 msgid "Manage Invite Links"
 msgstr "管理邀请链接"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Member"
+msgstr "成员"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Member added"
 msgstr "成员已添加"
@@ -995,6 +1020,10 @@ msgstr "未找到匹配的群组。"
 msgid "No matching members found."
 msgstr "未找到匹配的成员。"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "No matching users found."
+msgstr "未找到匹配的用户。"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "No members found."
 msgstr "未找到成员。"
@@ -1052,6 +1081,10 @@ msgstr "确定"
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "Only members of a selected group can use this invite link to join."
 msgstr "只有所选群组的成员才能使用此邀请链接加入。"
+
+#: src/components/chat/settings/shareInviteHelpers.ts
+msgid "Only the selected user can redeem this invite link to join."
+msgstr "只有所选用户才能兑换此邀请链接并加入。"
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Open chat"
@@ -1311,9 +1344,17 @@ msgstr "保存设置"
 msgid "Saving..."
 msgstr "保存中..."
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Search by username or UID"
+msgstr "按用户名或 UID 搜索"
+
 #: src/components/shared/EmojiInput.tsx
 msgid "Search emoji"
 msgstr "搜索表情"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Search for a user by username prefix or exact UID."
+msgstr "按用户名前缀或精确 UID 搜索用户。"
 
 #: src/components/group-selector/GroupSelector.tsx
 msgid "Search groups"
@@ -1329,6 +1370,7 @@ msgstr "搜索中..."
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Select"
 msgstr "选择"
 
@@ -1339,6 +1381,10 @@ msgstr "选择一个聊天"
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
 msgid "Select Group"
 msgstr "选择群组"
+
+#: src/components/chat/settings/ShareInviteMemberSelectorModal.tsx
+msgid "Select User"
+msgstr "选择用户"
 
 #: src/utils/chatDisplay.ts
 msgid "Semi-Private"
@@ -1437,6 +1483,12 @@ msgstr "已订阅"
 msgid "Tap a sticker to remove it from this pack."
 msgstr "点击贴纸即可将其从这个贴纸包中移除。"
 
+#: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Target User"
+msgstr "目标用户"
+
+#: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Targeted"
 msgstr "定向"
@@ -1494,6 +1546,12 @@ msgstr "关闭推送通知"
 #: src/pages/settings.tsx
 msgid "Turn On Push Notifications"
 msgstr "开启推送通知"
+
+#. placeholder {0}: member.uid
+#: src/components/member-selector/MemberSelector.tsx
+#: src/components/member-selector/MemberSelector.tsx
+msgid "UID {0}"
+msgstr "UID {0}"
 
 #: src/components/chat/pins/PinBanner.tsx
 #: src/components/chat/pins/PinBanner.tsx
@@ -1567,10 +1625,14 @@ msgstr "正在上传 {0}%"
 msgid "Uploading..."
 msgstr "上传中..."
 
+#. placeholder {0}: invite.targetUid
 #. placeholder {0}: member.uid
+#. placeholder {0}: selectedTargetMember.uid
 #: src/components/chat-members/ChatMemberRow.tsx
+#: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "User {0}"
 msgstr "用户 {0}"
 

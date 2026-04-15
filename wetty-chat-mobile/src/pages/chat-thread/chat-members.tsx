@@ -427,6 +427,7 @@ export default function ChatMembersCore({ chatId: propChatId, backAction }: Chat
                     member={member}
                     isAdmin={isAdmin}
                     isCurrentUser={member.uid === currentUserId}
+                    role={member.role}
                     onSelect={handleMemberTap}
                   />
                 )}

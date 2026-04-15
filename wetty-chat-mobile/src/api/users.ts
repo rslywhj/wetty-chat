@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { UserGroupInfo } from './messages';
 
 export interface StickerPackOrderItem {
   stickerPackId: string;
@@ -20,9 +21,31 @@ export interface User {
   permissions?: string[];
 }
 
+export interface MemberSummary {
+  uid: number;
+  username: string | null;
+  avatarUrl?: string | null;
+  gender: number;
+  userGroup?: UserGroupInfo | null;
+}
+
+export interface SearchMembersResponse {
+  members: MemberSummary[];
+  excluded: MemberSummary[];
+}
+
 export const usersApi = {
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get<User>('/users/me');
+    return response.data;
+  },
+
+  searchMembers: async (params: {
+    q?: string;
+    limit?: number;
+    excludeMemberOf?: string | number;
+  }): Promise<SearchMembersResponse> => {
+    const response = await apiClient.get<SearchMembersResponse>('/users/search', { params });
     return response.data;
   },
 

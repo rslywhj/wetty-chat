@@ -1,25 +1,61 @@
-import { IonChip, IonItem, IonLabel } from '@ionic/react';
+import { IonChip, IonItem, IonLabel, IonNote } from '@ionic/react';
 import { t } from '@lingui/core/macro';
-import type { MemberResponse } from '@/api/group';
 import { UserAvatar } from '@/components/UserAvatar';
 import styles from './ChatMemberRow.module.scss';
 
-interface ChatMemberRowProps {
-  member: MemberResponse;
-  isAdmin: boolean;
-  isCurrentUser: boolean;
-  onSelect: (member: MemberResponse) => void;
+type ChatMemberRowMember = {
+  uid: number;
+  username: string | null;
+  avatarUrl?: string | null;
+};
+
+interface ChatMemberRowProps<TMember extends ChatMemberRowMember = ChatMemberRowMember> {
+  member: TMember;
+  isAdmin?: boolean;
+  isCurrentUser?: boolean;
+  subtitle?: string | null;
+  endLabel?: string | null;
+  disabled?: boolean;
+  onSelect?: (member: TMember) => void;
+  role?: string | null;
 }
 
-export function ChatMemberRow({ member, isAdmin, isCurrentUser, onSelect }: ChatMemberRowProps) {
+export function ChatMemberRow<TMember extends ChatMemberRowMember>({
+  member,
+  isAdmin = false,
+  isCurrentUser = false,
+  subtitle = null,
+  endLabel = null,
+  disabled = false,
+  onSelect,
+  role = null,
+}: ChatMemberRowProps<TMember>) {
   const displayName = member.username || t`User ${member.uid}`;
+  const isClickable = !disabled && !!onSelect && isAdmin && !isCurrentUser;
+  const showRoleChip = !!role;
+
   return (
-    <IonItem className={styles.row} button={isAdmin && !isCurrentUser} detail={false} onClick={() => onSelect(member)}>
+    <IonItem
+      className={`${styles.row} ${disabled ? styles.rowDisabled : ''}`}
+      button={isClickable}
+      detail={false}
+      onClick={isClickable ? () => onSelect?.(member) : undefined}
+    >
       <UserAvatar name={displayName} avatarUrl={member.avatarUrl} size={40} className={styles.avatar} />
-      <IonLabel>{displayName}</IonLabel>
-      <IonChip className={styles.roleChip} color={member.role === 'admin' ? 'primary' : 'medium'} slot="end">
-        {member.role}
-      </IonChip>
+      <IonLabel className={styles.label}>
+        <h3>{displayName}</h3>
+        {subtitle ? <p>{subtitle}</p> : null}
+      </IonLabel>
+      {showRoleChip ? (
+        <IonChip className={styles.roleChip} color={role === 'admin' ? 'primary' : 'medium'} slot="end">
+          {role}
+        </IonChip>
+      ) : null}
+      {!showRoleChip && endLabel ? (
+        <IonNote className={styles.endNote} color="medium" slot="end">
+          {endLabel}
+        </IonNote>
+      ) : null}
     </IonItem>
   );
 }

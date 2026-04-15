@@ -37,6 +37,12 @@ struct MemberUidRow {
     uid: i32,
 }
 
+#[derive(QueryableByName)]
+struct UserUidRow {
+    #[diesel(sql_type = diesel::sql_types::Integer)]
+    uid: i32,
+}
+
 #[derive(Queryable)]
 struct DiscuzUserProfileRow {
     uid: i32,
@@ -102,6 +108,24 @@ pub fn search_group_member_uids(
     query
         .load::<MemberUidRow>(conn)
         .map(|rows| rows.into_iter().map(|row| row.uid).collect())
+}
+
+pub fn search_user_uids_by_prefix(
+    conn: &mut PgConnection,
+    username_prefix: &str,
+    limit: i64,
+) -> QueryResult<Vec<i32>> {
+    sql_query(
+        "SELECT cm.uid
+         FROM discuz.common_member AS cm
+         WHERE LOWER(BTRIM(cm.username::text)) LIKE LOWER($1) || '%'
+         ORDER BY cm.uid ASC
+         LIMIT $2",
+    )
+    .bind::<diesel::sql_types::Text, _>(username_prefix)
+    .bind::<diesel::sql_types::BigInt, _>(limit)
+    .load::<UserUidRow>(conn)
+    .map(|rows| rows.into_iter().map(|row| row.uid).collect())
 }
 
 pub fn lookup_user_avatars(state: &AppState, uids: &[i32]) -> HashMap<i32, Option<String>> {

@@ -16,6 +16,7 @@ const CACHE_TTL: Duration = Duration::from_secs(60);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     ChatCreate,
+    MemberViewAll,
     PermissionAll,
 }
 
@@ -23,6 +24,7 @@ impl Action {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ChatCreate => "chat.create",
+            Self::MemberViewAll => "member.viewAll",
             Self::PermissionAll => "permission.all",
         }
     }

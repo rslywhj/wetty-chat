@@ -1,5 +1,9 @@
-use axum::{extract::State, http::HeaderMap, Json};
-use serde::Serialize;
+use axum::{
+    extract::{Query, State},
+    http::HeaderMap,
+    Json,
+};
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -7,16 +11,22 @@ use utoipa_axum::routes;
 use crate::errors::AppError;
 use crate::extractors::DbConn;
 use crate::handlers::ws::messages::{ServerWsMessage, StickerPackOrderUpdatePayload};
-use crate::models::{NewUserExtra, UserExtra};
-use crate::schema::{sticker_packs, user_extra, user_sticker_pack_subscriptions};
-use crate::services::user::{lookup_user_avatars, lookup_user_profiles};
+use crate::models::{NewUserExtra, UserExtra, UserGroupInfo};
+use crate::schema::{group_membership, sticker_packs, user_extra, user_sticker_pack_subscriptions};
+use crate::services::authz::{Action as AuthzAction, Resource as AuthzResource};
+use crate::services::user::{
+    lookup_user_avatars, lookup_user_profiles, search_user_uids_by_prefix,
+};
 use crate::utils::auth::{
     encode_auth_token, extract_auth_context, required_client_id, AuthClaims, AuthSource, CurrentUid,
 };
 use crate::AppState;
 use diesel::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+const DEFAULT_USER_SEARCH_LIMIT: i64 = 20;
+const MAX_USER_SEARCH_LIMIT: i64 = 50;
 
 #[derive(Debug, Clone, serde::Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -163,6 +173,144 @@ pub struct AuthTokenResponse {
     pub token: String,
 }
 
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberSummary {
+    pub uid: i32,
+    pub username: Option<String>,
+    pub avatar_url: Option<String>,
+    pub gender: i16,
+    pub user_group: Option<UserGroupInfo>,
+}
+
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchUsersQuery {
+    q: Option<String>,
+    limit: Option<i64>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_i64_string::opt::deserialize"
+    )]
+    #[schema(value_type = Option<String>)]
+    exclude_member_of: Option<i64>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchUsersResponse {
+    members: Vec<MemberSummary>,
+    excluded: Vec<MemberSummary>,
+}
+
+fn normalize_user_search_limit(limit: Option<i64>) -> i64 {
+    limit
+        .unwrap_or(DEFAULT_USER_SEARCH_LIMIT)
+        .clamp(1, MAX_USER_SEARCH_LIMIT)
+}
+
+fn lookup_member_summary(
+    conn: &mut PgConnection,
+    state: &AppState,
+    uid: i32,
+) -> Result<Option<MemberSummary>, AppError> {
+    let mut profiles = lookup_user_profiles(conn, &[uid])?;
+    let Some(profile) = profiles.remove(&uid) else {
+        return Ok(None);
+    };
+
+    let mut avatars = lookup_user_avatars(state, &[uid]);
+    Ok(Some(MemberSummary {
+        uid,
+        username: profile.username,
+        avatar_url: avatars.remove(&uid).flatten(),
+        gender: profile.gender,
+        user_group: profile.user_group,
+    }))
+}
+
+fn build_member_summary_map(
+    conn: &mut PgConnection,
+    state: &AppState,
+    uids: &[i32],
+) -> Result<HashMap<i32, MemberSummary>, AppError> {
+    let profiles = lookup_user_profiles(conn, uids)?;
+    let mut avatars = lookup_user_avatars(state, uids);
+
+    Ok(uids
+        .iter()
+        .filter_map(|uid| {
+            profiles.get(uid).map(|profile| {
+                (
+                    *uid,
+                    MemberSummary {
+                        uid: *uid,
+                        username: profile.username.clone(),
+                        avatar_url: avatars.remove(uid).flatten(),
+                        gender: profile.gender,
+                        user_group: profile.user_group.clone(),
+                    },
+                )
+            })
+        })
+        .collect())
+}
+
+fn can_exclude_members_of_chat(
+    conn: &mut PgConnection,
+    requester_uid: i32,
+    chat_id: i64,
+) -> Result<bool, AppError> {
+    use crate::schema::group_membership::dsl as gm_dsl;
+
+    let count = group_membership::table
+        .filter(
+            gm_dsl::chat_id
+                .eq(chat_id)
+                .and(gm_dsl::uid.eq(requester_uid)),
+        )
+        .count()
+        .get_result::<i64>(conn)?;
+
+    Ok(count > 0)
+}
+
+fn split_excluded_member_summaries(
+    summaries: Vec<MemberSummary>,
+    member_uid_set: &HashSet<i32>,
+) -> (Vec<MemberSummary>, Vec<MemberSummary>) {
+    let mut members = Vec::new();
+    let mut excluded = Vec::new();
+    for summary in summaries {
+        if member_uid_set.contains(&summary.uid) {
+            excluded.push(summary);
+        } else {
+            members.push(summary);
+        }
+    }
+
+    (members, excluded)
+}
+
+fn load_excluded_member_uids(
+    conn: &mut PgConnection,
+    chat_id: i64,
+    uids: &[i32],
+) -> Result<HashSet<i32>, AppError> {
+    if uids.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    use crate::schema::group_membership::dsl as gm_dsl;
+
+    Ok(group_membership::table
+        .filter(gm_dsl::chat_id.eq(chat_id).and(gm_dsl::uid.eq_any(uids)))
+        .select(gm_dsl::uid)
+        .load::<i32>(conn)?
+        .into_iter()
+        .collect())
+}
+
 /// GET /users/me — Get the current logged in user's information
 #[utoipa::path(
     get,
@@ -216,6 +364,74 @@ async fn get_me(
     }))
 }
 
+/// GET /users/search — Search global users for targeted invites.
+#[utoipa::path(
+    get,
+    path = "/search",
+    tag = "users",
+    params(SearchUsersQuery),
+    responses(
+        (status = 200, description = "User search results", body = SearchUsersResponse)
+    ),
+    security(("uid_header" = []), ("bearer_jwt" = []))
+)]
+async fn get_user_search(
+    CurrentUid(uid): CurrentUid,
+    State(state): State<AppState>,
+    mut conn: DbConn,
+    Query(query): Query<SearchUsersQuery>,
+) -> Result<Json<SearchUsersResponse>, AppError> {
+    let conn = &mut *conn;
+    let q = query.q.as_deref().map(str::trim).unwrap_or("");
+    let limit = normalize_user_search_limit(query.limit);
+
+    let mut merged_uids = Vec::new();
+    let mut seen_uids = HashSet::new();
+
+    if let Ok(exact_uid) = q.parse::<i32>() {
+        if let Some(summary) = lookup_member_summary(conn, &state, exact_uid)? {
+            seen_uids.insert(summary.uid);
+            merged_uids.push(summary.uid);
+        }
+    }
+
+    if !q.is_empty()
+        && state.authz_service.has_permission(
+            conn,
+            uid,
+            AuthzAction::MemberViewAll,
+            AuthzResource::Global,
+        )?
+    {
+        for found_uid in search_user_uids_by_prefix(conn, q, limit)? {
+            if seen_uids.insert(found_uid) {
+                merged_uids.push(found_uid);
+            }
+        }
+    }
+
+    let summaries_by_uid = build_member_summary_map(conn, &state, &merged_uids)?;
+    let summaries: Vec<MemberSummary> = merged_uids
+        .into_iter()
+        .filter_map(|member_uid| summaries_by_uid.get(&member_uid).cloned())
+        .collect();
+
+    let exclude_member_of = match query.exclude_member_of {
+        Some(chat_id) if can_exclude_members_of_chat(conn, uid, chat_id)? => Some(chat_id),
+        _ => None,
+    };
+    let excluded_uids = match exclude_member_of {
+        Some(chat_id) => {
+            let summary_uids: Vec<i32> = summaries.iter().map(|summary| summary.uid).collect();
+            load_excluded_member_uids(conn, chat_id, &summary_uids)?
+        }
+        None => HashSet::new(),
+    };
+    let (members, excluded) = split_excluded_member_summaries(summaries, &excluded_uids);
+
+    Ok(Json(SearchUsersResponse { members, excluded }))
+}
+
 #[utoipa::path(
     get,
     path = "/auth-token",
@@ -250,6 +466,7 @@ async fn get_auth_token(
 pub fn router() -> OpenApiRouter<crate::AppState> {
     OpenApiRouter::new()
         .routes(routes!(get_me))
+        .routes(routes!(get_user_search))
         .routes(routes!(get_auth_token))
         .routes(routes!(put_stickerpack_order))
 }
@@ -279,4 +496,52 @@ fn load_accessible_sticker_pack_ids(
         .into_iter()
         .chain(subscribed_pack_ids)
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_user_search_limit, split_excluded_member_summaries, MemberSummary};
+    use std::collections::HashSet;
+
+    fn make_summary(uid: i32) -> MemberSummary {
+        MemberSummary {
+            uid,
+            username: Some(format!("user{uid}")),
+            avatar_url: None,
+            gender: 0,
+            user_group: None,
+        }
+    }
+
+    #[test]
+    fn normalize_user_search_limit_clamps_to_max() {
+        assert_eq!(normalize_user_search_limit(None), 20);
+        assert_eq!(normalize_user_search_limit(Some(999)), 50);
+        assert_eq!(normalize_user_search_limit(Some(5)), 5);
+        assert_eq!(normalize_user_search_limit(Some(0)), 1);
+    }
+
+    #[test]
+    fn split_excluded_uses_membership_set() {
+        let summaries = vec![make_summary(1), make_summary(2), make_summary(3)];
+        let excluded_uids = HashSet::from([2, 3]);
+        let result = split_excluded_member_summaries(summaries, &excluded_uids);
+
+        assert_eq!(
+            result
+                .0
+                .iter()
+                .map(|summary| summary.uid)
+                .collect::<Vec<_>>(),
+            vec![1]
+        );
+        assert_eq!(
+            result
+                .1
+                .iter()
+                .map(|summary| summary.uid)
+                .collect::<Vec<_>>(),
+            vec![2, 3]
+        );
+    }
 }

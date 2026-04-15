@@ -18,6 +18,7 @@ import { useParams } from 'react-router-dom';
 import { Trans } from '@lingui/react/macro';
 import { useSelector } from 'react-redux';
 import { deleteInvite, getInvites, sendInviteMessage, type InviteInfoResponse, type InviteType } from '@/api/invites';
+import { usersApi, type MemberSummary } from '@/api/users';
 import { BackButton } from '@/components/BackButton';
 import { ShareInviteGroupSelectorModal } from '@/components/chat/settings/ShareInviteGroupSelectorModal';
 import {
@@ -89,6 +90,7 @@ interface InviteCardProps {
   invite: InviteInfoResponse;
   locale: string;
   restrictedGroupName: string | null;
+  targetMemberName: string | null;
   pendingAction: PendingAction;
   onCopy: (invite: InviteInfoResponse) => void;
   onShare: (invite: InviteInfoResponse) => void;
@@ -99,6 +101,7 @@ function InviteCard({
   invite,
   locale,
   restrictedGroupName,
+  targetMemberName,
   pendingAction,
   onCopy,
   onShare,
@@ -143,6 +146,14 @@ function InviteCard({
             <span className={styles.metaValue}>{restrictedGroupName}</span>
           </div>
         ) : null}
+        {invite.inviteType === 'targeted' && invite.targetUid ? (
+          <div className={styles.metaItem}>
+            <span className={styles.rowLabel}>
+              <Trans>Target User</Trans>
+            </span>
+            <span className={styles.metaValue}>{targetMemberName || t`User ${invite.targetUid}`}</span>
+          </div>
+        ) : null}
         <div className={styles.metaItem}>
           <span className={styles.rowLabel}>
             <Trans>Expire Date</Trans>
@@ -179,6 +190,7 @@ interface ChatInvitesContentProps {
   locale: string;
   loading: boolean;
   error: string | null;
+  targetMembersByUid: Record<number, MemberSummary | undefined>;
   pendingInviteId: string | null;
   pendingAction: PendingAction;
   onCopy: (invite: InviteInfoResponse) => void;
@@ -191,6 +203,7 @@ function ChatInvitesContent({
   locale,
   loading,
   error,
+  targetMembersByUid,
   pendingInviteId,
   pendingAction,
   onCopy,
@@ -231,6 +244,7 @@ function ChatInvitesContent({
               ? getChatDisplayName(invite.requiredChatId, chatsById[invite.requiredChatId]?.details.name)
               : null
           }
+          targetMemberName={invite.targetUid ? (targetMembersByUid[invite.targetUid]?.username ?? null) : null}
           pendingAction={pendingInviteId === invite.id ? pendingAction : null}
           onCopy={onCopy}
           onShare={onShare}
@@ -255,6 +269,7 @@ export default function ChatInvitesCore({ chatId: propChatId, backAction }: Chat
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [selectedInvite, setSelectedInvite] = useState<InviteInfoResponse | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [targetMembersByUid, setTargetMembersByUid] = useState<Record<number, MemberSummary | undefined>>({});
 
   const loadInvites = useCallback(async () => {
     setLoading(true);
@@ -277,6 +292,42 @@ export default function ChatInvitesCore({ chatId: propChatId, backAction }: Chat
   useEffect(() => {
     void loadInvites();
   }, [loadInvites]);
+
+  useEffect(() => {
+    const targetUids = [
+      ...new Set(invites.map((invite) => invite.targetUid).filter((uid): uid is number => uid != null)),
+    ];
+    if (targetUids.length === 0) {
+      setTargetMembersByUid({});
+      return;
+    }
+
+    let active = true;
+    void Promise.all(
+      targetUids.map(async (uid) => {
+        const response = await usersApi.searchMembers({ q: String(uid), limit: 1 });
+        return [uid, response.members[0]] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!active) {
+          return;
+        }
+
+        setTargetMembersByUid(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setTargetMembersByUid({});
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [invites]);
 
   const sortedInvites = useMemo(
     () =>
@@ -413,6 +464,7 @@ export default function ChatInvitesCore({ chatId: propChatId, backAction }: Chat
           locale={locale}
           loading={loading}
           error={error}
+          targetMembersByUid={targetMembersByUid}
           pendingInviteId={pendingInviteId}
           pendingAction={pendingAction}
           onCopy={(invite) => void handleCopy(invite)}

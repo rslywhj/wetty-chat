@@ -112,6 +112,10 @@ msgstr "All"
 msgid "Allowed"
 msgstr "Allowed"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Already in this chat"
+msgstr "Already in this chat"
+
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "Anyone with this invite link can use it until it expires or is revoked."
 msgstr "Anyone with this invite link can use it until it expires or is revoked."
@@ -267,6 +271,10 @@ msgstr "Choose a destination group"
 msgid "Choose the member group first"
 msgstr "Choose the member group first"
 
+#: src/components/chat/settings/ShareInviteModal.tsx
+msgid "Choose the target user first"
+msgstr "Choose the target user first"
+
 #: src/pages/settings/stickers.tsx
 #~ msgid "Choose up to 5 default pinned emojis for quick reactions"
 #~ msgstr "Choose up to 5 default pinned emojis for quick reactions"
@@ -289,6 +297,7 @@ msgstr "Clipboard is not available on this device"
 #: src/components/chat/profiles/UserProfileModal.tsx
 #: src/components/chat/reactions/ReactionDetailsModal.tsx
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
+#: src/components/chat/settings/ShareInviteMemberSelectorModal.tsx
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/components/invites/InviteMessageModal.tsx
 msgid "Close"
@@ -494,6 +503,14 @@ msgstr "Emoji"
 msgid "Emojis & Stickers"
 msgstr "Emojis & Stickers"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Enter a user UID"
+msgstr "Enter a user UID"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Enter an exact UID to find a specific user."
+msgstr "Enter an exact UID to find a specific user."
+
 #: src/pages/join-chat.tsx
 msgid "Enter an invite code"
 msgstr "Enter an invite code"
@@ -628,6 +645,10 @@ msgstr "Failed to load sticker packs"
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Failed to load stickers"
 msgstr "Failed to load stickers"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Failed to load users"
+msgstr "Failed to load users"
 
 #: src/components/chat/settings/ChatMuteSettingItem.tsx
 msgid "Failed to mute"
@@ -905,6 +926,10 @@ msgstr "Manage"
 msgid "Manage Invite Links"
 msgstr "Manage Invite Links"
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Member"
+msgstr "Member"
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "Member added"
 msgstr "Member added"
@@ -1053,6 +1078,10 @@ msgstr "No matching groups found."
 msgid "No matching members found."
 msgstr "No matching members found."
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "No matching users found."
+msgstr "No matching users found."
+
 #: src/pages/chat-thread/chat-members.tsx
 msgid "No members found."
 msgstr "No members found."
@@ -1114,6 +1143,10 @@ msgstr "OK"
 #: src/components/chat/settings/shareInviteHelpers.ts
 msgid "Only members of a selected group can use this invite link to join."
 msgstr "Only members of a selected group can use this invite link to join."
+
+#: src/components/chat/settings/shareInviteHelpers.ts
+msgid "Only the selected user can redeem this invite link to join."
+msgstr "Only the selected user can redeem this invite link to join."
 
 #: src/components/invites/InvitePreviewCard.tsx
 msgid "Open chat"
@@ -1377,9 +1410,17 @@ msgstr "Save Settings"
 msgid "Saving..."
 msgstr "Saving..."
 
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Search by username or UID"
+msgstr "Search by username or UID"
+
 #: src/components/shared/EmojiInput.tsx
 msgid "Search emoji"
 msgstr "Search emoji"
+
+#: src/components/member-selector/MemberSelector.tsx
+msgid "Search for a user by username prefix or exact UID."
+msgstr "Search for a user by username prefix or exact UID."
 
 #: src/components/group-selector/GroupSelector.tsx
 msgid "Search groups"
@@ -1395,6 +1436,7 @@ msgstr "Searching..."
 
 #: src/components/chat/settings/ShareInviteModal.tsx
 #: src/components/chat/settings/ShareInviteModal.tsx
+#: src/components/chat/settings/ShareInviteModal.tsx
 msgid "Select"
 msgstr "Select"
 
@@ -1405,6 +1447,10 @@ msgstr "Select a chat"
 #: src/components/chat/settings/ShareInviteGroupSelectorModal.tsx
 msgid "Select Group"
 msgstr "Select Group"
+
+#: src/components/chat/settings/ShareInviteMemberSelectorModal.tsx
+msgid "Select User"
+msgstr "Select User"
 
 #: src/utils/chatDisplay.ts
 msgid "Semi-Private"
@@ -1503,6 +1549,12 @@ msgstr "Subscribed"
 msgid "Tap a sticker to remove it from this pack."
 msgstr "Tap a sticker to remove it from this pack."
 
+#: src/components/chat/settings/ShareInviteModal.tsx
+#: src/pages/chat-thread/manage-invites.tsx
+msgid "Target User"
+msgstr "Target User"
+
+#: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/manage-invites.tsx
 msgid "Targeted"
 msgstr "Targeted"
@@ -1568,6 +1620,12 @@ msgstr "Turn Off Push Notifications"
 #: src/pages/settings.tsx
 msgid "Turn On Push Notifications"
 msgstr "Turn On Push Notifications"
+
+#. placeholder {0}: member.uid
+#: src/components/member-selector/MemberSelector.tsx
+#: src/components/member-selector/MemberSelector.tsx
+msgid "UID {0}"
+msgstr "UID {0}"
 
 #: src/components/chat/pins/PinBanner.tsx
 #: src/components/chat/pins/PinBanner.tsx
@@ -1641,10 +1699,14 @@ msgstr "Uploading {0}%"
 msgid "Uploading..."
 msgstr "Uploading..."
 
+#. placeholder {0}: invite.targetUid
 #. placeholder {0}: member.uid
+#. placeholder {0}: selectedTargetMember.uid
 #: src/components/chat-members/ChatMemberRow.tsx
+#: src/components/chat/settings/ShareInviteModal.tsx
 #: src/pages/chat-thread/chat-members.tsx
 #: src/pages/chat-thread/chat-members.tsx
+#: src/pages/chat-thread/manage-invites.tsx
 msgid "User {0}"
 msgstr "User {0}"
 

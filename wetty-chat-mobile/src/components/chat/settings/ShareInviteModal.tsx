@@ -21,12 +21,14 @@ import { useHistory } from 'react-router-dom';
 import { createInvite, sendInviteMessage, type InviteInfoResponse } from '@/api/invites';
 import { buildInviteUrl } from '@/utils/inviteUrl';
 import type { GroupSelectorItem } from '@/api/group';
+import type { MemberSummary } from '@/api/users';
 import { messageAdded } from '@/store/messageEvents';
 import type { AppDispatch } from '@/store';
 import { useIsDesktop } from '@/hooks/platformHooks';
 import { InsetContent } from '@/components/shared/InsetContent';
 import { getChatDisplayName } from '@/utils/chatDisplay';
 import { ShareInviteGroupSelectorModal } from './ShareInviteGroupSelectorModal';
+import { ShareInviteMemberSelectorModal } from './ShareInviteMemberSelectorModal';
 import {
   canCopyInviteCode,
   copyInviteCode,
@@ -50,10 +52,12 @@ interface ShareInviteModalProps {
 interface ConfigureStepProps {
   mode: InviteMode;
   selectedRequiredGroup: GroupSelectorItem | null;
+  selectedTargetMember: MemberSummary | null;
   expiryOption: InviteExpiryOption;
   submitting: boolean;
   onModeChange: (mode: InviteMode) => void;
   onOpenRequiredGroupSelector: () => void;
+  onOpenTargetMemberSelector: () => void;
   onOpenExpirySelector: () => void;
   onCreateInvite: () => void;
   onManageInviteLinks: () => void;
@@ -73,14 +77,19 @@ interface DestinationStepProps {
 function ConfigureStep({
   mode,
   selectedRequiredGroup,
+  selectedTargetMember,
   expiryOption,
   submitting,
   onModeChange,
   onOpenRequiredGroupSelector,
+  onOpenTargetMemberSelector,
   onOpenExpirySelector,
   onCreateInvite,
   onManageInviteLinks,
 }: ConfigureStepProps) {
+  const selectedTargetMemberLabel =
+    selectedTargetMember?.username || (selectedTargetMember ? t`User ${selectedTargetMember.uid}` : null);
+
   return (
     <div className={styles.section}>
       <InsetContent>
@@ -104,6 +113,11 @@ function ConfigureStep({
               <Trans>Membership</Trans>
             </IonLabel>
           </IonSegmentButton>
+          <IonSegmentButton value="targeted">
+            <IonLabel>
+              <Trans>Targeted</Trans>
+            </IonLabel>
+          </IonSegmentButton>
         </IonSegment>
 
         <IonText color="medium" className={styles.descriptionText}>
@@ -123,6 +137,17 @@ function ConfigureStep({
               ) : (
                 <Trans>Select</Trans>
               )}
+            </IonNote>
+          </IonItem>
+        ) : null}
+
+        {mode === 'targeted' ? (
+          <IonItem button detail={true} onClick={onOpenTargetMemberSelector}>
+            <IonLabel>
+              <Trans>Target User</Trans>
+            </IonLabel>
+            <IonNote slot="end" color="medium">
+              {selectedTargetMemberLabel || <Trans>Select</Trans>}
             </IonNote>
           </IonItem>
         ) : null}
@@ -246,11 +271,13 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
     mode,
     requiredChatId,
     selectedRequiredGroup,
+    selectedTargetMember,
     selectedDestinationGroup,
     expiryOption,
     submitting,
     draftInvite,
     groupSelectorOpen,
+    memberSelectorOpen,
     selectorTarget,
     setStep,
     changeMode,
@@ -261,6 +288,9 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
     closeSelector,
     selectRequiredGroup,
     selectDestinationGroup,
+    openMemberSelector,
+    closeMemberSelector,
+    selectTargetMember,
   } = useShareInviteModalState();
 
   const copyCode = async (invite: InviteInfoResponse) => {
@@ -303,6 +333,11 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
       return;
     }
 
+    if (mode === 'targeted' && !selectedTargetMember) {
+      presentToast({ message: t`Choose the target user first`, duration: 2500 });
+      return;
+    }
+
     if (draftInvite) {
       setStep('destination');
       return;
@@ -312,7 +347,8 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
     try {
       const response = await createInvite({
         chatId,
-        inviteType: mode === 'membership' ? 'membership' : 'generic',
+        inviteType: mode === 'membership' ? 'membership' : mode === 'targeted' ? 'targeted' : 'generic',
+        targetUid: mode === 'targeted' ? selectedTargetMember?.uid : undefined,
         requiredChatId: mode === 'membership' ? requiredChatId : undefined,
         expiresAt: getExpiresAt(expiryOption),
       });
@@ -379,10 +415,12 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
           <ConfigureStep
             mode={mode}
             selectedRequiredGroup={selectedRequiredGroup}
+            selectedTargetMember={selectedTargetMember}
             expiryOption={expiryOption}
             submitting={submitting}
             onModeChange={changeMode}
             onOpenRequiredGroupSelector={() => openSelector('required')}
+            onOpenTargetMemberSelector={openMemberSelector}
             onOpenExpirySelector={handleOpenExpirySelector}
             onCreateInvite={() => void handlePrimaryAction()}
             onManageInviteLinks={handleManageInviteLinks}
@@ -409,6 +447,13 @@ function ShareInviteModalSession({ chatId, onDismiss }: Omit<ShareInviteModalPro
         scope={selectorTarget === 'required' ? 'manageable' : 'joined'}
         onDismiss={closeSelector}
         onSelect={selectorTarget === 'required' ? selectRequiredGroup : selectDestinationGroup}
+      />
+      <ShareInviteMemberSelectorModal
+        isOpen={memberSelectorOpen}
+        isDesktop={isDesktop}
+        chatId={chatId}
+        onDismiss={closeMemberSelector}
+        onSelect={selectTargetMember}
       />
     </>
   );
