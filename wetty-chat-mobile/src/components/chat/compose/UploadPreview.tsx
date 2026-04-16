@@ -1,6 +1,8 @@
 import { IonIcon } from '@ionic/react';
 import { t } from '@lingui/core/macro';
 import { alertCircleOutline, closeCircle, documentOutline, refreshOutline } from 'ionicons/icons';
+import { DisplayableImage } from '@/components/shared/DisplayableImage';
+import { isHeicLikeMedia } from '@/utils/heicMedia';
 import styles from './UploadPreview.module.scss';
 
 export type ComposeUploadDraftStatus = 'uploading' | 'uploaded' | 'error';
@@ -44,60 +46,72 @@ export function UploadPreview({ items, onRemove, onRetry }: UploadPreviewProps) 
 
   return (
     <div className={styles.previewTray} aria-label={t`Attachment preview tray`}>
-      {items.map((item) => (
-        <article key={item.localId} className={styles.card}>
-          {item.previewUrl ? (
-            item.kind == 'image' ? (
-              <img src={item.previewUrl} alt={item.name} className={styles.previewImage} />
-            ) : (
-              <video src={item.previewUrl} autoPlay loop muted className={styles.previewImage} />
-            )
-          ) : (
-            <div className={styles.fileCard}>
-              <IonIcon icon={documentOutline} className={styles.fileCardIcon} />
-              <span className={styles.fileCardName}>{item.name}</span>
-            </div>
-          )}
-          <button
-            type="button"
-            className={styles.removeButton}
-            aria-label={t`Remove ${item.name}`}
-            onClick={() => onRemove(item.localId)}
-          >
-            <IonIcon icon={closeCircle} />
-          </button>
+      {items.map((item) => {
+        const mimeType = item.itemType === 'draft' ? item.mimeType : item.kind;
+        const isImagePreview =
+          item.kind === 'image' || item.kind.startsWith('image/') || isHeicLikeMedia({ mimeType, fileName: item.name });
 
-          {item.itemType === 'draft' && item.status !== 'uploaded' && (
-            <div className={`${styles.overlay} ${item.status === 'error' ? styles.overlayError : ''}`}>
-              {item.status === 'uploading' ? (
-                <>
-                  <div className={styles.progressRing} aria-hidden="true">
-                    <svg viewBox="0 0 36 36">
-                      <path className={styles.progressTrack} d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31" />
-                      <path
-                        className={styles.progressValue}
-                        d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"
-                        style={{ strokeDasharray: `${item.progress}, 100` }}
-                      />
-                    </svg>
-                    <span className={styles.progressLabel}>{item.progress}%</span>
-                  </div>
-                  <span className={styles.statusText}>{t`Uploading`}</span>
-                </>
+        return (
+          <article key={item.localId} className={styles.card}>
+            {item.previewUrl ? (
+              isImagePreview ? (
+                <DisplayableImage
+                  src={item.previewUrl}
+                  mimeType={mimeType}
+                  fileName={item.name}
+                  alt={item.name}
+                  className={styles.previewImage}
+                />
               ) : (
-                <>
-                  <IonIcon icon={alertCircleOutline} className={styles.errorIcon} />
-                  <span className={styles.statusText}>{item.errorMessage ?? t`Upload failed`}</span>
-                  <button type="button" className={styles.retryButton} onClick={() => onRetry(item.localId)}>
-                    <IonIcon icon={refreshOutline} />
-                    {t`Retry`}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </article>
-      ))}
+                <video src={item.previewUrl} autoPlay loop muted className={styles.previewImage} />
+              )
+            ) : (
+              <div className={styles.fileCard}>
+                <IonIcon icon={documentOutline} className={styles.fileCardIcon} />
+                <span className={styles.fileCardName}>{item.name}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              className={styles.removeButton}
+              aria-label={t`Remove ${item.name}`}
+              onClick={() => onRemove(item.localId)}
+            >
+              <IonIcon icon={closeCircle} />
+            </button>
+
+            {item.itemType === 'draft' && item.status !== 'uploaded' && (
+              <div className={`${styles.overlay} ${item.status === 'error' ? styles.overlayError : ''}`}>
+                {item.status === 'uploading' ? (
+                  <>
+                    <div className={styles.progressRing} aria-hidden="true">
+                      <svg viewBox="0 0 36 36">
+                        <path className={styles.progressTrack} d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31" />
+                        <path
+                          className={styles.progressValue}
+                          d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"
+                          style={{ strokeDasharray: `${item.progress}, 100` }}
+                        />
+                      </svg>
+                      <span className={styles.progressLabel}>{item.progress}%</span>
+                    </div>
+                    <span className={styles.statusText}>{t`Uploading`}</span>
+                  </>
+                ) : (
+                  <>
+                    <IonIcon icon={alertCircleOutline} className={styles.errorIcon} />
+                    <span className={styles.statusText}>{item.errorMessage ?? t`Upload failed`}</span>
+                    <button type="button" className={styles.retryButton} onClick={() => onRetry(item.localId)}>
+                      <IonIcon icon={refreshOutline} />
+                      {t`Retry`}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }

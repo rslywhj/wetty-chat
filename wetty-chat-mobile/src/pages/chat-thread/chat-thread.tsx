@@ -102,6 +102,7 @@ import { useIsDesktop, useMouseDetected } from '@/hooks/platformHooks';
 import { useChatRole } from '@/components/chat/permissions/useChatRole';
 import { ChatMessageRow } from '@/components/chat/messages/ChatMessageRow';
 import { parseResumeHash } from '@/types/chatThreadNavigation';
+import { getUploadMimeType } from '@/utils/heicMedia';
 import { READ_REQUEST_COOLDOWN_MS } from '@/constants/chatTiming';
 import {
   markThreadAsRead as apiMarkThreadAsRead,
@@ -988,7 +989,7 @@ function ChatThreadCore({ chatId, threadId, backAction }: ChatThreadCoreProps) {
   const uploadAttachment = useCallback(async ({ file, dimensions, onProgress, signal, order }: ComposeUploadInput) => {
     const res = await requestUploadUrl({
       filename: file.name,
-      contentType: file.type || 'application/octet-stream',
+      contentType: getUploadMimeType(file),
       size: file.size,
       order,
       ...dimensions,
