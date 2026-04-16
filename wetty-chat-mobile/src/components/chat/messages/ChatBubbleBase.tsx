@@ -28,6 +28,8 @@ import { ReactionPill } from './ReactionPill';
 import { SingleMediaAttachment } from './media/SingleMediaAttachment';
 import { JustifiedMediaGallery } from './media/JustifiedMediaGallery';
 import { VideoPreview } from './media/VideoPreview';
+import { DisplayableImage } from '@/components/shared/DisplayableImage';
+import { isHeicLikeMedia } from '@/utils/heicMedia';
 import {
   parseChatBubbleContentToRichItems,
   getMessageLayoutStats,
@@ -58,6 +60,21 @@ function parsePermalinkFromUrl(url: string): { chatId: string; messageId: string
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function isImageAttachment(attachment: Attachment) {
+  return (
+    attachment.kind.startsWith('image/') ||
+    isHeicLikeMedia({
+      mimeType: attachment.kind,
+      fileName: attachment.fileName,
+      url: attachment.url,
+    })
+  );
+}
+
+function isVideoAttachment(attachment: Attachment) {
+  return attachment.kind.startsWith('video/');
 }
 
 function renderMessageWithLinks(message: string): ReactNode[] {
@@ -258,10 +275,8 @@ export function ChatBubbleBase({
   const chatFontSizeStyle = useSelector(selectChatFontSizeStyle);
   const locale = useSelector(selectEffectiveLocale);
   const interactive = interactionMode === 'interactive';
-  const imageAttachments =
-    attachments?.filter((att) => att.kind.startsWith('image/') || att.kind.startsWith('video/')) ?? [];
-  const otherAttachments =
-    attachments?.filter((att) => !(att.kind.startsWith('image/') || att.kind.startsWith('video/'))) ?? [];
+  const imageAttachments = attachments?.filter((att) => isImageAttachment(att) || isVideoAttachment(att)) ?? [];
+  const otherAttachments = attachments?.filter((att) => !(isImageAttachment(att) || isVideoAttachment(att))) ?? [];
   const { className: bubbleClassName, style: bubbleStyle, ...bubbleRestProps } = bubbleProps ?? {};
 
   const hasTopContent = showName || replyTo;
@@ -328,8 +343,10 @@ export function ChatBubbleBase({
       );
     }
     return (
-      <img
+      <DisplayableImage
         src={att.url}
+        mimeType={att.kind}
+        fileName={att.fileName}
         alt={t`Attachment`}
         style={style}
         onLoad={(e) => logAttachmentLoad('image', att, e.currentTarget)}
@@ -338,7 +355,7 @@ export function ChatBubbleBase({
   };
 
   function renderAttachment(att: Attachment) {
-    if (att.kind.startsWith('image/')) {
+    if (isImageAttachment(att)) {
       const imageLayoutStyle = getImageLayoutStyle(att.width, att.height, maxImageHeight);
       const imageContainerStyle: CSSProperties = {
         maxHeight: maxImageHeight,
@@ -346,8 +363,10 @@ export function ChatBubbleBase({
       };
 
       const image = (
-        <img
+        <DisplayableImage
           src={att.url}
+          mimeType={att.kind}
+          fileName={att.fileName}
           alt={t`Attachment`}
           className={styles.attachmentImage}
           style={imageLayoutStyle ? undefined : { maxHeight: maxImageHeight }}

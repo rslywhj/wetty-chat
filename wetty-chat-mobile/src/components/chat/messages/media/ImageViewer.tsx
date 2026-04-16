@@ -6,6 +6,8 @@ import { chevronBack, chevronForward, close, contractOutline, download, expandOu
 import { useIsDesktop } from '@/hooks/platformHooks';
 import { appHistory } from '@/utils/navigationHistory';
 import { getOverlayPortalTarget } from '@/utils/dom';
+import { DisplayableImage } from '@/components/shared/DisplayableImage';
+import { isHeicLikeMedia } from '@/utils/heicMedia';
 import styles from './ImageViewer.module.scss';
 
 const MAX_SCALE = 5;
@@ -35,6 +37,13 @@ interface Dimensions {
 interface Point {
   x: number;
   y: number;
+}
+
+function isImageViewerImage(item: ImageViewerItem | undefined) {
+  if (!item) return false;
+  return (
+    item.kind.startsWith('image/') || isHeicLikeMedia({ mimeType: item.kind, fileName: item.fileName, url: item.src })
+  );
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -627,10 +636,12 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: ImageViewerPr
           )}
 
           <div className={styles.canvas} onClick={handleDismissClick}>
-            {activeImage.kind.startsWith('image/') ? (
-              <img
+            {isImageViewerImage(activeImage) ? (
+              <DisplayableImage
                 key={activeImage.id || activeImage.src}
                 src={activeImage.src}
+                mimeType={activeImage.kind}
+                fileName={activeImage.fileName}
                 className={styles.image}
                 alt={activeImage.fileName || t`Attachment large view`}
                 draggable={false}
@@ -712,12 +723,18 @@ export function ImageViewer({ images, initialIndex = 0, onClose }: ImageViewerPr
                 onClick={() => navigateTo(index)}
                 aria-label={t`View image ${index + 1}`}
               >
-                <img
-                  src={image.src}
-                  alt={image.fileName || t`Thumbnail ${index + 1}`}
-                  className={styles.thumbnail}
-                  draggable={false}
-                />
+                {isImageViewerImage(image) ? (
+                  <DisplayableImage
+                    src={image.src}
+                    mimeType={image.kind}
+                    fileName={image.fileName}
+                    alt={image.fileName || t`Thumbnail ${index + 1}`}
+                    className={styles.thumbnail}
+                    draggable={false}
+                  />
+                ) : (
+                  <video src={image.src} className={styles.thumbnail} muted playsInline />
+                )}
               </button>
             ))}
           </div>

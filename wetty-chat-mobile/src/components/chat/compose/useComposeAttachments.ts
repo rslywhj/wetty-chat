@@ -6,6 +6,15 @@ import type { UploadPreviewItem } from '@/components/chat/compose/UploadPreview'
 import type { ComposeUploadInput, ComposeUploadResult, DraftUploadRecord } from './types';
 
 import { MAX_ATTACHMENTS_PER_MESSAGE } from '@/constants/media';
+import {
+  convertHeicBlobToJpegBlob,
+  getImageDimensionsFromBlob,
+  getUploadMimeType,
+  isHeicLikeMedia,
+  isImageFile,
+  isSupportedMediaFile,
+  isVideoFile,
+} from '@/utils/heicMedia';
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
 
@@ -17,24 +26,54 @@ const createDraftId = () => {
   return `draft_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const getMediaDimensions = (file: File): Promise<{ width?: number; height?: number }> =>
+const getNativeImageDimensions = (file: File): Promise<{ width?: number; height?: number }> =>
   new Promise((resolve) => {
-    if (file.type.startsWith('image/')) {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve({ width: img.width, height: img.height });
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve({});
-      };
-      img.src = objectUrl;
+    if (!isImageFile(file)) {
+      resolve({});
       return;
     }
 
-    if (file.type.startsWith('video/')) {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({ width: img.width, height: img.height });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({});
+    };
+    img.src = objectUrl;
+  });
+
+async function getMediaDimensions(file: File): Promise<{ width?: number; height?: number }> {
+  const mimeType = getUploadMimeType(file);
+
+  if (isImageFile(file)) {
+    const nativeDimensions = await getNativeImageDimensions(file);
+    if (nativeDimensions.width && nativeDimensions.height) {
+      return nativeDimensions;
+    }
+
+    if (isHeicLikeMedia({ mimeType, fileName: file.name })) {
+      try {
+        const jpegBlob = await convertHeicBlobToJpegBlob(file);
+        return getImageDimensionsFromBlob(jpegBlob);
+      } catch (error) {
+        console.warn('[media:heic] Failed to read HEIC dimensions', {
+          fileName: file.name,
+          mimeType,
+          error,
+        });
+        return {};
+      }
+    }
+
+    return {};
+  }
+
+  return new Promise((resolve) => {
+    if (isVideoFile(file)) {
       const video = document.createElement('video');
       const objectUrl = URL.createObjectURL(file);
       video.onloadedmetadata = () => {
@@ -51,6 +90,7 @@ const getMediaDimensions = (file: File): Promise<{ width?: number; height?: numb
 
     resolve({});
   });
+}
 
 interface UseComposeAttachmentsArgs {
   uploadAttachment: (input: ComposeUploadInput) => Promise<ComposeUploadResult>;
@@ -205,7 +245,7 @@ export function useComposeAttachments({
 
   const queueFiles = useCallback(
     (files: File[]) => {
-      const mediaFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'));
+      const mediaFiles = files.filter(isSupportedMediaFile);
       if (mediaFiles.length === 0) return;
 
       let allowedFiles = mediaFiles;
@@ -223,10 +263,10 @@ export function useComposeAttachments({
         file,
         draft: {
           localId: createDraftId(),
-          kind: file.type.startsWith('image/') ? 'image' : 'video',
+          kind: isImageFile(file) ? 'image' : 'video',
           name: file.name,
           previewUrl: URL.createObjectURL(file),
-          mimeType: file.type || 'application/octet-stream',
+          mimeType: getUploadMimeType(file),
           size: file.size,
           order: index,
           progress: 0,
@@ -251,11 +291,9 @@ export function useComposeAttachments({
 
       const files: File[] = [];
       for (let index = 0; index < items.length; index += 1) {
-        if (items[index].type.startsWith('image/') || items[index].type.startsWith('video/')) {
-          const file = items[index].getAsFile();
-          if (file) {
-            files.push(file);
-          }
+        const file = items[index].getAsFile();
+        if (file && isSupportedMediaFile(file)) {
+          files.push(file);
         }
       }
 
@@ -312,7 +350,15 @@ export function useComposeAttachments({
       attachmentId: attachment.id,
       kind: attachment.kind,
       name: attachment.fileName,
-      previewUrl: attachment.kind.startsWith('image/') ? attachment.url : undefined,
+      previewUrl:
+        attachment.kind.startsWith('image/') ||
+        isHeicLikeMedia({
+          mimeType: attachment.kind,
+          fileName: attachment.fileName,
+          url: attachment.url,
+        })
+          ? attachment.url
+          : undefined,
     })),
     ...drafts.map((draftRecord) => ({
       itemType: 'draft' as const,

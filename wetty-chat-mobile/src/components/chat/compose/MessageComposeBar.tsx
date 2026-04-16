@@ -13,6 +13,7 @@ import { useComposeAttachments } from './useComposeAttachments';
 import { useVoiceRecorder } from './useVoiceRecorder';
 import { useMentionAutocomplete } from './useMentionAutocomplete';
 import { MentionAutocomplete } from './MentionAutocomplete';
+import { isSupportedMediaFile } from '@/utils/heicMedia';
 import type { StickerSummary } from '@/api/stickers';
 import type { ComposeSendPayload, ComposeUploadInput, ComposeUploadResult, EditingMessage, ReplyTo } from './types';
 export type {
@@ -241,9 +242,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
 
         if (containerRef.current && containerRef.current.offsetParent === null) return;
 
-        const files = Array.from(e.dataTransfer.files).filter(
-          (file) => file.type.startsWith('image/') || file.type.startsWith('video/'),
-        );
+        const files = Array.from(e.dataTransfer.files).filter(isSupportedMediaFile);
         if (files.length > 0) {
           queueFiles(files);
         }
@@ -316,7 +315,7 @@ const MessageComposeBarInner = forwardRef<MessageComposeBarHandle, MessageCompos
         <div id="message-compose-bar" className={styles.bar}>
           <input
             type="file"
-            accept="image/*,video/*"
+            accept="image/*,image/heic,image/heif,.heic,.heif,video/*"
             multiple
             style={{ display: 'none' }}
             ref={fileInputRef}
