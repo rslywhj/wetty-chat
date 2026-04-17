@@ -1409,7 +1409,7 @@ async fn mark_as_unread(
 
     check_membership(conn, chat_id, uid)?;
 
-    let explicit_id = body.map(|Json(b)| b.message_id).flatten();
+    let explicit_id = body.and_then(|Json(b)| b.message_id);
 
     let (new_read_id, unread_count) = if let Some(message_id) = explicit_id {
         use crate::schema::group_membership::dsl as gm_dsl;
