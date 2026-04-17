@@ -729,7 +729,7 @@ async fn process_push_job(
     let body_text = format_push_body(&job.sender_username, job.body_preview.as_deref());
 
     // 5. Send concurrently with bounded parallelism.
-    let stale_ids: Vec<i64> = stream::iter(subs.into_iter())
+    let stale_ids: Vec<i64> = stream::iter(subs)
         .map(|sub| {
             let service = service.clone();
 
