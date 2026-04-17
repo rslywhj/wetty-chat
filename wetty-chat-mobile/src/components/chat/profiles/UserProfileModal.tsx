@@ -7,6 +7,7 @@ import { useIsDarkMode, useIsDesktop } from '@/hooks/platformHooks';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
+import { selectChatName } from '@/store/chatsSlice';
 import { getMembers, removeMember, updateMemberRole, type MemberResponse } from '@/api/group';
 import styles from './UserProfileModal.module.scss';
 
@@ -51,6 +52,9 @@ export function UserProfileModal({
   }
 
   const displaySender = sender || localSender;
+  const chatNameFromStore = useSelector((state: RootState) =>
+    chatId != null ? selectChatName(state, String(chatId)) : null,
+  );
   const groupName = displaySender?.userGroup?.name?.trim() || null;
   const currentUserId = useSelector((state: RootState) => state.user.uid);
   const isOwn = displaySender?.uid === currentUserId;
@@ -160,10 +164,9 @@ export function UserProfileModal({
       isDestructive = false,
       inputs?: any[],
     ) => {
-      presentAlert({
+      const alertOptions: Record<string, any> = {
         header,
         message,
-        inputs,
         buttons: [
           { text: t`Cancel`, role: 'cancel' },
           {
@@ -180,7 +183,11 @@ export function UserProfileModal({
             },
           },
         ],
-      });
+      };
+      if (inputs) {
+        alertOptions.inputs = inputs;
+      }
+      presentAlert(alertOptions);
     },
     [presentAlert, presentToast, doOnActionComplete, onDismiss],
   );
@@ -204,9 +211,10 @@ export function UserProfileModal({
   const handleRemove = useCallback(() => {
     if (!chatId || !displaySender) return;
     const displayName = displaySender.name ?? `User ${displaySender.uid}`;
+    const chatLabel = chatNameFromStore ?? t`this group`;
     handleConfirmAction(
       t`Remove Member`,
-      t`Remove ${displayName} from this group?`,
+      t`Remove ${displayName} from ${chatLabel}?`,
       '', // message is dynamic here
       t`Remove`,
       async (value: string) => {
@@ -225,7 +233,7 @@ export function UserProfileModal({
         { type: 'radio', label: t`Delete all messages`, value: 'all' },
       ],
     );
-  }, [chatId, displaySender, handleConfirmAction]);
+  }, [chatId, displaySender, chatNameFromStore, handleConfirmAction]);
 
   return (
     <IonModal isOpen={sender != null} onDidPresent={handleDidPresent} onDidDismiss={onDismiss} {...mobileModalProps}>

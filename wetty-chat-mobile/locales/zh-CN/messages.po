@@ -1301,6 +1301,10 @@ msgstr "移除 {0}"
 msgid "Remove {displayName} from this group?"
 msgstr "将 {displayName} 从该群组中移除？"
 
+#: src/components/chat/profiles/UserProfileModal.tsx
+msgid "Remove {displayName} from {chatLabel}?"
+msgstr "将 {displayName} 从 {chatLabel} 中移除？"
+
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Remove from Favorites"
 msgstr "从收藏中移除"

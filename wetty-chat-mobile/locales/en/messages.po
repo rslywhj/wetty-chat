@@ -1363,6 +1363,10 @@ msgstr "Remove {0}"
 msgid "Remove {displayName} from this group?"
 msgstr "Remove {displayName} from this group?"
 
+#: src/components/chat/profiles/UserProfileModal.tsx
+msgid "Remove {displayName} from {chatLabel}?"
+msgstr "Remove {displayName} from {chatLabel}?"
+
 #: src/components/chat/compose/StickerPicker.tsx
 msgid "Remove from Favorites"
 msgstr "Remove from Favorites"
